@@ -14,7 +14,8 @@ class ELI5(data.Dataset):
   def __len__(self):
         return 100000
 
-  def __getitem__(self, index):
+  def __getitem__(self, index, vocab_size= 20):
+
         # 'Generates one sample of data'
         # # Select sample
         # ID = self.list_IDs[index]
@@ -24,7 +25,7 @@ class ELI5(data.Dataset):
         # y = self.labels[ID]
         #
 
-        X = torch.Tensor(np.random.randint(6,40),32)
+        X = torch.zeros(np.random.randint(20)).long().random_(1, 20)
         y = 0
 
         return X, y
