@@ -5,7 +5,10 @@ from snrm import SNRM
 from torch import nn
 from training import train
 from torch.optim import Adam
+from bert import BERT_Based
+# from transformers import BertConfig, BertForPreTraining, BertTokenizer
 
+import transformers
 
 
 dataset_path = ''
@@ -31,8 +34,27 @@ dataloaders = get_data_loaders(dataset_path, train_batch_size, val_batch_size)
 
 loss_fn = nn.MarginRankingLoss()
 
+
+
+# config_class, model_class, tokenizer_class = BertConfig, BertForMaskedLM, BertTokenizer # MODEL_CLASSES[args.model_type]
+
+
+
+model = BERT_Based()
+
+optim = Adam(model.parameters())
+
+model, loss_logs_train = train(model, dataloaders['train'], optim, loss_fn, num_epochs)
+
+
+exit()
+
 snrm = SNRM(embedding_dim=embedding_dim, hidden_sizes=hidden_sizes, n=n, pre_trained_embedding_file_name=pre_trained_embedding_file_name, word2idx=word2idx, load_embedding=False)
+
+
 
 optim = Adam(snrm.parameters())
 
 model, loss_logs_train = train(snrm, dataloaders['train'], optim, loss_fn, num_epochs)
+
+
