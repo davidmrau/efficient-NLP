@@ -8,7 +8,7 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_sizes, n, pre_trained_embedding_file_name, word2idx, load_embedding=False):
+    def __init__(self, embedding_dim, hidden_sizes, n, pre_trained_embedding_file_name, word2idx, load_embedding=True):
         super(SNRM, self).__init__()
 
         self.n = n
@@ -56,9 +56,10 @@ class SNRM(nn.Module):
             out= self.relu(out)
 
         # restore batch_size x n-gram x hidden
-        out = [out[sum(lengths[:i]):sum(lengths[:i+1])] for i in range(lengths.size(0))]
+        out = [out[sum(lengths[:i]- (self.n - 1)):sum(lengths[:i+1]- (self.n - 1))] for i in range(lengths.size(0))]
         # mean over n-grams
         out = [o.mean(0) for o in out]
         # list to tensor
         out = torch.stack(out)
+
         return out

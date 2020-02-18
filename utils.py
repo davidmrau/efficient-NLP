@@ -51,3 +51,7 @@ def load_glove_embeddings(path, word2idx, embedding_dim=300):
                 vector = np.array(values[1:], dtype='float32')
                 embeddings[index] = vector
         return torch.from_numpy(embeddings).float()
+
+
+def l1_reg_sparse(q_repr, d1_repr, d2_repr):
+    return torch.mean(torch.sum(torch.cat([q_repr, d1_repr, d2_repr], dim=1), dim=1))

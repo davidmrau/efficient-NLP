@@ -19,5 +19,5 @@ class ELI5(data.Dataset):
         q = torch.zeros(np.random.randint(6,40)).long().random_(1, 40)
         d1 = torch.zeros(np.random.randint(6,40)).long().random_(1, 40)
         d2 = torch.zeros(np.random.randint(6,40)).long().random_(1, 40)
-        target = torch.LongTensor([1])
+        target = torch.LongTensor([1 if np.random.rand() > 0.5 else -1])
         return [q, d1, d2], target
