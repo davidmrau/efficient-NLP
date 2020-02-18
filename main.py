@@ -3,8 +3,8 @@ from utils import get_data_loaders
 
 from snrm import SNRM
 dataset_path = ''
-train_batch_size = 4
-val_batch_size = 4
+train_batch_size = 512
+val_batch_size = 512
 embedding_dim = 300
 hidden_sizes = [512, 512, 512, 512, 10000]
 n = 5
@@ -23,7 +23,5 @@ snrm = SNRM(embedding_dim=embedding_dim, hidden_sizes=hidden_sizes, n=n, pre_tra
 dataloaders = get_data_loaders(dataset_path, train_batch_size, val_batch_size)
 
 for x,y, lengths in dataloaders['train']:
-    print('x.shape', x.shape, lengths)
+
     repr = snrm(x, lengths)
-    print(repr.shape)
-    break

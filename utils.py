@@ -10,18 +10,25 @@ import csv
 
 def collate_fn_padd(batch):
 
-    # split target and data
-    batch_data = [item[0] for item in batch]
-    batch_target = [item[1] for item in batch]
+    #batch * [q, d1, d2], target
 
-    # get sample lengths
-    batch_lengths = torch.tensor([ data.shape[0] for data in batch_data ]).long()
+    batch_lengths = list()
+    batch_targets = list()
+    batch_data = list()
+    for item in batch:
+        for el in item[0]:
+            batch_data.append(el)
+            batch_lengths.append(el.shape[0])
+        # get sample lengths
+        batch_targets.append(item[1])
 
+    batch_targets = torch.stack(batch_targets)
+
+    batch_lengths = torch.LongTensor(batch_lengths)
     #padd data along axis 1
     batch_data = pad_sequence(batch_data,1)
 
-    #return [batch_data.unsqueeze(1), batch_target, batch_lengths]
-    return [batch_data, batch_target, batch_lengths]
+    return [batch_data, batch_targets, batch_lengths]
 
 
 def get_data_loaders(dataset_path, train_batch_size, val_batch_size):
