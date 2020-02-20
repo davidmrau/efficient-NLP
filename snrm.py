@@ -33,7 +33,6 @@ class SNRM(nn.Module):
         # x (batchsize x longest seq )
 
         out = self.embedding(x)
-
         out_list = list()
         # moving window of size n results in num n-grams - length - (n-1) inputs
         for i in range(out.size(1) - (self.n - 1)):
