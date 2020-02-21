@@ -12,7 +12,7 @@ class SNRM(nn.Module):
         super(SNRM, self).__init__()
 
         self.embedding_dim = embedding_dim
-
+        self.n = n
         if load_embedding:
             embedding_weights = load_glove_embeddings(pre_trained_embedding_file_name, word2idx, embedding_dim)
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
@@ -27,13 +27,19 @@ class SNRM(nn.Module):
             self.linears.append(nn.Conv1d(hidden_sizes[k], hidden_sizes[k+1], 1, stride=1))
 
     def forward(self, x, lengths):
-        # x (batchsize x longest seq )
+        # generate mask for averaging over non-zero elements later
+        mask = (x > 0)[:, self.n - 1: ]
         out = self.embedding(x)
         out = out.permute(0,2,1)
-        out = self.conv(out)
+        out = self.conv(out)  #batch x max_length (n - 1) x hidden
+
         for i, name in enumerate(self.linears):
             out = self.linears[i](out)
             out= self.relu(out)
+        # batch x max_length  - (n-1)x out_size
 
-        out = out.sum(2) / lengths.unsqueeze(1)
+
+        mask = mask.unsqueeze(1).repeat(1,1000,1)
+        out = (mask * out).sum(2) / lengths.unsqueeze(1)
+        # batch x max_length - (n-1) x out_size
         return out

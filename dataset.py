@@ -3,28 +3,10 @@ import numpy as np
 from os import path
 import torch
 from torch.utils import data
+from utils import *
 import json
 import re
 from torchtext.data.utils import get_tokenizer
-
-
-def read_csv(path, delimiter='\t'):
-    return np.genfromtxt(path, delimiter=delimiter)
-
-def read_data(path, delimiter='\t'):
-    with open(path, 'r') as f:
-        ids = list()
-        data = list()
-        for line in f.readlines():
-            line_split = line.split(delimiter, 1)
-            ids.append(line_split[0])
-            data.append(line_split[1])
-        return np.asarray(ids), np.asarray(data)
-
-
-def read_json(path):
-    with open(path, "r") as read_file:
-        return json.load(read_file)
 
 
 class ELI5(data.Dataset):
