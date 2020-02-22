@@ -17,7 +17,7 @@ class SNRM(nn.Module):
             embedding_weights = load_glove_embeddings(pre_trained_embedding_file_name, word2idx, embedding_dim)
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
         else:
-            self.embedding = nn.Embedding(30000, embedding_dim)
+            self.embedding = nn.Embedding(30000, 300)
 
         self.conv = nn.Conv1d(embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
         # create module list

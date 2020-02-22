@@ -3,6 +3,9 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 from os import path
+import json
+import pickle
+
 
 def collate_fn_padd(batch):
 
@@ -18,7 +21,7 @@ def collate_fn_padd(batch):
         # get sample lengths
         batch_targets.append(item[1])
 
-    batch_targets = torch.LongTensor(batch_targets)
+    batch_targets = torch.Tensor(batch_targets)
 
     batch_lengths = torch.LongTensor(batch_lengths)
     #padd data along axis 1
@@ -44,12 +47,16 @@ def load_glove_embeddings(path, word2idx, embedding_dim=300):
 
 
 def l1_loss(q_repr, d1_repr, d2_repr):
-    return torch.mean(torch.sum(torch.cat([q_repr, d1_repr, d2_repr], dim=1), dim=1))
+    concat = torch.cat([q_repr, d1_repr, d2_repr], 1)
+    return torch.mean(torch.sum(concat, 1))/q_repr.size(1)
 
 
 def l0_loss(q_repr, d1_repr, d2_repr):
     # return mean batch l0 loss of qery, and docs
-    return torch.mean(torch.nonzero(q_repr).float()), torch.mean(torch.nonzero(torch.cat([d1_repr, d2_repr])).float())
+    concat_d = torch.cat([d1_repr, d2_repr], dim=1)
+    non_zero_d = (concat_d > 0).float().mean(1).mean()
+    non_zero_q = (q_repr > 0).float().mean(1).mean()
+    return non_zero_d, non_zero_q
 
 
 
@@ -66,6 +73,18 @@ def read_data(path, delimiter='\t'):
             data.append(line_split[1])
         return np.asarray(ids), np.asarray(data)
 
+
+def read_triplets(path, delimiter='\t'):
+    with open(path, 'r') as f:
+        data = list()
+        for line in f.readlines():
+            line_split = line.strip().split(delimiter)
+            data.append(line_split)
+        return np.asarray(data)
+
+
+def read_pickle(path):
+    return pickle.load(open(path, 'rb'))
 
 def read_json(path):
     with open(path, "r") as read_file:

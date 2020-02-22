@@ -1,67 +1,39 @@
 
 import numpy as np
-from os import path
 import torch
 from torch.utils import data
 from utils import *
-import json
-import re
 from torchtext.data.utils import get_tokenizer
+from os import path
+
+class MSMarco(data.Dataset):
+
+    def __init__(self, dataset_path, split):
 
 
-class ELI5(data.Dataset):
+        self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.train.full.tsv')
+        self.docs_path = path.join(dataset_path, 'collection.small/')
+        self.queries_path = path.join(dataset_path, f'queries.{split}/')
+        self.doc_ids = np.load(f'{self.docs_path}ids.npy')
 
-    def __init__(self, query_path, documents_path, scores_dict_path, tokenizer):
-        self.query_ids, self.queries = read_data(query_path)
-        self.doc_ids, self.docs = read_data(documents_path)
-        self.docs_dict = {id: d for id, d in zip(self.doc_ids, self.docs)}
-        self.scores_dict = read_json(scores_dict_path)
-        self.tokenizer = tokenizer
-        self.tokenizer_spacy = get_tokenizer("spacy")
+
     def __len__(self):
-        length = self.queries.shape[0]
-        return length
-
-    def text2id(self, text):
-        return [self.tokenizer.convert_tokens_to_ids(word) for word in self.tokenizer_spacy(text.lower())]
+        # double size, because dataset contain only relevant examples
+        return self.triplets.shape[0]*2
 
     def __getitem__(self, index):
-        query_id = self.query_ids[index]
-         # sample relevant doc for query
-        doc_ids, doc_scores = self.scores_dict[query_id]
-        # normalize scores
-        doc_scores = np.array(doc_scores)
-        doc_scores = doc_scores / doc_scores.sum()
-
-        # trick to sample index rather than docid to obain associated probabilites easy
-        index_docs = np.arange(len(doc_ids))
-
-        #sample doc 1
-        doc1_idx = np.random.choice(index_docs, p=doc_scores)
-        # get doc id
-        doc1_id = doc_ids[doc1_idx]
-        # get score for doc1
-        doc1_score = doc_scores[doc1_idx]
-
-        # flip coin whether to get two relevant docs or relevant + non relevant
-        if np.random.random() >= 0.5:
-            #sample doc 1
-            doc2_idx = np.random.choice(index_docs, p=doc_scores)
-            # get doc id
-            doc2_id = doc_ids[doc2_idx]
-            # get score for doc1
-            doc2_score = doc_scores[doc2_idx]
-            # determine target
-            target = 1 if (doc1_score >= doc2_score) else -1
+        # get relevant example
+        q_id, d1_id, d2_id = self.triplets[index - int(len(self)/2)]
+        # either stay with the relevant doc2 or sample a random doc2
+        if index <= len(self)/2:
+            target = 1
         else:
-            # non_relevant
-            doc2_id = np.random.choice(self.doc_ids)
+            #d2_id = np.random.choice(self.doc_ids)
             target = -1
 
-        query = self.queries[index]
-        doc1 = self.docs_dict[doc1_id]
-        doc2 = self.docs_dict[doc2_id]
-        query = self.text2id(query)
-        doc1 = self.text2id(doc1)
-        doc2 = self.text2id(doc2)
+
+        query = np.load(f'{self.docs_path}{q_id}.npy')
+        doc1 = np.load(f'{self.docs_path}{d1_id}.npy')
+        doc2 = np.load(f'{self.docs_path}{d2_id}.npy')
+
         return [query, doc1, doc2], target
