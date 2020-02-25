@@ -1,3 +1,4 @@
+hydra
 tensorboard
 numpy
 torch

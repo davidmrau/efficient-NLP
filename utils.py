@@ -34,6 +34,7 @@ def collate_fn_padd(batch):
 
 
 def load_glove_embeddings(path, word2idx, embedding_dim=300):
+    print(path)
     with open(path) as f:
         embeddings = np.zeros((len(word2idx), embedding_dim))
         for line in f.readlines():
@@ -97,3 +98,7 @@ def read_pickle(path):
 def read_json(path):
     with open(path, "r") as read_file:
         return json.load(read_file)
+
+
+def str2lst(string):
+    return [int(s) for s in string.split('_')]

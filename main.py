@@ -6,39 +6,45 @@ from torch import nn
 from training import run
 from torch.optim import Adam
 from bert import BERT_Based
-# from transformers import BertConfig, BertForPreTraining, BertTokenizer
+import hydra
+from hydra import utils
+import os
+from datetime import datetime
 
+# from transformers import BertConfig, BertForPreTraining, BertTokenizer
+from utils import str2lst
 import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
 
-train_batch_size = 128
-val_batch_size = 128
-embedding_dim = 300
-hidden_sizes = [300,300, 10000]
-n = 5
-debug_mode=False
-num_epochs = 20
-pre_trained_embedding_file_name = 'embeddings/glove.6B.300d.txt'
+@hydra.main(config_path='config.yaml')
+def exp(cfg):
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-word2idx = tokenizer.vocab
-dataset_path = 'data/msmarco/'
-dataloaders = get_data_loaders(dataset_path, train_batch_size, val_batch_size, tokenizer, debug_mode=debug_mode)
-
-loss_fn = nn.MarginRankingLoss()
+    if cfg.embedding == 'glove':
+        embedding_path = cfg.glove_embedding_path
+    elif cfg.embedding == 'bert':
+        embedding_path = cfg.bert_embedding_path
 
 
-# config_class, model_class, tokenizer_class = BertConfig, BertForMaskedLM, BertTokenizer # MODEL_CLASSES[args.model_type]
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    word2idx = tokenizer.vocab
+    dataloaders = get_data_loaders(cfg.dataset_path, cfg.batch_size, tokenizer, debug=cfg.debug)
+
+    loss_fn = nn.MarginRankingLoss()
+
+    # config_class, model_class, tokenizer_class = BertConfig, BertForMaskedLM, BertTokenizer # MODEL_CLASSES[args.model_type]
+    writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
+
+    #model = BERT_Based()
+
+    model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
+    n=cfg.n, embedding_path=embedding_path,
+    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug)
 
 
-writer = SummaryWriter()
+    optim = Adam(model.parameters())
 
-#model = BERT_Based()
+    model = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, l1_scalar=cfg.l1_scalar)
 
-model = SNRM(embedding_dim=embedding_dim, hidden_sizes=hidden_sizes, n=n, pre_trained_embedding_file_name=pre_trained_embedding_file_name, word2idx=word2idx, load_embedding=False)
-
-
-optim = Adam(model.parameters())
-
-model = run(model, dataloaders, optim, loss_fn, num_epochs, writer)
+if __name__ == "__main__":
+    exp()
