@@ -13,6 +13,7 @@ class SNRM(nn.Module):
 
         self.embedding_dim = embedding_dim
         self.n = n
+        self.hidden_sizes = hidden_sizes
         if load_embedding:
             embedding_weights = load_glove_embeddings(pre_trained_embedding_file_name, word2idx, embedding_dim)
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
@@ -39,7 +40,7 @@ class SNRM(nn.Module):
         # batch x max_length  - (n-1)x out_size
 
 
-        mask = mask.unsqueeze(1).repeat(1,1000,1)
+        mask = mask.unsqueeze(1).repeat(1, self.hidden_sizes[-1],1)
         out = (mask * out).sum(2) / lengths.unsqueeze(1)
         # batch x max_length - (n-1) x out_size
         return out

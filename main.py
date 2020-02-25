@@ -12,12 +12,12 @@ import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
 
-train_batch_size = 1
-val_batch_size = 1
+train_batch_size = 128
+val_batch_size = 128
 embedding_dim = 300
-hidden_sizes = [128, 32, 1000]
+hidden_sizes = [300,300, 10000]
 n = 5
-num_epochs = 10
+num_epochs = 20
 pre_trained_embedding_file_name = 'embeddings/glove.6B.300d.txt'
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
