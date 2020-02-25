@@ -4,15 +4,20 @@ from torch.utils import data
 from utils import *
 from torchtext.data.utils import get_tokenizer
 from os import path
-
+from fake_data import *
 class MSMarcoTrain(data.Dataset):
 
-    def __init__(self, dataset_path, split):
+    def __init__(self, dataset_path, split='train', debug_mode=False):
 
 
-        self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
-        self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
-        self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
+        if not debug_mode:
+            self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
+            self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
+            self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
+        else:
+            self.triplets = triplets_fake
+            self.docs = docs_fake
+            self.queries = queries_fake
 
     def __len__(self):
         # double size, because dataset contain only relevant examples
@@ -34,13 +39,19 @@ class MSMarcoTrain(data.Dataset):
 
 class MSMarcoDev(data.Dataset):
 
-    def __init__(self, dataset_path, split='dev'):
+    def __init__(self, dataset_path, split='dev', debug_mode=False):
 
-
-        self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
-        self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
-        self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
-        self.doc_ids = np.load(f'{dataset_path}/doc_ids.npy')
+        if not debug_mode:
+            self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
+            self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
+            self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
+            self.doc_ids = np.load(f'{dataset_path}/doc_ids.npy')
+        else:
+            self.qrels = qrels_fake 
+            self.triplets = triplets_fake
+            self.docs = docs_fake
+            self.queries = queries_fake
+            self.doc_ids = doc_ids_fake
 
 
     def __len__(self):

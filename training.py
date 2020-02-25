@@ -6,13 +6,13 @@ import numpy as np
 def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_reg_sparse_scalar, steps, optim=None):
 
     mode = 'Training' if optim != None else 'Test'
-
     av_loss, av_aux_loss, av_l0_q, av_l0_docs, av_task_loss = 0, 0, 0, 0, 0
 
     num_batches = len(dataloader)
-
+    steps_epoch = 0
     for data, targets, lengths in dataloader:
         steps += 1
+        steps_epoch += 1
         logits = model(data, lengths)
 
         split_size = logits.size(0)//3
@@ -32,15 +32,14 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_reg_sparse_scalar, s
             total_loss.backward()
             optim.step()
 
-        if iter % num_batches // 10 == 1:
-            print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(iter, num_batches, av_task_loss/iter, av_aux_loss/iter))
-
+        if steps_epoch % num_batches // 10 == 0:
+            print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(steps_epoch, num_batches, av_task_loss/steps_epoch, av_aux_loss/steps_epoch))
             # update tensorboard
-            writer.add_scalar(f'{mode} Task Loss', av_task_loss/iter, iter  )
-            writer.add_scalar(f'{mode} Aux loss', av_aux_loss/iter, iter)
-            writer.add_scalar(f'{mode} Total Loss', av_loss/iter, iter)
-            writer.add_scalar(f'{mode} L0 query', av_l0_q/iter, iter)
-            writer.add_scalar(f'{mode} L0 docs', av_l0_docs/iter, iter)
+            writer.add_scalar(f'{mode} Task Loss', av_task_loss/steps_epoch, steps  )
+            writer.add_scalar(f'{mode} Aux loss', av_aux_loss/steps_epoch, steps)
+            writer.add_scalar(f'{mode} Total Loss', av_loss/steps_epoch, steps)
+            writer.add_scalar(f'{mode} L0 query', av_l0_q/steps_epoch, steps)
+            writer.add_scalar(f'{mode} L0 docs', av_l0_docs/steps_epoch, steps)
 
         # sum losses
         av_loss += total_loss.item()
@@ -49,7 +48,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_reg_sparse_scalar, s
         av_l0_docs += l0_docs
         av_task_loss += loss.item()
         
-        if iter >= 100:
+        if steps >= 100:
             break
 
     # average training losses
@@ -74,7 +73,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, l1_reg_sparse_scalar
         # training
         with torch.enable_grad():
             model.train()
-            av_train_loss, steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_reg_sparse_scalar, optim=optim)
+            av_train_loss, steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_reg_sparse_scalar, steps, optim=optim)
         # evaluation
         with torch.no_grad():
             model.eval()

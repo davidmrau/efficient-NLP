@@ -17,13 +17,14 @@ val_batch_size = 128
 embedding_dim = 300
 hidden_sizes = [300,300, 10000]
 n = 5
+debug_mode=False
 num_epochs = 20
 pre_trained_embedding_file_name = 'embeddings/glove.6B.300d.txt'
 
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 word2idx = tokenizer.vocab
 dataset_path = 'data/msmarco/'
-dataloaders = get_data_loaders(dataset_path, train_batch_size, val_batch_size, tokenizer)
+dataloaders = get_data_loaders(dataset_path, train_batch_size, val_batch_size, tokenizer, debug_mode=debug_mode)
 
 loss_fn = nn.MarginRankingLoss()
 
