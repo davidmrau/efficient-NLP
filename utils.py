@@ -82,6 +82,14 @@ def read_triplets(path, delimiter='\t'):
             data.append(line_split)
         return np.asarray(data)
 
+def read_qrels(path, delimiter='\t'):
+    data = list()
+    with open(path, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            line_split = line.strip().split(delimiter)
+            data.append([line_split[0], line_split[2]])
+    return data
 
 def read_pickle(path):
     return pickle.load(open(path, 'rb'))

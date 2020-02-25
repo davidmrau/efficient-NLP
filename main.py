@@ -3,7 +3,7 @@ from data_loader import get_data_loaders
 import torch
 from snrm import SNRM
 from torch import nn
-from training import train
+from training import run
 from torch.optim import Adam
 from bert import BERT_Based
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
@@ -40,4 +40,4 @@ model = SNRM(embedding_dim=embedding_dim, hidden_sizes=hidden_sizes, n=n, pre_tr
 
 optim = Adam(model.parameters())
 
-model = train(model, dataloaders, optim, loss_fn, num_epochs, writer)
+model = run(model, dataloaders, optim, loss_fn, num_epochs, writer)

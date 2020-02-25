@@ -3,7 +3,7 @@ from utils import l1_loss, l0_loss
 import numpy as np
 
 
-def eval_epoch(model, dataloader, loss_fn, epoch, writer, l1_reg_sparse_scalar, optim=None):
+def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_reg_sparse_scalar, optim=None):
 
     mode = 'Training' if optim else 'Test'
     iter = 0
@@ -63,19 +63,20 @@ def eval_epoch(model, dataloader, loss_fn, epoch, writer, l1_reg_sparse_scalar, 
 
     return av_loss
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, l1_reg_sparse_scalar = 0.01, patience = 5):
+def run(model, dataloaders, optim, loss_fn, epochs, writer, l1_reg_sparse_scalar = 0.01, patience = 5):
 
     best_eval_loss = 1e20
     temp_patience = 0
 
     for epoch in range(1, epochs+1):
-
+        # training
         with torch.enable_grad():
             model.train()
-            av_train_loss = eval_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_reg_sparse_scalar, optim=optim)
+            av_train_loss = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_reg_sparse_scalar, optim=optim)
+        # evaluation
         with torch.no_grad():
             model.eval()
-            av_eval_loss = eval_epoch(model, dataloaders['test'], loss_fn, epoch, writer, l1_reg_sparse_scalar)
+            av_eval_loss = run_epoch(model, dataloaders['test'], loss_fn, epoch, writer, l1_reg_sparse_scalar)
 
         # check for early stopping
         if av_eval_loss < best_eval_loss:
