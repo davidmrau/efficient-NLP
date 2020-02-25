@@ -89,7 +89,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, l1_scalar = None, pa
             if temp_patience == patience:
                 break
 
-            torch.save(model.state_dict(), f'{os.getcwd()}/model_epoch_{epoch}.model' )
+        torch.save(model.state_dict(), f'{os.getcwd()}/model_epoch_{epoch}.model' )
     # load best model
     model.load_state_dict(torch.load(f'{os.getcwd()}/best_model.model'))
 
