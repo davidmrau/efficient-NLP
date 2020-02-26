@@ -11,7 +11,7 @@ from collections import defaultdict
 class Inverted_Index:
     def __init__(self, index_name = "Inverded_Index", vocab_size = 100, num_of_workers = 4):
 
-        self.index_name = index_name
+        self.index_name = os.path.join("Inverted_Indices",  index_name)
         self.num_of_workers = num_of_workers
         self.vocab_size = vocab_size
 
