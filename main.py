@@ -3,7 +3,7 @@ from data_loader import get_data_loaders
 import torch
 from snrm import SNRM
 from torch import nn
-from training import run
+from run_model import run
 from torch.optim import Adam
 from bert import BERT_Based
 import hydra
@@ -19,7 +19,7 @@ from transformers import BertTokenizer
 
 @hydra.main(config_path='config.yaml')
 def exp(cfg):
-    
+
     orig_cwd = utils.get_original_cwd() + '/'
 
     if not cfg.disable_cuda and torch.cuda.is_available():
@@ -35,7 +35,7 @@ def exp(cfg):
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     word2idx = tokenizer.vocab
-    dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, tokenizer, debug=cfg.debug)
+    dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
 
     loss_fn = nn.MarginRankingLoss().to(device)
 

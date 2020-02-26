@@ -8,10 +8,10 @@ from collections import defaultdict
 
 
 # class for inverted index
-class Inverted_Index:
-    def __init__(self, index_name = "Inverded_Index", vocab_size = 100, num_of_workers = 4):
+class InvertedIndex:
+    def __init__(self, index_name = "Inverted_Index", vocab_size = 100, num_of_workers = 4):
 
-        self.index_name = os.path.join("Inverted_Indices",  index_name)
+        self.index_name = index_name
         self.num_of_workers = num_of_workers
         self.vocab_size = vocab_size
 
@@ -20,7 +20,7 @@ class Inverted_Index:
         if os.path.isdir(self.index_name):
             shutil.rmtree(self.index_name)
         # create output directory
-        os.mkdir(self.index_name)
+        os.makedirs(self.index_name)
 
         # create an empty file for each directory
         for i in range(self.vocab_size):

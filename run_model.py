@@ -83,7 +83,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = 
             temp_patience = 0
             av_eval_loss = best_eval_loss
             # save best model so far to file
-            torch.save(model.state_dict(), f'best_model.model' )
+            torch.save(model, f'best_model.model' )
         else:
             temp_patience += 1
             if temp_patience == patience:

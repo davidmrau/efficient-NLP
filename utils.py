@@ -28,9 +28,29 @@ def collate_fn_padd(batch):
     #padd data along axis 1
     batch_data = pad_sequence(batch_data,1).long()
 
-
     return batch_data, batch_targets, batch_lengths
 
+
+def collate_fn_padd_ids(batch):
+
+    #batch * [q, d1, d2], target
+
+    batch_lengths = list()
+    batch_ids = list()
+    batch_data = list()
+    for item in batch:
+        for el in item[0]:
+            batch_data.append(torch.LongTensor(el))
+            batch_lengths.append(len(el))
+        # get sample lengths
+        batch_ids.append(item[1])
+
+
+    batch_lengths = torch.LongTensor(batch_lengths)
+    #padd data along axis 1
+    batch_data = pad_sequence(batch_data,1).long()
+
+    return batch_data, batch_ids, batch_lengths
 
 
 
@@ -77,7 +97,7 @@ def read_data(path, delimiter='\t'):
 
 def read_triplets(path, delimiter='\t'):
     with open(path, newline='') as csvfile:
-        return np.asarray(csv.reader(csvfile, delimiter=delimiter))
+        return list(csv.reader(csvfile, delimiter=delimiter))
 
 def read_qrels(path, delimiter='\t'):
     data = list()
