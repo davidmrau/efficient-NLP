@@ -3,9 +3,9 @@ embedding_dim: 300
 hidden_sizes: '300_300_10000'
 n: 5
 debug: False
-num_epochs: 5
+num_epochs: 10
 dropout_p: 0.2
-l1_scalar: 0.1
+l1_scalar: 0.0
 disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'glove'
