@@ -3,10 +3,12 @@
 ## Download pre-processed MSMARCO
 
 Download the pre-processed dataset: https://drive.google.com/file/d/19PDLjGehBKwTa2Oa5a1wqK8X5vhrPKp4/view?usp=sharing
+
+extract data using ```tar -xzf data.tar.gz```
+
 We have tokenized all queries [1] and documents [2] and translated them into token-ids following the bert vocabulary ('bert-base-uncased') using the transformer library [3].
 
-
-The data conists of:
+The data.tar.gz consists:
 
 
 **Queries** are split into:
@@ -46,8 +48,10 @@ Contains:
 q_id  0 relevant_doc_id 1
 ```
 
+**Glove Embedding**:
+The glove embedding file that is used to initialize the embedding layer. It will be extracted to data/embedding/glove.6B.300d.txt.
 
-extract data using ```tar -xzf data.tar.gz```
+
 
 
 [1] https://msmarco.blob.core.windows.net/msmarcoranking/queries.tar.gz
