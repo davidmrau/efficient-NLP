@@ -11,7 +11,7 @@ class MSMarcoTrain(data.Dataset):
 
 
         if not debug:
-            self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
+            self.triplets = read_triplets(f'{dataset_path}qidpidtriples.{split}.full.tsv')
             self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
             self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
         else:

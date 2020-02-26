@@ -19,7 +19,8 @@ from transformers import BertTokenizer
 
 @hydra.main(config_path='config.yaml')
 def exp(cfg):
-
+    
+    orig_cwd = utils.get_original_cwd() + '/'
 
     if not cfg.disable_cuda and torch.cuda.is_available():
         device = torch.device('cuda')
@@ -34,7 +35,7 @@ def exp(cfg):
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     word2idx = tokenizer.vocab
-    dataloaders = get_data_loaders(cfg.dataset_path, cfg.batch_size, tokenizer, debug=cfg.debug)
+    dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, tokenizer, debug=cfg.debug)
 
     loss_fn = nn.MarginRankingLoss().to(device)
 
@@ -44,7 +45,7 @@ def exp(cfg):
     #model = BERT_Based()
 
     model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
-    n=cfg.n, embedding_path=embedding_path,
+    n=cfg.n, embedding_path=orig_cwd + embedding_path,
     word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
 
     optim = Adam(model.parameters(), lr=cfg.lr)

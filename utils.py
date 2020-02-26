@@ -5,6 +5,7 @@ import numpy as np
 from os import path
 import json
 import pickle
+import csv
 
 
 def collate_fn_padd(batch):
@@ -75,12 +76,8 @@ def read_data(path, delimiter='\t'):
 
 
 def read_triplets(path, delimiter='\t'):
-    with open(path, 'r') as f:
-        data = list()
-        for line in f.readlines():
-            line_split = line.strip().split(delimiter)
-            data.append(line_split)
-        return np.asarray(data)
+    with open(path, newline='') as csvfile:
+        return np.asarray(csv.reader(csvfile, delimiter=delimiter))
 
 def read_qrels(path, delimiter='\t'):
     data = list()
