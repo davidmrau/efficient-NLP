@@ -2,6 +2,7 @@
 
 ## Download pre-processed MSMARCO
 
+Download the pre-processed dataset: https://drive.google.com/file/d/19PDLjGehBKwTa2Oa5a1wqK8X5vhrPKp4/view?usp=sharing
 We have tokenized all queries [1] and documents [2] and translated them into token-ids following the bert vocabulary ('bert-base-uncased') using the transformer library [3].
 
 
@@ -45,12 +46,6 @@ Contains:
 q_id  0 relevant_doc_id 1
 ```
 
-
-
-
-
-Download the pre-processed dataset: 
-https://drive.google.com/file/d/19PDLjGehBKwTa2Oa5a1wqK8X5vhrPKp4/view?usp=sharing
 
 extract data using ```tar -xzf data.tar.gz```
 
