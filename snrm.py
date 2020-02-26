@@ -15,7 +15,7 @@ class SNRM(nn.Module):
         self.n = n
         self.hidden_sizes = hidden_sizes
         if not debug:
-            embedding_weights = load_glove_embeddings(embedding_path, word2idx, embedding_dim, device)
+            embedding_weights = load_glove_embeddings(embedding_path, word2idx, device, embedding_dim)
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
         else:
             self.embedding = nn.Embedding(30000, embedding_dim)

@@ -36,7 +36,7 @@ def exp(cfg):
     word2idx = tokenizer.vocab
     dataloaders = get_data_loaders(cfg.dataset_path, cfg.batch_size, tokenizer, debug=cfg.debug)
 
-    loss_fn = nn.MarginRankingLoss()
+    loss_fn = nn.MarginRankingLoss().to(device)
 
     # config_class, model_class, tokenizer_class = BertConfig, BertForMaskedLM, BertTokenizer # MODEL_CLASSES[args.model_type]
     writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
@@ -45,9 +45,9 @@ def exp(cfg):
 
     model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
     n=cfg.n, embedding_path=embedding_path,
-    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug).to(device=args.device)
+    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
 
-    optim = Adam(model.parameters())
+    optim = Adam(model.parameters(), lr=cfg.lr)
 
     model = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, l1_scalar=cfg.l1_scalar)
 

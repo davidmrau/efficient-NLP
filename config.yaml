@@ -4,6 +4,7 @@ hidden_sizes: '300_300_10000'
 n: 5
 debug: False
 num_epochs: 10
+lr: 1e-3 
 dropout_p: 0.2
 l1_scalar: 0.0
 disable_cuda: False
@@ -13,4 +14,4 @@ glove_embedding_path: 'embeddings/glove.6B.300d.txt'
 bert_embedding_path: 'embeddings/bert'
 hydra:
   run:
-    dir: experiments/l1_scalar_${l1_scalar}_h_sizes_${hidden_sizes}_n_${n}_drop_${dropout_p}_emb_${embedding}_batch_size_${batch_size}
+    dir: experiments/l1_scalar_${l1_scalar}_h_sizes_${hidden_sizes}_n_${n}_lr_${lr}_drop_${dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}

@@ -33,7 +33,7 @@ def collate_fn_padd(batch):
 
 
 
-def load_glove_embeddings(path, word2idx, embedding_dim=300, device):
+def load_glove_embeddings(path, word2idx, device, embedding_dim=300):
     with open(path) as f:
         embeddings = np.zeros((len(word2idx), embedding_dim))
         for line in f.readlines():

@@ -14,7 +14,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
         steps += 1
         steps_epoch += 1
 
-        logits = model(data.to(device), lengths)
+        logits = model(data.to(device), lengths.to(device))
 
         split_size = logits.size(0)//3
         q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
@@ -22,7 +22,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
         dot_q_d1 = q_repr @ d1_repr.T
         dot_q_d2 = q_repr @ d2_repr.T
 
-        loss = loss_fn(dot_q_d1, dot_q_d2, targets)
+        loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
 
         aux_loss = l1_loss(q_repr, d1_repr, d2_repr) * l1_scalar
         l0_q, l0_docs = l0_loss(d1_repr, d2_repr, q_repr)
@@ -62,7 +62,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
 
     return av_loss, steps
 
-def run(model, dataloaders, optim, loss_fn, epochs, writer, l1_scalar = None, patience = 5):
+def run(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = None, patience = 5):
 
     best_eval_loss = 1e20
     temp_patience = 0
@@ -72,11 +72,11 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, l1_scalar = None, pa
         # training
         with torch.enable_grad():
             model.train()
-            av_train_loss, steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, steps, optim=optim)
+            av_train_loss, steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, steps, device,  optim=optim)
         # evaluation
         with torch.no_grad():
             model.eval()
-            av_eval_loss, steps = run_epoch(model, dataloaders['test'], loss_fn, epoch, writer, l1_scalar, steps)
+            av_eval_loss, steps = run_epoch(model, dataloaders['test'], loss_fn, epoch, writer, l1_scalar, steps, device)
 
         # check for early stopping
         if av_eval_loss < best_eval_loss:
@@ -89,8 +89,8 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, l1_scalar = None, pa
             if temp_patience == patience:
                 break
 
-        torch.save(model.state_dict(), f'{os.getcwd()}/model_epoch_{epoch}.model' )
+        torch.save(model, f'{os.getcwd()}/model_epoch_{epoch}.model' )
     # load best model
-    model.load_state_dict(torch.load(f'{os.getcwd()}/best_model.model'))
+    torch.load(f'{os.getcwd()}/best_model.model')
 
     return model
