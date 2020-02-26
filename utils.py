@@ -33,8 +33,7 @@ def collate_fn_padd(batch):
 
 
 
-def load_glove_embeddings(path, word2idx, embedding_dim=300):
-    print(path)
+def load_glove_embeddings(path, word2idx, embedding_dim=300, device):
     with open(path) as f:
         embeddings = np.zeros((len(word2idx), embedding_dim))
         for line in f.readlines():
@@ -44,7 +43,7 @@ def load_glove_embeddings(path, word2idx, embedding_dim=300):
             if index:
                 vector = np.array(values[1:], dtype='float32')
                 embeddings[index] = vector
-        return torch.from_numpy(embeddings).float()
+        return torch.from_numpy(embeddings).float().to(device)
 
 
 def l1_loss(q_repr, d1_repr, d2_repr):

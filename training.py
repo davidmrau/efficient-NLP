@@ -3,7 +3,7 @@ from utils import l1_loss, l0_loss
 import numpy as np
 import os
 
-def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, optim=None):
+def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, device, optim=None):
 
     mode = 'Training' if optim != None else 'Test'
     av_loss, av_aux_loss, av_l0_q, av_l0_docs, av_task_loss = 0, 0, 0, 0, 0
@@ -14,7 +14,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, optim
         steps += 1
         steps_epoch += 1
 
-        logits = model(data, lengths)
+        logits = model(data.to(device), lengths)
 
         split_size = logits.size(0)//3
         q_repr, d1_repr, d2_repr = torch.split(logits, split_size)

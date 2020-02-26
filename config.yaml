@@ -6,6 +6,7 @@ debug: False
 num_epochs: 5
 dropout_p: 0.2
 l1_scalar: 0.1
+disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'glove'
 glove_embedding_path: 'embeddings/glove.6B.300d.txt'

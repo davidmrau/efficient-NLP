@@ -20,6 +20,12 @@ from transformers import BertTokenizer
 @hydra.main(config_path='config.yaml')
 def exp(cfg):
 
+
+    if not cfg.disable_cuda and torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
     if cfg.embedding == 'glove':
         embedding_path = cfg.glove_embedding_path
     elif cfg.embedding == 'bert':
@@ -39,12 +45,11 @@ def exp(cfg):
 
     model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
     n=cfg.n, embedding_path=embedding_path,
-    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug)
-
+    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug).to(device=args.device)
 
     optim = Adam(model.parameters())
 
-    model = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, l1_scalar=cfg.l1_scalar)
+    model = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, l1_scalar=cfg.l1_scalar)
 
 if __name__ == "__main__":
     exp()

@@ -8,14 +8,14 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_sizes, n, embedding_path, word2idx, dropout_p,debug=False):
+    def __init__(self, embedding_dim, hidden_sizes, n, embedding_path, word2idx, dropout_p, device, debug=False):
         super(SNRM, self).__init__()
 
         self.embedding_dim = embedding_dim
         self.n = n
         self.hidden_sizes = hidden_sizes
         if not debug:
-            embedding_weights = load_glove_embeddings(embedding_path, word2idx, embedding_dim)
+            embedding_weights = load_glove_embeddings(embedding_path, word2idx, embedding_dim, device)
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
         else:
             self.embedding = nn.Embedding(30000, embedding_dim)
