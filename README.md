@@ -49,11 +49,14 @@ q_id  0 relevant_doc_id 1
 ```
 
 **Glove Embedding**:
+
 The glove embedding file that is used to initialize the embedding layer. It will be extracted to data/embedding/glove.6B.300d.txt.
 
 
 
 
 [1] https://msmarco.blob.core.windows.net/msmarcoranking/queries.tar.gz
+
 [2] https://msmarco.blob.core.windows.net/msmarcoranking/collection.tar.gz
+
 [3] https://huggingface.co/transformers/main_classes/tokenizer.html
