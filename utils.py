@@ -117,4 +117,4 @@ def read_json(path):
 
 
 def str2lst(string):
-    return [int(s) for s in string.split('_')]
+    return [int(s) for s in string.split('-')]

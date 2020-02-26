@@ -35,8 +35,16 @@ def exp(cfg):
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     word2idx = tokenizer.vocab
+    print(cfg.hidden_sizes)
+    print(str2lst(cfg.hidden_sizes))
+    print('Initializing model...')
+    model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
+    n=cfg.n, embedding_path=orig_cwd + embedding_path,
+    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
+    
+    print('Loading data...')
     dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
-
+    print('done')
     loss_fn = nn.MarginRankingLoss().to(device)
 
     # config_class, model_class, tokenizer_class = BertConfig, BertForMaskedLM, BertTokenizer # MODEL_CLASSES[args.model_type]
@@ -44,12 +52,8 @@ def exp(cfg):
 
     #model = BERT_Based()
 
-    model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
-    n=cfg.n, embedding_path=orig_cwd + embedding_path,
-    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
-
     optim = Adam(model.parameters(), lr=cfg.lr)
-
+    print('Start training...')
     model = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, l1_scalar=cfg.l1_scalar)
 
 if __name__ == "__main__":

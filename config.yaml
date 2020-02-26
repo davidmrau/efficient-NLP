@@ -1,7 +1,7 @@
 batch_size: 128
 model_path: ''
 embedding_dim: 300
-hidden_sizes: '300_300_10000'
+hidden_sizes: '300-300-10000'
 n: 5
 debug: False
 num_epochs: 10
