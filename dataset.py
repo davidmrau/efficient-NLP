@@ -14,10 +14,11 @@ class MSMarco(data.Dataset):
         self.split = split
 
         if not debug:
-            self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
+            if split == 'train':
+                self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
+            self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
             self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
             self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
-            self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
             self.doc_ids = read_pickle(f'{dataset_path}/collection.tsv.ids.p')
         else:
             self.triplets = triplets_fake

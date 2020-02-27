@@ -1,11 +1,11 @@
-batch_size: 128
+batch_size: 64
 model_path: ''
 embedding_dim: 300
 hidden_sizes: '300-300-10000'
 n: 5
 debug: False
 num_epochs: 10
-lr: 1e-3
+lr: 0.0001
 dropout_p: 0.2
 num_of_workers_index: 7
 l1_scalar: 0.0

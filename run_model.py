@@ -5,7 +5,7 @@ import os
 
 def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, device, optim=None):
 
-    mode = 'Training' if optim != None else 'Test'
+    mode = 'Training' if optim != None else 'Dev'
     av_loss, av_aux_loss, av_l0_q, av_l0_docs, av_task_loss = 0, 0, 0, 0, 0
 
     num_batches = len(dataloader)
@@ -76,7 +76,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = 
         # evaluation
         with torch.no_grad():
             model.eval()
-            av_eval_loss, steps = run_epoch(model, dataloaders['test'], loss_fn, epoch, writer, l1_scalar, steps, device)
+            av_eval_loss, steps = run_epoch(model, dataloaders['dev'], loss_fn, epoch, writer, l1_scalar, steps, device)
 
         # check for early stopping
         if av_eval_loss < best_eval_loss:
