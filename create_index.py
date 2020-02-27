@@ -31,5 +31,8 @@ def exp(cfg):
         logits = model(data.to(device), lengths.to(device))
         ii.add_docs_to_index(ids, logits.cpu())
 
+    # sort the posting lists
+    ii.sort_posting_lists()
+
 if __name__ == "__main__":
     exp()

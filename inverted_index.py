@@ -87,7 +87,7 @@ class InvertedIndex:
         for process in threads:
             process.join()
 
-    def get_score_of_query_for_some_latent_terms(self, query_ids, dimensions, activations, scores_dict):
+    def get_score_of_query_for_some_latent_terms(self, query_ids, dimensions, activations, max_candidates_per_posting_list, scores_dict):
 
         for i, dim in enumerate(dimensions):
             # get indexes that have non zero activations for this dimension and need to be saved to the inverted index
@@ -99,12 +99,16 @@ class InvertedIndex:
             # open the file that corresponds to this dimension
             posting_list_file = open( os.path.join(self.index_name, str(dim)) , "r")
 
+            line_counter = 0
             while(True):
                 # read next line
                 line = posting_list_file.readline().split("\t")
                 # print(line[0], len(line))
                 # check if the file has ended
                 if len(line) < 2:
+                    break
+                # use only top max_candidates_per_posting_list candidates per posting list, if it is specified
+                if max_candidates_per_posting_list != -1 and max_candidates_per_posting_list == line_counter:
                     break
                 # retrieve doc_id and score
                 doc_id = line[0]
@@ -117,10 +121,15 @@ class InvertedIndex:
                     # inner product for this dimension
                     scores_dict[query_id][doc_id] += query_activation * doc_activation
 
+                # increase the line counter
+                line_counter += 1
+
+
+
             posting_list_file.close()
 
 
-    def get_scores(self, query_ids, activation_vectors, top_results = 10000, top_candidates_per_posting_list = 1000):
+    def get_scores(self, query_ids, activation_vectors, top_results = -1, max_candidates_per_posting_list = -1):
         # number of non zero dimentions, over batch
         non_zero_dims = activation_vectors.sum(dim = 0).nonzero().squeeze().tolist()
 
@@ -135,7 +144,7 @@ class InvertedIndex:
             # append template argument lists for the parameters (doc_ids, dim, activations, doc_scores_dict)
             # query_ids will be the same over all threads
             # doc_scores_dict[query_id][doc_id] = score (for each thread separately)
-            buckets.append([query_ids, [], [], defaultdict(lambda: defaultdict(int))])
+            buckets.append([query_ids, [], [], max_candidates_per_posting_list, defaultdict(lambda: defaultdict(int))])
 
         # for every non zero dimension
         for i in range(len(non_zero_dims)):
@@ -171,13 +180,21 @@ class InvertedIndex:
         results = []
         for query_id in aggregated_scores:
             query_results = [ (doc_id, aggregated_scores[query_id][doc_id]) for doc_id in aggregated_scores[query_id] ]
-            sorted_results = sorted(query_results, key=lambda x: x[1], reverse = True)[:top_k]
+            sorted_results = sorted(query_results, key=lambda x: x[1], reverse = True)
+            # retrieve only top top_results if specified
+            if top_results != -1:
+                sorted_results = sorted_results[:top_results]
             results.append((query_id, sorted_results))
 
         return results
 
     def sort_posting_lists(self):
-        pass
+        """ Using Unix built-in "sort" function to sort all posting lists, with respect to the activation values
+
+        """
+        for i in range(self.vocab_size):
+            filename =  os.path.join(self.index_name, str(i))
+            os.system(f'sort -r -k 2 -o {filename} {filename}')
 
 
 #
