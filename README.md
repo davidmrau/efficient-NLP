@@ -6,7 +6,7 @@ Download the pre-processed dataset: https://drive.google.com/file/d/19PDLjGehBKw
 
 extract data using ```tar -xzf data.tar.gz```
 
-We have tokenized all queries [1] and documents [2] and translated them into token-ids following the bert vocabulary ('bert-base-uncased') using the transformer library [3].
+We have tokenized all queries [1] and documents [2] and translated them into token-ids following the bert vocabulary ('bert-base-uncased') using the transformer library [3]. Further, we truncated all documents to a maximum number of tokens of 150.
 
 The data.tar.gz consists:
 
