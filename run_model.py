@@ -76,7 +76,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = 
         # evaluation
         with torch.no_grad():
             model.eval()
-            av_eval_loss, steps = run_epoch(model, dataloaders['dev'], loss_fn, epoch, writer, l1_scalar, steps, device)
+            av_eval_loss, steps = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, steps, device)
 
         # check for early stopping
         if av_eval_loss < best_eval_loss:

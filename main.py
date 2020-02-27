@@ -41,7 +41,7 @@ def exp(cfg):
     model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
     n=cfg.n, embedding_path=orig_cwd + embedding_path,
     word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
-    
+
     print('Loading data...')
     dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
     print('done')

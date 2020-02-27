@@ -17,14 +17,14 @@ def collate_fn_padd(batch):
     batch_data = list()
     for item in batch:
         for el in item[0]:
-            batch_data.append(torch.LongTensor(el))
+            batch_data.append(torch.ByteTensor(el))
             batch_lengths.append(len(el))
         # get sample lengths
         batch_targets.append(item[1])
 
     batch_targets = torch.Tensor(batch_targets)
 
-    batch_lengths = torch.LongTensor(batch_lengths)
+    batch_lengths = torch.FloatTensor(batch_lengths)
     #padd data along axis 1
     batch_data = pad_sequence(batch_data,1).long()
 
@@ -40,13 +40,13 @@ def collate_fn_padd_ids(batch):
     batch_data = list()
     for item in batch:
         for el in item[0]:
-            batch_data.append(torch.LongTensor(el))
+            batch_data.append(torch.ByteTensor(el))
             batch_lengths.append(len(el))
         # get sample lengths
         batch_ids.append(item[1])
 
 
-    batch_lengths = torch.LongTensor(batch_lengths)
+    batch_lengths = torch.FloatTensor(batch_lengths)
     #padd data along axis 1
     batch_data = pad_sequence(batch_data,1).long()
 

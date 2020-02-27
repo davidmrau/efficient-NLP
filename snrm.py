@@ -45,7 +45,7 @@ class SNRM(nn.Module):
         # batch x max_length  - (n-1)x out_size
 
 
-        mask = mask.unsqueeze(1).repeat(1, self.hidden_sizes[-1],1)
+        mask = mask.unsqueeze(1).repeat(1, self.hidden_sizes[-1],1).float()
         out = (mask * out).sum(2) / lengths.unsqueeze(1)
         # batch x max_length - (n-1) x out_size
         return out

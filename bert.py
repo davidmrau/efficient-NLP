@@ -21,7 +21,7 @@ class BERT_Based(nn.Module):
     def __init__(self):
         super(BERT_Based, self).__init__()
 
-        self.BERT_encoder = transformers.BertModel.from_pretrained('bert-base-uncased') # bert-base-uncased,  bert-large-cased 
+        self.BERT_encoder = transformers.BertModel.from_pretrained('bert-base-uncased') # bert-base-uncased,  bert-large-cased
             # self.encoder._resize_token_embeddings(new_num_tokens = vocab_size)
 
         self.sparse_linear = nn.Linear(768, 10000)
