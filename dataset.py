@@ -12,7 +12,7 @@ class MSMarco(data.Dataset):
     def __init__(self, dataset_path, split, docs, debug=False):
 
         self.split = split
-
+        self.debug = debug
         if not debug:
             if split == 'train':
                 triplets_fname = f'qidpidtriples.{split}.full.tsv'
@@ -39,8 +39,11 @@ class MSMarco(data.Dataset):
     def __getitem__(self, index):
 
         if self.split == 'train':
-            self.triplets_file.seek(self.triplets_offset_dict[index])
-            q_id, d1_id, d2_id = self.triplets_file.readline().strip().split('\t')
+            if not self.debug:
+                self.triplets_file.seek(self.triplets_offset_dict[index])
+                q_id, d1_id, d2_id = self.triplets_file.readline().strip().split('\t')
+            else:
+                q_id, d1_id, d2_id = self.triplets[index]
         elif self.split == 'dev':
 
             q_id, d1_id = self.qrels[index]

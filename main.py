@@ -20,6 +20,7 @@ from transformers import BertTokenizer
 
 @hydra.main(config_path='config.yaml')
 def exp(cfg):
+    print(cfg.pretty())
 
     orig_cwd = utils.get_original_cwd() + '/'
 
@@ -52,19 +53,6 @@ def exp(cfg):
         # num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
         # pretrained_embeddings = False, pooling_method = "CLS")
 
-    print(model)
-    exit()
-
-  # hidden_size: 256
-  # num_of_layers: 2
-  # num_attention_heads: 4
-  # input_length_limit: 150
-  # # copy the embeddings from pretrained BERT (also affects hidden dim of model (784))
-  # pretrained_embeddings: False
-  # # the method that the hidden states over all sequence steps are being aggregated {CLS, AVG, MAX}
-  # pooling_method: CLS
-  # # copy first N pretrained layers from BERT ( 0 for not using it !)
-  # use_N_pretrained_layers: 0
 
 
     writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
