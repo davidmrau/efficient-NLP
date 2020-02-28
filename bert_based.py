@@ -7,26 +7,23 @@ import transformers
 
 
 class BERT_based(torch.nn.Module):
-    def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_linear_hidden_size = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, pretrained_embeddings = False, pooling_method = "CLS"):
+    def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, pretrained_embeddings = False, pooling_method = "CLS"):
         super(BERT_based, self).__init__()
 
         intermediate_size = hidden_size*4
 
         self.pooling_method = pooling_method
 
-        config = transformers.BertConfig(vocab_size_or_config_json_file = vocab_size, hidden_size = hidden_size, num_of_layers = num_of_layers,
+        config = transformers.BertConfig(vocab_size = vocab_size, hidden_size = hidden_size, num_hidden_layers = num_of_layers,
                                         num_attention_heads = num_attention_heads, intermediate_size = intermediate_size, max_position_embeddings = input_length_limit)
 
-        print(self)
         self.encoder = transformers.BertModel(config)
 
-        print(self)
-        exit()
 
         if pretrained_embeddings:
             self.encoder.embeddings.word_embeddings.weight = self.get_pretrained_BERT_embeddings()
 
-        self.sparse_linear = torch.nn.Linear(hidden_size, sparse_linear_hidden_size)
+        self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
     def get_pretrained_BERT_embeddings(self):
         bert = transformers.BertModel.from_pretrained('bert-base-uncased')
@@ -58,6 +55,27 @@ class BERT_based(torch.nn.Module):
         output = self.sparse_linear(encoder_output)
 
         return output
+
+    #
+    # def get_optimizer(self, n_train_batches = 1000000):
+    #
+    #     if self.args.max_steps > 0:
+    #         t_total = self.args.max_steps
+    #         self.args.num_train_epochs = self.args.max_steps // (n_train_batches // self.args.gradient_accumulation_steps) + 1
+    #     else:
+    #         t_total = n_train_batches // self.args.gradient_accumulation_steps * self.args.num_train_epochs
+    #
+    #
+    #         # optimezer, scheduler# Prepare optimizer and schedule (linear warmup and decay)
+    #     no_decay = ['bias', 'LayerNorm.weight']
+    #     optimizer_grouped_parameters = [
+    #         {'params': [p for n, p in self.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': self.args.weight_decay},
+    #         {'params': [p for n, p in self.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    #         ]
+    #     self.optimizer = transformers.AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+    #     self.scheduler = transformers.WarmupLinearSchedule(self.optimizer, warmup_steps=self.args.warmup_steps, t_total=t_total)
+    #
+    #
 
 #
 #

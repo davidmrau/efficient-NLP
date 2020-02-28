@@ -30,6 +30,7 @@ dataset_path: 'data/msmarco/'
 embedding: 'glove'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.txt'
 bert_embedding_path: 'data/embeddings/bert'
+model_discr:
 hydra:
   run:
-    dir: experiments/model_${model}_debug_${debug}
+    dir: experiments/l1_scalar_${l1_scalar}_model_${model}_lr_${lr}_drop_${dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}

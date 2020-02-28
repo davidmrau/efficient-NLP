@@ -1,13 +1,14 @@
 batch_size: 16
 bert_embedding_path: data/embeddings/bert
 dataset_path: data/msmarco/
-debug: true
+debug: false
 disable_cuda: false
 embedding: glove
 glove_embedding_path: data/embeddings/glove.6B.300d.txt
 l1_scalar: 0.0
 lr: 0.0001
 model: tf
+model_discr: null
 model_path: ''
 num_epochs: 10
 num_of_workers_index: 7

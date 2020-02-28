@@ -51,3 +51,6 @@ class SNRM(nn.Module):
         out = (mask * out).sum(2) / lengths.unsqueeze(1)
         # batch x max_length - (n-1) x out_size
         return out
+
+    def get_optimizer(self):
+        return Adam(self.parameters(), lr=cfg.lr)

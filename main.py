@@ -38,7 +38,7 @@ def exp(cfg):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     word2idx = tokenizer.vocab
     print('Initializing model...')
-    print (cfg.model)
+
     if cfg.model == "snrm":
         # print(cfg.hidden_sizes)
         # print(str2lst(cfg.hidden_sizes))
