@@ -3,4 +3,5 @@
 #SBATCH --nodes=1 
 #SBATCH -p gpu_shared
 #SBATCH --time=24:00:00
-python3 main.py
+#SBATCH --mem=32GB
+python3 main.py >> log.txt

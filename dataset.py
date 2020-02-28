@@ -9,15 +9,15 @@ from fake_data import *
 
 class MSMarco(data.Dataset):
 
-    def __init__(self, dataset_path, split, debug=False):
+    def __init__(self, dataset_path, split, docs, debug=False):
 
         self.split = split
 
         if not debug:
             if split == 'train':
                 self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
+            self.docs = docs
             self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
-            self.docs = read_pickle(f'{dataset_path}/collection.tsv.p')
             self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
             self.doc_ids = read_pickle(f'{dataset_path}/collection.tsv.ids.p')
         else:

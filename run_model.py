@@ -33,7 +33,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
             total_loss.backward()
             optim.step()
 
-        if steps_epoch % num_batches // 25 == 0 and steps_epoch != 0:
+        if True:
+        #if steps_epoch % num_batches // 100 == 0 and steps_epoch != 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(steps_epoch, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
             writer.add_scalar(f'{mode}_task_loss', loss.item(), steps  )
