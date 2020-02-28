@@ -42,13 +42,14 @@ def exp(cfg):
     n=cfg.n, embedding_path=orig_cwd + embedding_path,
     word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
 
+    writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
+
     print('Loading data...')
     dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
     print('done')
     loss_fn = nn.MarginRankingLoss().to(device)
 
     # config_class, model_class, tokenizer_class = BertConfig, BertForMaskedLM, BertTokenizer # MODEL_CLASSES[args.model_type]
-    writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
     #model = BERT_Based()
 
