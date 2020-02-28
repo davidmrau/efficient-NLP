@@ -118,3 +118,27 @@ def read_json(path):
 
 def str2lst(string):
     return [int(s) for s in string.split('-')]
+
+def create_seek_dictionary_per_index(filename):
+    index_to_seek = {}
+    sample_counter = 0
+
+    with open(filename) as file:
+        seek_value = file.tell()
+        index_to_seek[sample_counter] = seek_value
+        line = file.readline()
+
+        while(line != ""):
+            sample_counter += 1
+            seek_value = file.tell()
+            index_to_seek[sample_counter] = seek_value
+            line = file.readline()
+
+    del index_to_seek[ len(index_to_seek) -1 ]
+
+    return index_to_seek
+
+def get_index_line_from_file(filename, index_seek_dict, index):
+    with open(filename) as file:
+        file.seek( index_seek_dict[index] )
+        return file.readline()

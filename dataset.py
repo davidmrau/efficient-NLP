@@ -27,6 +27,17 @@ class MSMarco(data.Dataset):
             self.qrels = qrels_fake
             self.doc_ids = doc_ids_fake
 
+    def create_seek_dictionary_per_index(self, filename):
+        self.index_to_seek = {}
+        sample_counter = 0
+        with open(filename) as file:
+            start_seek = file.tell)
+            line = file.readline()
+            end_seek = file.tell()
+
+
+        pass
+
     def __len__(self):
         if self.split == 'train':
             return len(self.triplets)
