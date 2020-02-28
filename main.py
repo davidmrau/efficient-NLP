@@ -5,7 +5,7 @@ from snrm import SNRM
 from torch import nn
 from run_model import run
 from torch.optim import Adam
-from bert import BERT_Based
+from bert_based import BERT_based
 import hydra
 from hydra import utils
 import os
@@ -16,6 +16,7 @@ from utils import str2lst
 import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
+
 
 @hydra.main(config_path='config.yaml')
 def exp(cfg):
@@ -35,12 +36,36 @@ def exp(cfg):
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     word2idx = tokenizer.vocab
-    print(cfg.hidden_sizes)
-    print(str2lst(cfg.hidden_sizes))
     print('Initializing model...')
-    model = SNRM(embedding_dim=cfg.embedding_dim, hidden_sizes=str2lst(cfg.hidden_sizes),
-    n=cfg.n, embedding_path=orig_cwd + embedding_path,
-    word2idx=word2idx, dropout_p=cfg.dropout_p, debug=cfg.debug, device=device).to(device=device)
+    print (cfg.model)
+    if cfg.model == "snrm":
+        # print(cfg.hidden_sizes)
+        # print(str2lst(cfg.hidden_sizes))
+
+        model = SNRM(embedding_dim=cfg.snrm.embedding_dim, hidden_sizes=str2lst(cfg.snrm.hidden_sizes),
+        sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=orig_cwd + embedding_path,
+        word2idx=word2idx, dropout_p=cfg.snrm.dropout_p, debug=cfg.debug, device=device).to(device=device)
+    elif cfg.model == "tf":
+        model = BERT_based()
+        # model = BERT_based(  hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+        # sparse_linear_hidden_size = cfg.sparse_dimensions, vocab_size = 30522,
+        # num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
+        # pretrained_embeddings = False, pooling_method = "CLS")
+
+    print(model)
+    exit()
+
+  # hidden_size: 256
+  # num_of_layers: 2
+  # num_attention_heads: 4
+  # input_length_limit: 150
+  # # copy the embeddings from pretrained BERT (also affects hidden dim of model (784))
+  # pretrained_embeddings: False
+  # # the method that the hidden states over all sequence steps are being aggregated {CLS, AVG, MAX}
+  # pooling_method: CLS
+  # # copy first N pretrained layers from BERT ( 0 for not using it !)
+  # use_N_pretrained_layers: 0
+
 
     writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 

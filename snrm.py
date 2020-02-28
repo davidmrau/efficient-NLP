@@ -8,7 +8,7 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_sizes, n, embedding_path, word2idx, dropout_p, device, debug=False):
+    def __init__(self, embedding_dim, hidden_sizes, sparse_dimensions, n, embedding_path, word2idx, dropout_p, device, debug=False):
         super(SNRM, self).__init__()
 
         self.embedding_dim = embedding_dim
@@ -19,7 +19,7 @@ class SNRM(nn.Module):
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
         else:
             self.embedding = nn.Embedding(30000, embedding_dim)
-
+        self.sparse_dimensions = sparse_dimensions
         self.conv = nn.Conv1d(embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
         # create module list
         self.linears = nn.ModuleList()
@@ -27,6 +27,8 @@ class SNRM(nn.Module):
         self.drop = nn.Dropout(p=dropout_p)
         for k in range(len(hidden_sizes)-1):
             self.linears.append(nn.Conv1d(hidden_sizes[k], hidden_sizes[k+1], 1, stride=1))
+
+        self.linears.append(nn.Conv1d(hidden_sizes[-1], sparse_dimensions, 1, stride=1))
 
     def forward(self, x, lengths):
         # generate mask for averaging over non-zero elements later
@@ -45,7 +47,7 @@ class SNRM(nn.Module):
         # batch x max_length  - (n-1)x out_size
 
 
-        mask = mask.unsqueeze(1).repeat(1, self.hidden_sizes[-1],1).float()
+        mask = mask.unsqueeze(1).repeat(1, self.sparse_dimensions,1).float()
         out = (mask * out).sum(2) / lengths.unsqueeze(1)
         # batch x max_length - (n-1) x out_size
         return out
