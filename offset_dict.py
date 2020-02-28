@@ -15,4 +15,4 @@ out_fname = in_fname + '.offset_dict.p'
 
 offset_dict = create_seek_dictionary_per_index(in_fname)
 
-pickle.dump(offset_dict, open(out_fname, 'wb'))
+p.dump(offset_dict, open(out_fname, 'wb'))
