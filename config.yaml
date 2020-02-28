@@ -1,5 +1,5 @@
 # choose which model to use {tf : Transformer (BERT-like) / snrm : SNRM}
-model: 'tf'
+model: 'snrm'
 vocab_size: 30522
 batch_size: 16
 lr: 0.0001
@@ -33,4 +33,4 @@ bert_embedding_path: 'data/embeddings/bert'
 model_discr:
 hydra:
   run:
-    dir: experiments/l1_scalar_${l1_scalar}_model_${model}_lr_${lr}_drop_${dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}
+    dir: experiments/model_${model}_l1_scalar_${l1_scalar}_lr_${lr}_drop_${snrm.dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}

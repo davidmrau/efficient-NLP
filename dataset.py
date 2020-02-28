@@ -15,8 +15,8 @@ class MSMarco(data.Dataset):
         self.debug = debug
         if not debug:
             if split == 'train':
-                triplets_fname = f'qidpidtriples.{split}.full.tsv'
-                self.triplets_file = open(f'{dataset_path}/{triplets_fname}', 'r')
+                triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full.tsv'
+                self.triplets_file = open(triplets_fname, 'r')
                 self.triplets_offset_dict = read_pickle(f'{triplets_fname}.offset_dict.p')
             self.docs = docs
             self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
