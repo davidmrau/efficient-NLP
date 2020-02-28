@@ -127,12 +127,13 @@ def create_seek_dictionary_per_index(filename):
         seek_value = file.tell()
         index_to_seek[sample_counter] = seek_value
         line = file.readline()
-
         while(line != ""):
             sample_counter += 1
             seek_value = file.tell()
             index_to_seek[sample_counter] = seek_value
             line = file.readline()
+            if sample_counter % 100000 == 0:
+                print(sample_counter)
 
     del index_to_seek[ len(index_to_seek) -1 ]
 

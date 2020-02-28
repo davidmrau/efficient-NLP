@@ -15,7 +15,9 @@ class MSMarco(data.Dataset):
 
         if not debug:
             if split == 'train':
-                self.triplets = read_triplets(f'{dataset_path}/qidpidtriples.{split}.full.tsv')
+                triplets_fname = f'qidpidtriples.{split}.full.tsv'
+                self.triplets_file = open(f'{dataset_path}/{triples_fname}', 'r')
+                self.triplets_offset_dict = read_pickle(f'{triples_fname}.offset_dict.p')
             self.docs = docs
             self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
             self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
@@ -27,17 +29,6 @@ class MSMarco(data.Dataset):
             self.qrels = qrels_fake
             self.doc_ids = doc_ids_fake
 
-    def create_seek_dictionary_per_index(self, filename):
-        self.index_to_seek = {}
-        sample_counter = 0
-        with open(filename) as file:
-            start_seek = file.tell)
-            line = file.readline()
-            end_seek = file.tell()
-
-
-        pass
-
     def __len__(self):
         if self.split == 'train':
             return len(self.triplets)
@@ -48,7 +39,8 @@ class MSMarco(data.Dataset):
     def __getitem__(self, index):
 
         if self.split == 'train':
-            q_id, d1_id, d2_id = self.triplets[index]
+            self.triplets_file.seek(self.triplets_offset_dict[index])
+            q_id, d1_id, d2_id = self.triplets_file.readline().strip().split('\t')
         elif self.split == 'dev':
 
             q_id, d1_id = self.qrels[index]
