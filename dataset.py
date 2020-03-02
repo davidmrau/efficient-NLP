@@ -15,12 +15,13 @@ class MSMarco(data.Dataset):
         self.debug = debug
 
         if split == 'train':
-            triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{'' if not debug else '.debug'}.tsv'
-            if not debug:
-                self.triplets_offset_dict = read_pickle(f'{triplets_fname}.offset_dict.p')
-                self.triplets_file = open(triplets_fname, 'r')
-            else:
-                self.triplets = read_triplets(triplets_fname)
+		debug_str = '' if not debug else '.debug' 
+            	triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{debug_str}.tsv'
+            	if not debug:
+                	self.triplets_offset_dict = read_pickle(f'{triplets_fname}.offset_dict.p')
+                	self.triplets_file = open(triplets_fname, 'r')
+            	else:
+                	self.triplets = read_triplets('')
         self.docs = docs
         self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
         self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')

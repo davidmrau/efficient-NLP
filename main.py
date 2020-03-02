@@ -3,7 +3,7 @@ from data_loader import get_data_loaders
 import torch
 from snrm import SNRM
 from torch import nn
-from run_model import run
+from run_model import train
 from torch.optim import Adam
 from bert_based import BERT_based
 import hydra
