@@ -52,12 +52,10 @@ class MSMarco(data.Dataset):
             q_id, d1_id = self.qrels[index]
 
             d2_id = randint(0, self.max_doc_id)
-
             # making sure that the sampled d1_id is diferent from relevant d2_id
             while d1_id == d2_id:
                 d2_id = randint(0, self.max_doc_id)
 
-            d2_id = d1_id
         else:
             raise ValueError(f'Unknown split: {split}')
 
