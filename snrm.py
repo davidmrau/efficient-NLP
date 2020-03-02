@@ -40,10 +40,16 @@ class SNRM(nn.Module):
         out= self.relu(out)
         out = self.drop(out)
 
-        for i, name in enumerate(self.linears):
+        for i in range(len(self.linears)-1):
             out = self.linears[i](out)
             out= self.relu(out)
             out = self.drop(out)
+
+        # we do not apply dropout on the last layer
+        out = self.linears[-1](out)
+        out= self.relu(out)
+
+
         # batch x max_length  - (n-1)x out_size
 
 
