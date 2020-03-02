@@ -31,9 +31,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
         # performing inner products
-        batch_size = q_repr.size(0)
-        dot_q_d1 = torch.bmm(q_repr.view( batch_size, 1, -1 ), d1_repr.view( batch_size, -1, 1 )).squeeze()
-        dot_q_d2 = torch.bmm(q_repr.view( batch_size, 1, -1 ), d2_repr.view( batch_size, -1, 1 )).squeeze()
+        dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+        dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
 
         # calculating loss
         loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
@@ -45,13 +44,13 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         acc = ((dot_q_d1.cpu() > dot_q_d2.cpu()).float() == targets).float().mean()
         # aggregating losses and running backward pass and update step
         total_loss = loss +  aux_loss
-        if optim is not None:
+        if optim != None:
             optim.zero_grad()
             total_loss.backward()
             optim.step()
 
         # update tensorboard every 1000 training steps
-        freq = num_batches // 1000 if num_batches > 1000 else 1
+        freq = num_batches // 1000 if num_batches > 1000 else 10
         if training_steps % freq == 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(training_steps, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
@@ -73,9 +72,9 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         av_acc += acc
 
 
-        if training_steps >= 100000:
-            break
-
+        if optim == None:
+            if training_steps > 100:
+                break
 
     # average losses and counters
     av_loss /= num_batches
