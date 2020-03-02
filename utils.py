@@ -6,10 +6,12 @@ from os import path
 import json
 import pickle
 import csv
-import subprocess 
+import subprocess
 
-# https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python
+
 def file_len(fname):
+    """ Get the number of lines from file
+    """ # https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python
     p = subprocess.Popen(['wc', '-l', fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     result, err = p.communicate()
     if p.returncode != 0:
@@ -19,6 +21,13 @@ def file_len(fname):
 
 
 def collate_fn_padd(batch):
+    """ Collate function for aggregating samples into batch size.
+        returns:
+        batch_data = Torch([ q_1, q_2, ..., q1_d1, q2_d1, ..., q2_d1, q2_d2, ... ])
+        batch_targets = -1 or 1 for each sample
+        batch_lenghts = lenght of each query/document,
+            that is used for proper averaging ignoring 0 padded inputs
+    """
 
     #batch * [q, d1, d2], target
 
@@ -44,6 +53,8 @@ def collate_fn_padd(batch):
 
 
 def load_glove_embeddings(path, word2idx, device, embedding_dim=300):
+    """ Load Glove embeddings from file
+    """
     with open(path) as f:
         embeddings = np.zeros((len(word2idx), embedding_dim))
         for line in f.readlines():
@@ -57,11 +68,15 @@ def load_glove_embeddings(path, word2idx, device, embedding_dim=300):
 
 
 def l1_loss(q_repr, d1_repr, d2_repr):
+    """ L1 loss ( Sum of vectors )
+    """
     concat = torch.cat([q_repr, d1_repr, d2_repr], 1)
     return torch.mean(torch.sum(concat, 1))/q_repr.size(1)
 
 
 def l0_loss(q_repr, d1_repr, d2_repr):
+    """ L0 loss ( Number of non zero elements )
+    """
     # return mean batch l0 loss of qery, and docs
     concat_d = torch.cat([d1_repr, d2_repr], dim=1)
     non_zero_d = (concat_d > 0).float().mean(1).mean()
@@ -109,6 +124,11 @@ def str2lst(string):
     return [int(s) for s in string.split('-')]
 
 def create_seek_dictionary_per_index(filename):
+    """ Creating a dictionary, for accessing directly a documents content, given document's id
+        from a large file containing all documents
+        returns:
+        dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
+    """
     index_to_seek = {}
     sample_counter = 0
 
@@ -129,6 +149,8 @@ def create_seek_dictionary_per_index(filename):
     return index_to_seek
 
 def get_index_line_from_file(filename, index_seek_dict, index):
+    """ Given a seek value and a file, read the line that follows that seek value
+    """
     with open(filename) as file:
         file.seek( index_seek_dict[index] )
         return file.readline()

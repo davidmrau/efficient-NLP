@@ -7,6 +7,8 @@ from inverted_index import InvertedIndex
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
 
+""" Load an pre-built inverted index and run online inference (for test set)
+"""
 
 @hydra.main(config_path='config.yaml')
 

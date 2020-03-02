@@ -2,8 +2,10 @@ from dataset import MSMarco, MSMarcoInference
 from torch.utils.data import DataLoader
 from os import path
 from utils import collate_fn_padd, read_pickle
-def get_data_loaders(dataset_path, batch_size, debug=False):
 
+
+def get_data_loaders(dataset_path, batch_size, debug=False):
+    
     dataloaders = {}
     debug_str = '' if not debug else '.debug'
     print(debug_str)
