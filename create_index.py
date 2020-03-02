@@ -29,7 +29,7 @@ def exp(cfg):
 
     for data, ids, lengths in dataloaders['docs']:
         logits = model(data.to(device), lengths.to(device))
-        ii.add_docs_to_index(ids, logits.cpu())
+        ii.add_docs_to_index(ids.cpu().numpy(), logits.cpu())
 
     # sort the posting lists
     ii.sort_posting_lists()

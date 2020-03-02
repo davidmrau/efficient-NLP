@@ -7,7 +7,7 @@ import transformers
 
 
 class BERT_based(torch.nn.Module):
-    def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, pretrained_embeddings = False, pooling_method = "CLS"):
+    def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, pretrained_embeddings = False, pooling_method = "CLS", device='cpu'):
         super(BERT_based, self).__init__()
 
         intermediate_size = hidden_size*4
@@ -18,7 +18,8 @@ class BERT_based(torch.nn.Module):
                                         num_attention_heads = num_attention_heads, intermediate_size = intermediate_size, max_position_embeddings = input_length_limit)
 
         self.encoder = transformers.BertModel(config)
-
+        self.relu = torch.nn.ReLU()
+        self.device = device
 
         if pretrained_embeddings:
             self.encoder.embeddings.word_embeddings.weight = self.get_pretrained_BERT_embeddings()
@@ -30,13 +31,13 @@ class BERT_based(torch.nn.Module):
         return bert.embeddings.word_embeddings.weight
 
     def forward(self, input, lengths):
-        attention_masks = torch.zeros(input.size(0), lengths.max().int().item())
+        attention_masks = torch.zeros(input.size(0), lengths.max().int().item()).to(self.device)
 
         for i in range(lengths.size(0)):
             attention_masks[i, : lengths[i].int()] = 1
 
         last_hidden_state, pooler_output = self.encoder(input_ids = input, attention_mask=attention_masks)
-
+        
         # aggregate output of model, to a single representation
         if self.pooling_method == "CLS":
             encoder_output = pooler_output
@@ -53,7 +54,7 @@ class BERT_based(torch.nn.Module):
             encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size).float()).max(dim = 1)[0]
 
         output = self.sparse_linear(encoder_output)
-
+        output = self.relu(output)
         return output
 
     #

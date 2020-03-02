@@ -15,13 +15,11 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
         steps_epoch += 1
 
         logits = model(data.to(device), lengths.to(device))
-
         split_size = logits.size(0)//3
         q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
         dot_q_d1 = q_repr @ d1_repr.T
         dot_q_d2 = q_repr @ d2_repr.T
-
         loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
 
         aux_loss = l1_loss(q_repr, d1_repr, d2_repr) * l1_scalar
@@ -33,13 +31,14 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
             total_loss.backward()
             optim.step()
 
-        if True:
-        #if steps_epoch % num_batches // 100 == 0 and steps_epoch != 0:
+        #if True:
+        freq = num_batches // 1000 if num_batches > 1000 else 10000
+        if steps_epoch % freq == 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(steps_epoch, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
             writer.add_scalar(f'{mode}_task_loss', loss.item(), steps  )
             writer.add_scalar(f'{mode}_aux_loss', aux_loss.item(), steps)
-            writer.add_scalar(f'{mode}_total_oss', total_loss.item(), steps)
+            writer.add_scalar(f'{mode}_total_loss', total_loss.item(), steps)
             writer.add_scalar(f'{mode}_L0_query', l0_q, steps)
             writer.add_scalar(f'{mode}_L0_docs', l0_docs, steps)
 
@@ -49,6 +48,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
         av_l0_q += l0_q
         av_l0_docs += l0_docs
         av_task_loss += loss.item()
+        if steps_epoch >= 100000:
+            break
 
 
     # average training losses
@@ -77,7 +78,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = 
         # evaluation
         with torch.no_grad():
             model.eval()
-            av_eval_loss, steps = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, steps, device)
+            av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, steps, device)
 
         # check for early stopping
         if av_eval_loss < best_eval_loss:

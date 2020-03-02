@@ -6,6 +6,16 @@ from os import path
 import json
 import pickle
 import csv
+import subprocess 
+
+# https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python
+def file_len(fname):
+    p = subprocess.Popen(['wc', '-l', fname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result, err = p.communicate()
+    if p.returncode != 0:
+        raise IOError(err)
+    return int(result.strip().split()[0])
+
 
 
 def collate_fn_padd(batch):
@@ -14,43 +24,22 @@ def collate_fn_padd(batch):
 
     batch_lengths = list()
     batch_targets = list()
-    batch_data = list()
+    batch_q, batch_doc1, batch_doc2 = list(), list(), list()
     for item in batch:
-        for el in item[0]:
-            batch_data.append(torch.ByteTensor(el))
-            batch_lengths.append(len(el))
-        # get sample lengths
+        q, doc1, doc2 = item[0]
+        batch_q.append(torch.ShortTensor(q))
+        batch_doc1.append(torch.ShortTensor(doc1))
+        batch_doc2.append(torch.ShortTensor(doc2))
         batch_targets.append(item[1])
-
+    batch_data = batch_q + batch_doc1 + batch_doc2
     batch_targets = torch.Tensor(batch_targets)
 
-    batch_lengths = torch.FloatTensor(batch_lengths)
+    batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
     #padd data along axis 1
     batch_data = pad_sequence(batch_data,1).long()
-
     return batch_data, batch_targets, batch_lengths
 
 
-def collate_fn_padd_ids(batch):
-
-    #batch * [q, d1, d2], target
-
-    batch_lengths = list()
-    batch_ids = list()
-    batch_data = list()
-    for item in batch:
-        for el in item[0]:
-            batch_data.append(torch.ByteTensor(el))
-            batch_lengths.append(len(el))
-        # get sample lengths
-        batch_ids.append(item[1])
-
-
-    batch_lengths = torch.FloatTensor(batch_lengths)
-    #padd data along axis 1
-    batch_data = pad_sequence(batch_data,1).long()
-
-    return batch_data, batch_ids, batch_lengths
 
 
 

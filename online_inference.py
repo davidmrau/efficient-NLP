@@ -27,7 +27,7 @@ def exp(cfg):
 
     for data, ids, lengths in dataloaders['test']:
         logits = model(data.to(device), lengths.to(device))
-        results = ii.get_scores(ids, logits.cpu())
+        results = ii.get_scores(ids.cpu().numpy(), logits.cpu())
         print(results)
         exit()
 

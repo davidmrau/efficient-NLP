@@ -45,16 +45,21 @@ def exp(cfg):
 
         model = SNRM(embedding_dim=cfg.snrm.embedding_dim, hidden_sizes=str2lst(cfg.snrm.hidden_sizes),
         sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=orig_cwd + embedding_path,
-        word2idx=word2idx, dropout_p=cfg.snrm.dropout_p, debug=cfg.debug, device=device).to(device=device)
+        word2idx=word2idx, dropout_p=cfg.snrm.dropout_p, debug=cfg.debug, device=device)
     elif cfg.model == "tf":
-        model = BERT_based()
-        # model = BERT_based(  hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
-        # sparse_linear_hidden_size = cfg.sparse_dimensions, vocab_size = 30522,
-        # num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
-        # pretrained_embeddings = False, pooling_method = "CLS")
+        #model = BERT_based()
+        model = BERT_based(  hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+        sparse_dimensions = cfg.sparse_dimensions, vocab_size = 30522,
+        num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
+        pretrained_embeddings = False, pooling_method = "CLS", device=device)
 
+    if torch.cuda.device_count() > 1:
+          print("Let's use", torch.cuda.device_count(), "GPUs!")
+              model = nn.DataParallel(model)
+    else:
+        model = model.to(device=device)
 
-
+    print(model)
     writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
     print('Loading data...')

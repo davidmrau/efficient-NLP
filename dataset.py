@@ -21,7 +21,7 @@ class MSMarco(data.Dataset):
             self.docs = docs
             self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
             self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
-            self.doc_ids = read_pickle(f'{dataset_path}/collection.tsv.ids.p')
+            self.doc_ids = list(docs.keys())
         else:
             self.triplets = triplets_fake
             self.docs = docs_fake
@@ -30,7 +30,9 @@ class MSMarco(data.Dataset):
             self.doc_ids = doc_ids_fake
 
     def __len__(self):
-        if self.split == 'train':
+        if self.split == 'train' and not self.debug:
+            return len(self.triplets_offset_dict.keys())
+        elif self.split == 'train' and self.debug:
             return len(self.triplets)
         elif self.split == 'dev':
             return len(self.qrels)
@@ -59,6 +61,8 @@ class MSMarco(data.Dataset):
         doc1 = self.docs[d1_id]
         doc2 = self.docs[d2_id]
 
+        # we leave the [CLS] and [SEP] at the beginning and end respectively for all models
+
         if np.random.random() > 0.5:
             return [query, doc1, doc2], 1
         else:
@@ -70,7 +74,7 @@ class MSMarcoInference(data.Dataset):
 
         if not debug:
             self.data = read_pickle(path)
-            self.ids =  read_pickle(path_ids)
+            self.ids = np.arange(file_len(path))
         else:
             self.data = docs_fake
             self.ids = doc_ids_fake

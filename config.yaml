@@ -1,7 +1,7 @@
 # choose which model to use {tf : Transformer (BERT-like) / snrm : SNRM}
 model: 'snrm'
 vocab_size: 30522
-batch_size: 16
+batch_size: 64
 lr: 0.0001
 model_path: ''
 sparse_dimensions: 10000
@@ -22,7 +22,7 @@ snrm:
   n: 5
   dropout_p: 0.2
 debug: False
-num_epochs: 10
+num_epochs: 20
 num_of_workers_index: 7
 l1_scalar: 0.0
 disable_cuda: False
