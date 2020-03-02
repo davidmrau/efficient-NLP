@@ -13,21 +13,18 @@ class MSMarco(data.Dataset):
 
         self.split = split
         self.debug = debug
-        if not debug:
-            if split == 'train':
-                triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full.tsv'
-                self.triplets_file = open(triplets_fname, 'r')
+
+        if split == 'train':
+            triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{'' if not debug else '.debug'}.tsv'
+            if not debug:
                 self.triplets_offset_dict = read_pickle(f'{triplets_fname}.offset_dict.p')
-            self.docs = docs
-            self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
-            self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
-            self.doc_ids = list(docs.keys())
-        else:
-            self.triplets = triplets_fake
-            self.docs = docs_fake
-            self.queries = queries_fake
-            self.qrels = qrels_fake
-            self.doc_ids = doc_ids_fake
+                self.triplets_file = open(triplets_fname, 'r')
+            else:
+                self.triplets = read_triplets(triplets_fname)
+        self.docs = docs
+        self.qrels = read_qrels(path.join(dataset_path, f'qrels.{split}.tsv'))
+        self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
+        self.doc_ids = list(docs.keys())
 
     def __len__(self):
         if self.split == 'train' and not self.debug:

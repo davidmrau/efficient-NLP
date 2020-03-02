@@ -6,7 +6,7 @@ def get_data_loaders(dataset_path, batch_size, debug=False):
 
     dataloaders = {}
     if not debug:
-        docs = read_pickle(f'{dataset_path}/collection.tsv.p')
+        docs = read_pickle(f'{dataset_path}/collection.tsv{'' if not debug else '.debug'}.p')
     else:
         docs = None
     dataloaders['train'] = DataLoader(MSMarco(dataset_path, 'train', docs, debug=debug),
