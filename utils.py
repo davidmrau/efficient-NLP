@@ -148,9 +148,8 @@ def create_seek_dictionary_per_index(filename):
 
     return index_to_seek
 
-def get_index_line_from_file(filename, index_seek_dict, index):
+def get_index_line_from_file(file, index_seek_dict, index):
     """ Given a seek value and a file, read the line that follows that seek value
     """
-    with open(filename) as file:
-        file.seek( index_seek_dict[index] )
-        return file.readline()
+    file.seek( index_seek_dict[index] )
+    return file.readline()
