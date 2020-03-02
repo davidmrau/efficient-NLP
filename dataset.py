@@ -45,8 +45,10 @@ class MSMarco(data.Dataset):
 
         if self.split == 'train':
             if not self.debug:
-                self.triplets_file.seek(self.triplets_offset_list[index])
-                q_id, d1_id, d2_id = self.triplets_file.readline().strip().split('\t')
+
+                q_id, d1_id, d2_id = get_index_line_from_file(self.triplets_file, self.triplets_offset_list, index).strip().split('\t')
+                # self.triplets_file.seek(self.triplets_offset_list[index])
+                # q_id, d1_id, d2_id = self.triplets_file.readline().strip().split('\t')
             else:
                 q_id, d1_id, d2_id = self.triplets[index]
         elif self.split == 'dev':
