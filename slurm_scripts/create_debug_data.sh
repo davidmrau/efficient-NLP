@@ -3,4 +3,4 @@
 #SBATCH --nodes=1 --ntasks-per-node=1
 #SBATCH --time=01:00:00
 cd ..
-python3 create_bebug_data.py
+python3 create_debug_data.py
