@@ -5,11 +5,8 @@ from utils import collate_fn_padd, read_pickle
 def get_data_loaders(dataset_path, batch_size, debug=False):
 
     dataloaders = {}
-    if not debug:
-        debug_str = '' if not debug else '.debug'
-        docs = read_pickle(f'{dataset_path}/collection.tsv{debug_str}.p')
-    else:
-        docs = None
+    debug_str = '' if not debug else '.debug'
+    docs = read_pickle(f'{dataset_path}/collection.tsv{debug_str}.p')
     dataloaders['train'] = DataLoader(MSMarco(dataset_path, 'train', docs, debug=debug),
     batch_size=batch_size, collate_fn=collate_fn_padd)
     dataloaders['val'] =  DataLoader(MSMarco(dataset_path, 'dev', docs, debug=debug),
