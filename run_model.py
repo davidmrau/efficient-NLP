@@ -29,9 +29,12 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         split_size = logits.size(0)//3
         # accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
         q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+
         # performing inner products
-        dot_q_d1 = q_repr @ d1_repr.T
-        dot_q_d2 = q_repr @ d2_repr.T
+        batch_size = q_repr.size(0)
+        dot_q_d1 = torch.bmm(q_repr.view( batch_size, 1, -1 ), d1_repr.view( batch_size, -1, 1 )).squeeze()
+        dot_q_d2 = torch.bmm(q_repr.view( batch_size, 1, -1 ), d2_repr.view( batch_size, -1, 1 )).squeeze()
+
         # calculating loss
         loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
         # calculating L1 loss
