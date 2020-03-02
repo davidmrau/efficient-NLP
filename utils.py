@@ -7,6 +7,7 @@ import json
 import pickle
 import csv
 import subprocess
+import transformers
 
 
 def file_len(fname):
@@ -49,6 +50,10 @@ def collate_fn_padd(batch):
     return batch_data, batch_targets, batch_lengths
 
 
+
+def get_pretrained_BERT_embeddings():
+    bert = transformers.BertModel.from_pretrained('bert-base-uncased')
+    return bert.embeddings.word_embeddings.weight
 
 
 

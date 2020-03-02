@@ -34,7 +34,7 @@ def exp(cfg):
     if cfg.embedding == 'glove':
         embedding_path = cfg.glove_embedding_path
     elif cfg.embedding == 'bert':
-        embedding_path = cfg.bert_embedding_path
+        embedding_path = 'bert'
 
     # load BERT's BertTokenizer
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')

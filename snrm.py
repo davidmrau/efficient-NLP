@@ -3,7 +3,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from utils import load_glove_embeddings
+from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 import gensim
 
 class SNRM(nn.Module):
@@ -15,12 +15,19 @@ class SNRM(nn.Module):
         self.n = n
         self.hidden_sizes = hidden_sizes
         if not debug:
-            embedding_weights = load_glove_embeddings(embedding_path, word2idx, device, embedding_dim)
+            # load the appropriate embeddings
+            if embedding_path == 'bert':
+                embedding_weights = get_pretrained_BERT_embeddings()
+                self.embedding_dim = 784
+            else:
+                embedding_weights = load_glove_embeddings(embedding_path, word2idx, device)
+                self.embedding_dim = 300
+                # set embeddings for model
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
         else:
-            self.embedding = nn.Embedding(30000, embedding_dim)
+            self.embedding = nn.Embedding(30000, self.embedding_dim)
         self.sparse_dimensions = sparse_dimensions
-        self.conv = nn.Conv1d(embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
+        self.conv = nn.Conv1d(self.embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
         # create module list
         self.linears = nn.ModuleList()
         self.relu = nn.ReLU()
