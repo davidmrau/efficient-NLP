@@ -73,7 +73,7 @@ def exp(cfg):
     optim = Adam(model.parameters(), lr=cfg.lr)
     print('Start training...')
     # train the model
-    model = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, l1_scalar=cfg.l1_scalar)
+    model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, l1_scalar=cfg.l1_scalar)
 
 if __name__ == "__main__":
     exp()

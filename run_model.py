@@ -73,7 +73,30 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
 
     return av_loss, steps
 
-def run(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = None, patience = 5):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = None, patience = 5):
+    """Takes care of the complete training procedure (over epochs, while evaluating)
+
+    Parameters
+    ----------
+    model : Pytorch model (Randomly initialized)
+    dataloaders : dataloaders
+    optim : Pytorch optimizer
+    loss_fn : Task loss (MarginRankingLoss)
+    epochs : int
+        Max training epochs
+    writer : Tensorboard writter
+    device : (CPU or CUDA, defined in main.py)
+    l1_scalar : float
+        L1 loss multiplier, affecting the total loss
+    patience : int
+        Training patience
+
+    Returns
+    -------
+    type
+        Best model found throughout the training
+
+    """
 
     best_eval_loss = 1e20
     temp_patience = 0
