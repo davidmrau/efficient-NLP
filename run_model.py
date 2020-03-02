@@ -6,7 +6,7 @@ import os
 def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, device, optim=None):
 
     mode = 'Training' if optim != None else 'Dev'
-    av_loss, av_aux_loss, av_l0_q, av_l0_docs, av_task_loss = 0, 0, 0, 0, 0
+    av_loss, av_aux_loss, av_l0_q, av_l0_docs, av_task_loss, av_acc = 0, 0, 0, 0, 0, 0
 
     num_batches = len(dataloader)
     steps_epoch = 0
@@ -25,6 +25,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
         aux_loss = l1_loss(q_repr, d1_repr, d2_repr) * l1_scalar
         l0_q, l0_docs = l0_loss(d1_repr, d2_repr, q_repr)
 
+        acc = ((dot_q_d1.cpu() > dot_q_d2.cpu()).float() == targets).float().mean()
+
         total_loss = loss +  aux_loss
         if optim is not None:
             optim.zero_grad()
@@ -32,7 +34,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
             optim.step()
 
         #if True:
-        freq = num_batches // 1000 if num_batches > 1000 else 10000
+        freq = num_batches // 1000 if num_batches > 1000 else 1
         if steps_epoch % freq == 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(steps_epoch, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
@@ -41,6 +43,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
             writer.add_scalar(f'{mode}_total_loss', total_loss.item(), steps)
             writer.add_scalar(f'{mode}_L0_query', l0_q, steps)
             writer.add_scalar(f'{mode}_L0_docs', l0_docs, steps)
+            writer.add_scalar(f'{mode}_acc', acc.item(), steps)
 
         # sum losses
         av_loss += total_loss.item()
@@ -48,6 +51,11 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
         av_l0_q += l0_q
         av_l0_docs += l0_docs
         av_task_loss += loss.item()
+
+        # calculate av_acc
+        av_acc += acc
+
+
         if steps_epoch >= 100000:
             break
 
@@ -58,9 +66,10 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, steps, devic
     av_l0_q /= num_batches
     av_l0_docs /= num_batches
     av_task_loss /= num_batches
+    av_acc /= num_batches
 
 
-    print("{} - Epoch [{}]: Total loss: {:.4f}, Task loss: {:.4f}, Aux loss: {:.4f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_aux_loss, av_l0_q, av_l0_docs,))
+    print("{} - Epoch [{}]: Total loss: {:.6f}, Task loss: {:.6f}, Aux loss: {:.6f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}, acc: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_aux_loss, av_l0_q, av_l0_docs, av_acc))
 
     return av_loss, steps
 
