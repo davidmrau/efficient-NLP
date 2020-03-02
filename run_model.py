@@ -23,7 +23,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
     for data, targets, lengths in dataloader:
         total_training_steps += 1
         training_steps += 1
-
+        targets = targets.to(device)
         # forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
         logits = model(data.to(device), lengths.to(device))
         split_size = logits.size(0)//3
@@ -36,12 +36,11 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 
         # calculating loss
         loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
-        # calculating L1 loss
         aux_loss = l1_loss(q_repr, d1_repr, d2_repr) * l1_scalar
         # calculating L0 loss
         l0_q, l0_docs = l0_loss(d1_repr, d2_repr, q_repr)
         # calculating classification accuracy (whether the correct document was classified as more relevant)
-        acc = ((dot_q_d1.cpu() > dot_q_d2.cpu()).float() == targets).float().mean()
+        acc = ((dot_q_d1 > dot_q_d2).float() == targets).float().mean()
         # aggregating losses and running backward pass and update step
         total_loss = loss +  aux_loss
         if optim != None:
@@ -50,7 +49,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
             optim.step()
 
         # update tensorboard every 1000 training steps
-        freq = num_batches // 1000 if num_batches > 1000 else 100
+        freq = num_batches // 1000 if num_batches > 1000 else 10
         if training_steps % freq == 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(training_steps, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
@@ -72,17 +71,17 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         av_acc += acc
 
 
-        if optim == None:
-            if training_steps > 100:
-                break
+        #if optim == None:
+        if training_steps > 15:
+            break
 
     # average losses and counters
-    av_loss /= num_batches
-    av_aux_loss /= num_batches
-    av_l0_q /= num_batches
-    av_l0_docs /= num_batches
-    av_task_loss /= num_batches
-    av_acc /= num_batches
+    av_loss /= training_steps
+    av_aux_loss /= training_steps
+    av_l0_q /= training_steps
+    av_l0_docs /= training_steps
+    av_task_loss /= training_steps
+    av_acc /= training_steps
 
 
     print("{} - Epoch [{}]: Total loss: {:.6f}, Task loss: {:.6f}, Aux loss: {:.6f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}, acc: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_aux_loss, av_l0_q, av_l0_docs, av_acc))

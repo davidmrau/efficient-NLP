@@ -129,22 +129,22 @@ def create_seek_dictionary_per_index(filename):
         returns:
         dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
     """
-    index_to_seek = {}
+    index_to_seek = list()
     sample_counter = 0
 
     with open(filename) as file:
         seek_value = file.tell()
-        index_to_seek[sample_counter] = seek_value
+        index_to_seek.append(seek_value)
         line = file.readline()
         while(line != ""):
             sample_counter += 1
             seek_value = file.tell()
-            index_to_seek[sample_counter] = seek_value
+            index_to_seek.append(seek_value)
             line = file.readline()
             if sample_counter % 100000 == 0:
                 print(sample_counter)
 
-    del index_to_seek[ len(index_to_seek) -1 ]
+    del index_to_seek[ -1 ]
 
     return index_to_seek
 
