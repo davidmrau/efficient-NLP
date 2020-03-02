@@ -2,3 +2,5 @@ Inverted_Indices/*
 __pycache__/*
 *.pyc
 experiments/*
+data/*
+*.DS_store
