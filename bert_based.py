@@ -9,21 +9,22 @@ import transformers
 class BERT_based(torch.nn.Module):
     def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, pretrained_embeddings = False, pooling_method = "CLS", device='cpu'):
         super(BERT_based, self).__init__()
-
+        # traditionally the intermediate_size is set to be 4 times the size of the hidden size
         intermediate_size = hidden_size*4
-
+        # we save the pooling methid, will need it in forward
         self.pooling_method = pooling_method
-
+        # set up the Bert-like config
         config = transformers.BertConfig(vocab_size = vocab_size, hidden_size = hidden_size, num_hidden_layers = num_of_layers,
                                         num_attention_heads = num_attention_heads, intermediate_size = intermediate_size, max_position_embeddings = input_length_limit)
-
+        # Initialize the Bert-like encoder
         self.encoder = transformers.BertModel(config)
         self.relu = torch.nn.ReLU()
         self.device = device
 
         if pretrained_embeddings:
             self.encoder.embeddings.word_embeddings.weight = self.get_pretrained_BERT_embeddings()
-
+            
+        # the last linear of the model that projects the dense space to sparse space
         self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
     def get_pretrained_BERT_embeddings(self):
@@ -37,7 +38,7 @@ class BERT_based(torch.nn.Module):
             attention_masks[i, : lengths[i].int()] = 1
 
         last_hidden_state, pooler_output = self.encoder(input_ids = input, attention_mask=attention_masks)
-        
+
         # aggregate output of model, to a single representation
         if self.pooling_method == "CLS":
             encoder_output = pooler_output
