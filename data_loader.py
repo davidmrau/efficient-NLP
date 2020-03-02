@@ -6,7 +6,7 @@ def get_data_loaders(dataset_path, batch_size, debug=False):
 
     dataloaders = {}
     if not debug:
-	debug_str = '' if not debug else '.debug'
+    debug_str = '' if not debug else '.debug'
         docs = read_pickle(f'{dataset_path}/collection.tsv{debug_str}.p')
     else:
         docs = None
