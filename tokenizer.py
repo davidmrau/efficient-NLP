@@ -19,8 +19,6 @@ parser.add_argument('--max_len', type=int)
 args = parser.parse_args()
 
 
-
-
 with open(args.folder + args.fname, 'r') as f:
     #ids = list()
     count = 0
