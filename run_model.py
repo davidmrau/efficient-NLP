@@ -50,7 +50,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
             optim.step()
 
         # update tensorboard every 1000 training steps
-        freq = num_batches // 1000 if num_batches > 1000 else 10
+        freq = num_batches // 1000 if num_batches > 1000 else 100
         if training_steps % freq == 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(training_steps, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard

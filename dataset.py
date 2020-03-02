@@ -5,6 +5,7 @@ from utils import *
 from torchtext.data.utils import get_tokenizer
 from os import path
 from fake_data import *
+from random import randint
 
 
 class MSMarco(data.Dataset):
@@ -27,6 +28,8 @@ class MSMarco(data.Dataset):
         self.queries = read_pickle(f'{dataset_path}/queries.{split}.tsv.p')
         self.doc_ids = list(docs.keys())
 
+        self.max_doc_id = len(self.doc_ids) - 1
+
     def __len__(self):
         if self.split == 'train' and not self.debug:
             return len(self.triplets_offset_dict.keys())
@@ -48,10 +51,13 @@ class MSMarco(data.Dataset):
 
             q_id, d1_id = self.qrels[index]
 
-            d2_id = np.random.choice(self.doc_ids)
+            d2_id = randint(0, self.max_doc_id)
+
             # making sure that the sampled d1_id is diferent from relevant d2_id
             while d1_id == d2_id:
-                d2_id = np.random.choice(self.doc_ids)
+                d2_id = randint(0, self.max_doc_id)
+
+            d2_id = d1_id
         else:
             raise ValueError(f'Unknown split: {split}')
 
