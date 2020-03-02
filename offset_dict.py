@@ -11,7 +11,7 @@ from utils import create_seek_dictionary_per_index
 import pickle as p
 
 in_fname = sys.argv[1]
-out_fname = in_fname + '.offset_dict.p'
+out_fname = in_fname + '.offset_list.p'
 
 offset_dict = create_seek_dictionary_per_index(in_fname)
 

@@ -72,7 +72,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 
 
         #if optim == None:
-        if training_steps > 15:
+        if training_steps > 100:
             break
 
     # average losses and counters

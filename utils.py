@@ -109,7 +109,7 @@ def read_qrels(path, delimiter='\t'):
         lines = file.readlines()
         for line in lines:
             line_split = line.strip().split(delimiter)
-            data.append([line_split[0], line_split[2]])
+            data.append([int(line_split[0]), int(line_split[2])])
     return data
 
 def read_pickle(path):
@@ -153,3 +153,10 @@ def get_index_line_from_file(file, index_seek_dict, index):
     """
     file.seek( index_seek_dict[index] )
     return file.readline()
+
+
+def get_ids_from_tsv(line):
+    delim_pos = line.find(' ')
+    id_ = int(line[:delim_pos])
+    ids = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
+    return id_, ids

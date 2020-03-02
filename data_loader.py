@@ -7,7 +7,7 @@ from utils import collate_fn_padd, read_pickle
 def get_data_loaders(dataset_path, batch_size, debug=False):
 
     dataloaders = {}
-    docs_offset_list = read_pickle(f'{dataset_path}/collection.tsv.offset_dict.p')
+    docs_offset_list = read_pickle(f'{dataset_path}/collection.tokenized.tsv.offset_list.p')
     dataloaders['train'] = DataLoader(MSMarco(dataset_path, 'train', docs_offset_list, debug=debug),
     batch_size=batch_size, collate_fn=collate_fn_padd)
     dataloaders['val'] =  DataLoader(MSMarco(dataset_path, 'dev', docs_offset_list, debug=debug),
