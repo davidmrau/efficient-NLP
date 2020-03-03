@@ -49,6 +49,8 @@ def collate_fn_padd(batch):
 	batch_data = pad_sequence(batch_data,1).long()
 	return batch_data, batch_targets, batch_lengths
 
+# def padd_sentences()
+
 
 
 def get_pretrained_BERT_embeddings():
@@ -114,7 +116,7 @@ def read_qrels(path, delimiter='\t'):
 		lines = file.readlines()
 		for line in lines:
 			line_split = line.strip().split(delimiter)
-			data.append([int(line_split[0]), int(line_split[2])])
+			data.append([line_split[0], line_split[2]])
 	return data
 
 def read_pickle(path):
