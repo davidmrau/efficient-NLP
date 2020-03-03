@@ -44,7 +44,7 @@ class MSMarco(data.Dataset):
 
 		if self.split == 'train':
 
-			q_id, d1_id, d2_id = self.triplets.get_triplet( index) 
+			q_id, d1_id, d2_id = self.triplets.get_triplet(index) 
 
 		elif self.split == 'dev':
 

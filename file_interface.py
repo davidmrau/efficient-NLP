@@ -36,8 +36,6 @@ class FileInterface:
 
 	def get(self, id):
 			# seek the file to the line that you want to read
-			print("String in dict :", str(id) in self.seek_dict)
-			print("Int in dict :", int(id) in self.seek_dict)
 			self.file.seek( self.seek_dict[id] )
 			# read and return the line
 			return self.file.readline()
