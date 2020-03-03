@@ -14,7 +14,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         Description of returned object.
     """
 
-    mode = 'Training' if optim != None else 'Dev'
+    mode = 'train' if optim != None else 'val'
     # initialize counters and sum variables
     av_loss, av_aux_loss, av_l0_q, av_l0_docs, av_task_loss, av_acc = 0, 0, 0, 0, 0, 0
 
@@ -49,10 +49,11 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
             total_loss.backward()
             optim.step()
 
-        # update tensorboard every 1000 training steps
-        freq = num_batches // 10000 if num_batches > 10000 else 10
-        #freq = 100
-        if training_steps % freq == 0:
+
+        # calculate tensorboard update dynamically
+        freq = num_batches // 10000 if num_batches > 10000 else 1000
+        # update tensorboard only for training on intermediate steps
+        if training_steps % freq == 0 and mode == 'train':
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(training_steps, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
             writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
@@ -61,6 +62,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
             writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
             writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
             writer.add_scalar(f'{mode}_acc', acc.item(), total_training_steps)
+
 
         # sum losses
         av_loss += total_loss.item()
@@ -72,14 +74,9 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         # calculate av_acc
         av_acc += acc
 
-
-        if optim == None:
-            # eval
-            if training_steps > 1000 :
-                break
-
         if training_steps > 10000 :
             break
+
     # average losses and counters
     av_loss /= training_steps
     av_aux_loss /= training_steps
@@ -91,9 +88,18 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 
     print("{} - Epoch [{}]: Total loss: {:.6f}, Task loss: {:.6f}, Aux loss: {:.6f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}, acc: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_aux_loss, av_l0_q, av_l0_docs, av_acc))
 
+    # for validation only send average to tensorboard
+    if mode == 'val':
+        writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
+        writer.add_scalar(f'{mode}_aux_loss', aux_loss.item(), total_training_steps)
+        writer.add_scalar(f'{mode}_total_loss', total_loss.item(), total_training_steps)
+        writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
+        writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
+        writer.add_scalar(f'{mode}_acc', acc.item(), total_training_steps)
+
     return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = None, patience = 5):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = None, patience = 3):
     """Takes care of the complete training procedure (over epochs, while evaluating)
 
     Parameters
@@ -140,7 +146,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
             torch.save(model, f'best_model.model' )
         else:
             temp_patience += 1
-            if temp_patience == patience:
+            if temp_patience >= patience:
                 break
 
         torch.save(model, f'model_epoch_{epoch}.model' )

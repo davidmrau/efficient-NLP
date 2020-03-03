@@ -126,6 +126,8 @@ def read_json(path):
 
 
 def str2lst(string):
+    if string.find('-') is -1:
+        return int(string)
     return [int(s) for s in string.split('-')]
 
 def create_seek_dictionary_per_index(filename):
