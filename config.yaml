@@ -4,7 +4,7 @@ vocab_size: 30522
 batch_size: 64
 lr: 0.0001
 model_path: ''
-sparse_dimensions: 10
+sparse_dimensions: 400
 tf:
   hidden_size: 256
   num_of_layers: 2
@@ -17,19 +17,17 @@ tf:
   # copy first N pretrained layers from BERT ( 0 for not using it !)
   use_N_pretrained_layers: 0
 snrm:
-  embedding_dim: 300
-  hidden_sizes: '100-300'
+  hidden_sizes: '200'
   n: 5
   dropout_p: 0.2
 debug: False
-num_epochs: 20
+num_epochs: 100
 num_of_workers_index: 7
 l1_scalar: 0.0
 disable_cuda: False
 dataset_path: 'data/msmarco/'
-embedding: 'glove'
+embedding: 'bert'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.txt'
-bert_embedding_path: 'data/embeddings/bert'
 model_discr:
 hydra:
   run:

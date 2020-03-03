@@ -40,7 +40,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         # calculating L0 loss
         l0_q, l0_docs = l0_loss(d1_repr, d2_repr, q_repr)
         # calculating classification accuracy (whether the correct document was classified as more relevant)
-        acc = ((dot_q_d1 > dot_q_d2).float() == targets).float().mean()
+        acc = (((dot_q_d1 > dot_q_d2).float() == targets).float()+ ((dot_q_d2 > dot_q_d1).float() == targets*-1).float()).mean()
+
         # aggregating losses and running backward pass and update step
         total_loss = loss +  aux_loss
         if optim != None:
@@ -49,7 +50,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
             optim.step()
 
         # update tensorboard every 1000 training steps
-        freq = num_batches // 1000 if num_batches > 1000 else 10
+        freq = num_batches // 10000 if num_batches > 10000 else 10
+        #freq = 100
         if training_steps % freq == 0:
             print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(training_steps, num_batches, loss.item(), aux_loss.item()))
             # update tensorboard
@@ -71,10 +73,13 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
         av_acc += acc
 
 
-        #if optim == None:
-        if training_steps > 100:
-            break
+        if optim == None:
+            # eval
+            if training_steps > 1000 :
+                break
 
+        if training_steps > 10000 :
+            break
     # average losses and counters
     av_loss /= training_steps
     av_aux_loss /= training_steps
@@ -128,6 +133,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
 
         # check for early stopping
         if av_eval_loss < best_eval_loss:
+            print(f'Best model at current epoch {epoch}')
             temp_patience = 0
             av_eval_loss = best_eval_loss
             # save best model so far to file

@@ -32,7 +32,7 @@ def exp(cfg):
 
     # define which embeddings to load, depending on params
     if cfg.embedding == 'glove':
-        embedding_path = cfg.glove_embedding_path
+        embedding_path = orig_cwd + cfg.glove_embedding_path
     elif cfg.embedding == 'bert':
         embedding_path = 'bert'
 
@@ -44,8 +44,8 @@ def exp(cfg):
 
     # initialize model according to params (SNRM or BERT-like Transformer Encoder)
     if cfg.model == "snrm":
-        model = SNRM(embedding_dim=cfg.snrm.embedding_dim, hidden_sizes=str2lst(cfg.snrm.hidden_sizes),
-        sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=orig_cwd + embedding_path,
+        model = SNRM(hidden_sizes=str2lst(cfg.snrm.hidden_sizes),
+        sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=embedding_path,
         word2idx=word2idx, dropout_p=cfg.snrm.dropout_p, debug=cfg.debug, device=device)
 
     elif cfg.model == "tf":
@@ -66,7 +66,7 @@ def exp(cfg):
     dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
     print('done')
     # initialize loss function
-    loss_fn = nn.MarginRankingLoss(margin = 1.0).to(device)
+    loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
 
 
     # initialize optimizer

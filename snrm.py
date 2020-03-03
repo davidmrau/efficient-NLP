@@ -8,17 +8,17 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, embedding_dim, hidden_sizes, sparse_dimensions, n, embedding_path, word2idx, dropout_p, device, debug=False):
+    def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_path, word2idx, dropout_p, device, debug=False):
         super(SNRM, self).__init__()
 
-        self.embedding_dim = embedding_dim
+        self.embedding_dim = 300
         self.n = n
         self.hidden_sizes = hidden_sizes
-        if not debug:
+        if embedding_path != '':
             # load the appropriate embeddings
             if embedding_path == 'bert':
                 embedding_weights = get_pretrained_BERT_embeddings()
-                self.embedding_dim = 784
+                self.embedding_dim = embedding_weights.size(1)
             else:
                 embedding_weights = load_glove_embeddings(embedding_path, word2idx, device)
                 self.embedding_dim = 300
@@ -41,6 +41,7 @@ class SNRM(nn.Module):
         # generate mask for averaging over non-zero elements later
         mask = (x > 0)[:, self.n - 1: ]
         out = self.embedding(x)
+
         out = out.permute(0,2,1)
         out = self.conv(out)  #batch x max_length (n - 1) x hidden
 
