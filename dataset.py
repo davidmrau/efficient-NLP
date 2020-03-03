@@ -44,7 +44,7 @@ class MSMarco(data.Dataset):
 
 		if self.split == 'train':
 
-			q_id, d1_id, d2_id = self.triplets.get_triplet(index) 
+			q_id, d1_id, d2_id = self.triplets.get_triplet(index)
 
 		elif self.split == 'dev':
 
@@ -69,12 +69,53 @@ class MSMarco(data.Dataset):
 			return [query, doc2, doc1], -1
 
 
-class MSMarcoInference(data.Dataset):
-	def __init__(self, fname):
-		self.file = open(fname, 'r')
-	def __len__(self):
-		return len(self.data)
+class MSMarcoSequential:
+	def __init__(self, fname, batch_size):
 
-	def __getitem__(self, index):
-		id_, data = self.data.get_tokenized_element(index)
-		return [data], id_
+		# open file
+		self.file = open(fname, 'r')
+		self.batch_size = batch_size
+
+		self.previous_line = self.file.readline()
+
+	def batch_generator(self):
+
+		# line = self.file.readline()
+		while self.previous_line:
+			# read a number of lines equal to batch_size
+			batch_ids = []
+			batch_data = []
+			while(self.previous_line and ( len(batch_ids) < self.batch_size) ):
+
+				# getting position of first ' ' that separates the doc_id and the begining of the token ids
+				delim_pos = self.previous_line.find(' ')
+				# extracting the id
+				id = self.previous_line[:delim_pos]
+				# extracting the token_ids and creating a numpy array
+				tokens_list = np.fromstring(self.previous_line[delim_pos+1:], dtype=int, sep=' ')
+				batch_ids.append(id)
+				batch_data.append(torch.ShortTensor(tokens_list))
+
+				self.previous_line = self.file.readline()
+
+			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
+			#padd data along axis 1
+			batch_data = pad_sequence(batch_data,1).long()
+
+			yield batch_ids, batch_data, batch_lengths
+				#
+				# # if line was last line then break!
+				# if not line:
+				# 	break
+
+
+#
+# class MSMarcoInference(data.Dataset):
+# 	def __init__(self, fname):
+# 		self.file = open(fname, 'r')
+# 	def __len__(self):
+# 		return len(self.data)
+#
+# 	def __getitem__(self, index):
+# 		id_, data = self.data.get_tokenized_element(index)
+# 		return [data], id_
