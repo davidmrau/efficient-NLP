@@ -77,7 +77,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 		# calculate av_acc
 		av_acc += acc
 
-		if training_steps > 10:
+		if training_steps > 10000:
 			break
 
 	# average losses and counters
