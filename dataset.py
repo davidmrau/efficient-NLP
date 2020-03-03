@@ -12,7 +12,7 @@ from file_interface import FileInterface
 
 class MSMarco(data.Dataset):
 
-	def __init__(self, dataset_path, split, docs_offset_list, debug=False):
+	def __init__(self, dataset_path, split,  debug=False):
 
 		self.split = split
 		self.debug = debug
@@ -21,15 +21,13 @@ class MSMarco(data.Dataset):
 			debug_str = '' if not debug else '.debug'
 			triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{debug_str}.tsv'
 			# "open" triplets file
-			if not debug:
-				self.triplets = FileInterface(triplets_fname, map_index=False)
-			else:
-				self.triplets = read_triplets(triplets_fname)
+			self.triplets = FileInterface(triplets_fname, map_index=False)
+
 
 		# "open" documents file
 		self.documents = FileInterface(f'{dataset_path}/collection.tokenized.tsv')
 		# "open" queries file
-		self.queries = FileInterface(f'{dataset_path}/queries.{split}.tsv.p')
+		self.queries = FileInterface(f'{dataset_path}/queries.{split}.tokenized.tsv')
 		# read qrels
 		self.qrels = read_qrels(f'{dataset_path}/qrels.{split}.tsv')
 
@@ -37,6 +35,7 @@ class MSMarco(data.Dataset):
 
 	def __len__(self):
 		if self.split == 'train':
+			print(len(self.triplets))
 			return len(self.triplets)
 		elif self.split == 'dev':
 			return len(self.qrels)
@@ -45,10 +44,8 @@ class MSMarco(data.Dataset):
 	def __getitem__(self, index):
 
 		if self.split == 'train':
-			if not self.debug:
-				q_id, d1_id, d2_id = self.triplets.get_triplet(index)
-			else:
-				q_id, d1_id, d2_id = self.triplets[index]
+
+			q_id, d1_id, d2_id = self.triplets.get_triplet(index)
 
 		elif self.split == 'dev':
 
@@ -63,9 +60,9 @@ class MSMarco(data.Dataset):
 		else:
 			raise ValueError(f'Unknown split: {split}')
 
-		_, query = self.queries.get_tokenized_element(q_id)
-		_, doc1 = self.documents.get_tokenized_element(d1_id)
-		_, doc2 = self.documents.get_tokenized_element(d2_id)
+		_, query = self.queries.get_tokenized_element(int(q_id))
+		_, doc1 = self.documents.get_tokenized_element(int(d1_id))
+		_, doc2 = self.documents.get_tokenized_element(int(d2_id))
 
 		if np.random.random() > 0.5:
 			return [query, doc1, doc2], 1
@@ -74,9 +71,9 @@ class MSMarco(data.Dataset):
 
 
 class MSMarcoInference(data.Dataset):
-	def __init__(self, data):
+	def __init__(self, data, debug=False):
 		self.data = data
-
+		self.debug =debug
 	def __len__(self):
 		return len(self.data)
 

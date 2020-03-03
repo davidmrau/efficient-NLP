@@ -24,7 +24,6 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 		total_training_steps += 1
 		training_steps += 1
 		targets = targets.to(device)
-		print(data)
 		# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
 		logits = model(data.to(device), lengths.to(device))
 		split_size = logits.size(0)//3
@@ -52,7 +51,10 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 
 
 		# calculate tensorboard update dynamically
-		freq = num_batches // 10000 if num_batches > 10000 else num_batches // 100
+		print_n_times = 10000 
+
+		freq = num_batches // print_n_times if num_batches > print_n_times else 1
+
 		# update tensorboard only for training on intermediate steps
 		if training_steps % freq == 0 and mode == 'train':
 			print("  {}/{} task loss: {:.4f}, aux loss: {:.4f}".format(training_steps, num_batches, loss.item(), aux_loss.item()))
@@ -139,7 +141,6 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
 			av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, total_training_steps, device)
 
 
-		print("! ! :", av_eval_loss, "< ", best_eval_loss, " |", temp_patience)
 		# check for early stopping
 		if av_eval_loss < best_eval_loss:
 			print(f'Best model at current epoch {epoch}')
@@ -150,8 +151,9 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
 		else:
 			temp_patience += 1
 
-		if temp_patience >= patience:
-			break
+			if temp_patience >= patience:
+				print("Early Stopping!")
+				break
 
 		torch.save(model, f'model_epoch_{epoch}.model' )
 	# load best model
