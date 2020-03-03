@@ -130,7 +130,7 @@ def str2lst(string):
 	return [int(s) for s in string.split('-')]
 
 
-def create_seek_dictionary_per_index(filename, delimiter=' '):
+def create_seek_dictionary_per_index(filename, delimiter=' ', line_counter_is_id = True):
     """ Creating a dictionary, for accessing directly a documents content, given document's id
             from a large file containing all documents
             returns:
@@ -141,20 +141,20 @@ def create_seek_dictionary_per_index(filename, delimiter=' '):
 
     with open(filename) as file:
 
-
+		seek_value = file.tell()
         line = file.readline()
         while line:
             split_line = line.strip().split(delimiter)
             # triplets so use counter as id
-            if len(split_line) > 3:
+			if line_index_is_id:
+				id_ = sample_counter
+			else:
                 id_ = split_line[0]
-            else:
-                id_ = sample_counter
             sample_counter += 1
-            seek_value = file.tell()
             index_to_seek[id_] = seek_value
             if sample_counter % 100000 == 0:
                 print(sample_counter)
+			seek_value = file.tell()
             line = file.readline()
 
     return index_to_seek
