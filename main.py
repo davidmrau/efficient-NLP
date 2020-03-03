@@ -44,7 +44,7 @@ def exp(cfg):
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 	if cfg.model == "snrm":
-		model = SNRM(hidden_sizes=str2lst(cfg.snrm.hidden_sizes),
+		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
 		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=embedding_path,
 		word2idx=word2idx, dropout_p=cfg.snrm.dropout_p, debug=cfg.debug, device=device)
 

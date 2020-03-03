@@ -130,30 +130,34 @@ def str2lst(string):
 	return [int(s) for s in string.split('-')]
 
 
-def create_seek_dictionary_per_index(filename):
-	""" Creating a dictionary, for accessing directly a documents content, given document's id
-		from a large file containing all documents
-		returns:
-		dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
-	"""
-	index_to_seek = list()
-	sample_counter = 0
+def create_seek_dictionary_per_index(filename, delimiter=' '):
+    """ Creating a dictionary, for accessing directly a documents content, given document's id
+            from a large file containing all documents
+            returns:
+            dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
+    """
+    index_to_seek = {}
+    sample_counter = 0
 
-	with open(filename) as file:
-		seek_value = file.tell()
-		index_to_seek.append(seek_value)
-		line = file.readline()
-		while(line != ""):
-			sample_counter += 1
-			seek_value = file.tell()
-			index_to_seek.append(seek_value)
-			line = file.readline()
-			if sample_counter % 100000 == 0:
-				print(sample_counter)
+    with open(filename) as file:
 
-	del index_to_seek[ -1 ]
 
-	return index_to_seek
+        line = file.readline()
+        while line:
+            split_line = line.strip().split(delimiter)
+            # triplets so use counter as id
+            if len(split_line) > 3:
+                id_ = split_line[0]
+            else:
+                id_ = sample_counter
+            sample_counter += 1
+            seek_value = file.tell()
+            index_to_seek[id_] = seek_value
+            if sample_counter % 100000 == 0:
+                print(sample_counter)
+            line = file.readline()
+
+    return index_to_seek
 
 def get_index_line_from_file(file, index_seek_dict, index):
 	""" Given a seek value and a file, read the line that follows that seek value
