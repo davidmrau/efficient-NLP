@@ -16,7 +16,7 @@ class FileInterface:
 	def __init__(self, filename):
 			# check if filename exists
 			try:
-					# we keep the file always open
+				# we keep the file always open
 				self.file = open(filename, 'r')
 			except:
 				raise IOError(f'File: {filename} not accessible!')
@@ -27,7 +27,7 @@ class FileInterface:
 				self.seek_dict = read_pickle(filename + '.offset_list.p')
 			except:
 				raise IOError(f'File: {filename}.offset_list.p not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
-			# create a mapping from index to id using a list
+
 
 
 	def __len__(self):
