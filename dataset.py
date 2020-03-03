@@ -15,13 +15,12 @@ class MSMarco(data.Dataset):
 	def __init__(self, dataset_path, split,  debug=False):
 
 		self.split = split
-		self.debug = debug
 
 		if split == 'train':
 			debug_str = '' if not debug else '.debug'
 			triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{debug_str}.tsv'
 			# "open" triplets file
-			self.triplets = FileInterface(triplets_fname, map_index=False)
+			self.triplets = FileInterface(triplets_fname)
 
 
 		# "open" documents file
@@ -35,8 +34,8 @@ class MSMarco(data.Dataset):
 
 	def __len__(self):
 		if self.split == 'train':
-			print(len(self.triplets))
 			return len(self.triplets)
+
 		elif self.split == 'dev':
 			return len(self.qrels)
 
@@ -45,7 +44,7 @@ class MSMarco(data.Dataset):
 
 		if self.split == 'train':
 
-			q_id, d1_id, d2_id = self.triplets.get_triplet(index)
+			q_id, d1_id, d2_id = self.triplets.get_triplet(index) 
 
 		elif self.split == 'dev':
 
@@ -60,9 +59,9 @@ class MSMarco(data.Dataset):
 		else:
 			raise ValueError(f'Unknown split: {split}')
 
-		_, query = self.queries.get_tokenized_element(int(q_id))
-		_, doc1 = self.documents.get_tokenized_element(int(d1_id))
-		_, doc2 = self.documents.get_tokenized_element(int(d2_id))
+		query = self.queries.get_tokenized_element(q_id)
+		doc1 = self.documents.get_tokenized_element(d1_id)
+		doc2 = self.documents.get_tokenized_element(d2_id)
 
 		if np.random.random() > 0.5:
 			return [query, doc1, doc2], 1
@@ -71,9 +70,8 @@ class MSMarco(data.Dataset):
 
 
 class MSMarcoInference(data.Dataset):
-	def __init__(self, data, debug=False):
-		self.data = data
-		self.debug =debug
+	def __init__(self, fname):
+		self.file = open(fname, 'r')
 	def __len__(self):
 		return len(self.data)
 

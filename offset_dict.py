@@ -14,6 +14,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--delimiter', type=str, default=' ')
 parser.add_argument('--fname', type=str)
+parser.add_argument('--line_index_is_id', action='store_true')
 args = parser.parse_args()
 
 
@@ -21,6 +22,7 @@ in_fname = args.fname
 delimiter = args.delimiter
 out_fname = in_fname + '.offset_list.p'
 
-offset_dict = create_seek_dictionary_per_index(in_fname, delimiter)
+
+offset_dict = create_seek_dictionary_per_index(in_fname, delimiter, line_counter_is_id)
 
 p.dump(offset_dict, open(out_fname, 'wb'))

@@ -49,6 +49,8 @@ def collate_fn_padd(batch):
 	batch_data = pad_sequence(batch_data,1).long()
 	return batch_data, batch_targets, batch_lengths
 
+# def padd_sentences()
+
 
 
 def get_pretrained_BERT_embeddings():
@@ -114,7 +116,7 @@ def read_qrels(path, delimiter='\t'):
 		lines = file.readlines()
 		for line in lines:
 			line_split = line.strip().split(delimiter)
-			data.append([int(line_split[0]), int(line_split[2])])
+			data.append([line_split[0], line_split[2]])
 	return data
 
 def read_pickle(path):
@@ -130,34 +132,34 @@ def str2lst(string):
 	return [int(s) for s in string.split('-')]
 
 
-def create_seek_dictionary_per_index(filename, delimiter=' '):
-    """ Creating a dictionary, for accessing directly a documents content, given document's id
-            from a large file containing all documents
-            returns:
-            dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
-    """
-    index_to_seek = {}
-    sample_counter = 0
+def create_seek_dictionary_per_index(filename, delimiter=' ', line_counter_is_id = True):
+	""" Creating a dictionary, for accessing directly a documents content, given document's id
+			from a large file containing all documents
+			returns:
+			dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
+	"""
+	index_to_seek = {}
+	sample_counter = 0
 
-    with open(filename) as file:
+	with open(filename) as file:
 
+		seek_value = file.tell()
+		line = file.readline()
+		while line:
+			split_line = line.strip().split(delimiter)
+			# triplets so use counter as id
+			if line_index_is_id:
+				id_ = sample_counter
+			else:
+				id_ = split_line[0]
+			sample_counter += 1
+			index_to_seek[id_] = seek_value
+			if sample_counter % 100000 == 0:
+				print(sample_counter)
+			seek_value = file.tell()
+			line = file.readline()
 
-        line = file.readline()
-        while line:
-            split_line = line.strip().split(delimiter)
-            # triplets so use counter as id
-            if len(split_line) > 3:
-                id_ = split_line[0]
-            else:
-                id_ = sample_counter
-            sample_counter += 1
-            seek_value = file.tell()
-            index_to_seek[id_] = seek_value
-            if sample_counter % 100000 == 0:
-                print(sample_counter)
-            line = file.readline()
-
-    return index_to_seek
+	return index_to_seek
 
 def get_index_line_from_file(file, index_seek_dict, index):
 	""" Given a seek value and a file, read the line that follows that seek value
