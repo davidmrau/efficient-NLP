@@ -8,6 +8,9 @@ import pickle
 import csv
 import subprocess
 import transformers
+from dataset import MSMarco
+from torch.utils.data import DataLoader
+from os import path
 
 
 def file_len(fname):
@@ -173,3 +176,13 @@ def get_ids_from_tsv(line):
 	id_ = int(line[:delim_pos])
 	ids = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 	return id_, ids
+
+def get_data_loaders(dataset_path, batch_size, debug=False):
+
+	dataloaders = {}
+	dataloaders['train'] = DataLoader(MSMarco(dataset_path, 'train', debug=debug),
+	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True)
+	dataloaders['val'] =  DataLoader(MSMarco(dataset_path, 'dev', debug=debug),
+		batch_size=batch_size, collate_fn=collate_fn_padd)
+
+	return dataloaders
