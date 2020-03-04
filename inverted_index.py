@@ -9,7 +9,7 @@ from collections import defaultdict
 
 # class for inverted index
 class InvertedIndex:
-    def __init__(self, path ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4):
+    def __init__(self, path ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4, self.round_scores=6):
 
         self.path = f'{path}/{index_folder}'
         self.num_of_workers = num_of_workers
@@ -211,8 +211,8 @@ class InvertedIndex:
                 for j in non_zero_indexes:
                     query_id = query_ids[j]
                     query_activation = activations[i][j].item()
-                    # inner product for this dimension
-                    scores_dict[query_id][doc_id] += query_activation * doc_activation
+                    # inner product for this dimension  and round score
+                    scores_dict[query_id][doc_id] += round(query_activation * doc_activation, self.round_scores)
 
                 # increase the line counter
                 line_counter += 1
