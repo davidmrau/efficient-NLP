@@ -3,7 +3,7 @@ import torch
 
 from inverted_index import InvertedIndex
 from torch.nn.utils.rnn import pad_sequence
-import sys
+from omegaconf import OmegaConf
 
 """ Load an pre-built inverted index and run online inference (for test set)
 """
