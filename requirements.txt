@@ -1,7 +1,6 @@
-hydra-core
+omegaconf
 tensorboard
 numpy
 torch
 tensorflow
 transformers
-pyserini

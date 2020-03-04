@@ -51,7 +51,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 
 
 		# calculate tensorboard update dynamically
-		print_n_times = 10000 
+		print_n_times = 10000
 
 		freq = num_batches // print_n_times if num_batches > print_n_times else 1
 
@@ -102,7 +102,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, total_traini
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar = None, patience = 3):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, l1_scalar = None, patience = 3):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -114,6 +114,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
 	epochs      : int, Max training epochs
 	writer      : Tensorboard writter
 	device      : (CPU or CUDA, defined in main.py)
+    model_folder: str, folder to save the model to
 	l1_scalar   : float
 		L1 loss multiplier, affecting the total loss
 	patience    : int
@@ -147,7 +148,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
 			temp_patience = 0
 			best_eval_loss = av_eval_loss
 			# save best model so far to file
-			torch.save(model, f'best_model.model' )
+			torch.save(model, f'{model_folder}/best_model.model' )
 		else:
 			temp_patience += 1
 
@@ -155,8 +156,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, l1_scalar 
 				print("Early Stopping!")
 				break
 
-		torch.save(model, f'model_epoch_{epoch}.model' )
+		torch.save(model, f'{model_folder}/model_epoch_{epoch}.model' )
 	# load best model
-	torch.load(f'best_model.model')
+	torch.load(f'{model_folder}/best_model.model')
 
 	return model

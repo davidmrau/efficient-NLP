@@ -9,9 +9,9 @@ from collections import defaultdict
 
 # class for inverted index
 class InvertedIndex:
-    def __init__(self, index_name = "Inverted_Index", vocab_size = 100, num_of_workers = 4):
+    def __init__(self, path ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4):
 
-        self.index_name = index_name
+        self.path = f'{path}/{index_folder}'
         self.num_of_workers = num_of_workers
         self.vocab_size = vocab_size
 
@@ -20,14 +20,14 @@ class InvertedIndex:
         """ Create an empty directory to save the index, and then initialize with one empty file for each dimension / posting list
         """
         # create index_folder, and delete existing (if there is one)
-        if os.path.isdir(self.index_name):
-            shutil.rmtree(self.index_name)
+        if os.path.isdir(self.path):
+            shutil.rmtree(self.path)
         # create output directory
-        os.makedirs(self.index_name)
+        os.makedirs(self.path)
 
         # create an empty file for each directory
         for i in range(self.vocab_size):
-            open(os.path.join(self.index_name,str(i)) , 'a').close()
+            open(os.path.join(self.path,str(i)) , 'a').close()
 
 
     def add_docs_to_index(self, doc_ids, activation_vectors):
@@ -90,7 +90,7 @@ class InvertedIndex:
                 non_zero_indexes = [non_zero_indexes]
 
             # open the file that corresponds to this dimension
-            posting_list_file = open( os.path.join(self.index_name, str(dim)) , "a")
+            posting_list_file = open( os.path.join(self.path, str(dim)) , "a")
 
             # append each necessaty doc_id and activation value
             for j in non_zero_indexes:
@@ -190,7 +190,7 @@ class InvertedIndex:
                 non_zero_indexes = [non_zero_indexes]
 
             # open the file that corresponds to this dimension
-            posting_list_file = open( os.path.join(self.index_name, str(dim)) , "r")
+            posting_list_file = open( os.path.join(self.path, str(dim)) , "r")
 
             line_counter = 0
             while(True):
@@ -225,7 +225,7 @@ class InvertedIndex:
         """ Using Unix built-in "sort" function to sort all posting lists, with respect to the activation values
         """
         for i in range(self.vocab_size):
-            filename =  os.path.join(self.index_name, str(i))
+            filename =  os.path.join(self.path, str(i))
             os.system(f'sort -r -k 2 -o {filename} {filename}')
 
 

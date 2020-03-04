@@ -9,6 +9,11 @@ import transformers
 class BERT_based(torch.nn.Module):
     def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, pretrained_embeddings = False, pooling_method = "CLS", device='cpu'):
         super(BERT_based, self).__init__()
+
+        # if we use pretrained BERT embeddings, we have to use the same hidden size
+        if pretrained_embeddings:
+            hidden_size = 768
+
         # traditionally the intermediate_size is set to be 4 times the size of the hidden size
         intermediate_size = hidden_size*4
         # we save the pooling methid, will need it in forward
@@ -23,7 +28,7 @@ class BERT_based(torch.nn.Module):
 
         if pretrained_embeddings:
             self.encoder.embeddings.word_embeddings.weight = self.get_pretrained_BERT_embeddings()
-            
+
         # the last linear of the model that projects the dense space to sparse space
         self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 

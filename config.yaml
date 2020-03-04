@@ -11,7 +11,7 @@ tf:
   num_attention_heads: 4
   input_length_limit: 150
   # copy the embeddings from pretrained BERT (also affects hidden dim of model (784))
-  pretrained_embeddings: False
+  pretrained_embeddings: True
   # the method that the hidden states over all sequence steps are being aggregated {CLS, AVG, MAX}
   pooling_method: 'CLS'
   # copy first N pretrained layers from BERT ( 0 for not using it !)
@@ -28,7 +28,6 @@ disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'bert'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.txt'
-model_discr:
 hydra:
   run:
     dir: experiments/model_${model}_l1_scalar_${l1_scalar}_lr_${lr}_drop_${snrm.dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}
