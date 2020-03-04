@@ -24,9 +24,9 @@ class FileInterface:
 			# check if dictionary pickle exists
 			try:
 					# given an id of an element, this dictionary returns the seek value of the file to the corresponding line
-				self.seek_dict = read_pickle(filename + '.offset_dir.p')
+				self.seek_dict = read_pickle(filename + '.offset_dict.p')
 			except:
-				raise IOError(f'File: {filename}.offset_dir.p not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
+				raise IOError(f'File: {filename}.offset_dict.p not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
 
 
 
