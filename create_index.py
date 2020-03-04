@@ -31,15 +31,20 @@ def exp(cfg):
 	count = 0
 	for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 		# print(batch_data)
-		if count % 100000 == 0:
+		if count % 1000 == 0:
 			print(f'{count} batches processed')
 		logits = model(batch_data.to(device), batch_lengths.to(device))
 		ii.add_docs_to_index(batch_ids, logits.cpu())
 		count += 1
 
-
+	# save the dictionary with number of latent terms per document in a file
+	# ii.save_latent_terms_per_doc_dictionary()
 	# sort the posting lists
 	ii.sort_posting_lists()
+
+	for doc_id in ii.latent_terms_per_doc:
+		print(doc_id, ii.latent_terms_per_doc[doc_id])
+	# print(dict ii.)
 
 
 

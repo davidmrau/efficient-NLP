@@ -3,17 +3,35 @@ import shutil
 import torch
 from threading import Thread
 from collections import defaultdict
+import pickle
 
 
 
 
 # class for inverted index
 class InvertedIndex:
-    def __init__(self, path ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4):
+    def __init__(self, path ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4, num_of_decimals = 5):
 
         self.path = f'{path}/{index_folder}'
         self.num_of_workers = num_of_workers
         self.vocab_size = vocab_size
+        self.num_of_decimals = num_of_decimals
+        self.latent_terms_per_doc = defaultdict(int)
+
+    def load_latent_terms_per_doc_dictionary(self):
+        # if the Inverted Index already exists, then we load the pickle with dictionaries
+        try:
+            # if the dictionary already exists, then we load it
+            self.latent_terms_per_doc = read_pickle(os.path.join(self.path, 'latent_terms_per_doc_dict.p'))
+        except:
+            raise IOError(f'The dictionary with number of latent terms per document does not exists!\nFilename: {os.path.join(self.path, 'latent_terms_per_doc_dict.p')}!')
+
+
+    # will create function that uses command line to get the length of each posting list
+    # f'wc -l {}/* | awk "{print $1} >> posting_list_lengths.txt"'
+
+    def save_latent_terms_per_doc_dictionary(self):
+        pickle.dump( dict(self.latent_terms_per_doc), open(os.path.join(self.path, 'latent_terms_per_doc_dict.p'), 'wb'))
 
 
     def initialize_index(self):
@@ -27,13 +45,17 @@ class InvertedIndex:
 
         # create an empty file for each directory
         for i in range(self.vocab_size):
-            open(os.path.join(self.path,str(i)) , 'a').close()
+            open(os.path.join(self.path, str(i)) , 'a').close()
 
 
     def add_docs_to_index(self, doc_ids, activation_vectors):
         """ Given a batch of document id's and their sparse activations from a model,
             add the documents to the appropriate posting lists (multithreaded)
         """
+
+        # update the dictionary that containes counters of latent terms per doc_id
+        for i, doc_id in enumerate(doc_ids):
+            self.latent_terms_per_doc[doc_id] += activation_vectors[i].sum().item()
 
         # number of non zero dimentions, over batch
         non_zero_dims = activation_vectors.sum(dim = 0).nonzero().squeeze().tolist()
@@ -96,7 +118,7 @@ class InvertedIndex:
             for j in non_zero_indexes:
                 doc_id = doc_ids[j]
                 act_value = activations[i][j]
-                posting_list_file.write(doc_id + "\t" + str(act_value.item()) + "\n")
+                posting_list_file.write(doc_id + "\t" + str(round(act_value.item(), self.num_of_decimals)) + "\n")
 
             posting_list_file.close()
 
