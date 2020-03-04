@@ -35,6 +35,7 @@ def exp(cfg):
 			print(f'{count} batches processed')
 		logits = model(batch_data.to(device), batch_lengths.to(device))
 		ii.add_docs_to_index(batch_ids, logits.cpu())
+		count += 1
 
 
 	# sort the posting lists
