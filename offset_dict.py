@@ -20,9 +20,9 @@ args = parser.parse_args()
 
 in_fname = args.fname
 delimiter = args.delimiter
-out_fname = in_fname + '.offset_list.p'
+out_fname = in_fname + '.offset_dir.p'
 
 
-offset_dict = create_seek_dictionary_per_index(in_fname, delimiter, line_counter_is_id)
+offset_dict = create_seek_dictionary_per_index(in_fname, delimiter, args.line_index_is_id)
 
 p.dump(offset_dict, open(out_fname, 'wb'))

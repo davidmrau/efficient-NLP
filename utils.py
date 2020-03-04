@@ -132,7 +132,7 @@ def str2lst(string):
 	return [int(s) for s in string.split('-')]
 
 
-def create_seek_dictionary_per_index(filename, delimiter=' ', line_counter_is_id = True):
+def create_seek_dictionary_per_index(filename, delimiter=' ', line_index_is_id = True):
 	""" Creating a dictionary, for accessing directly a documents content, given document's id
 			from a large file containing all documents
 			returns:

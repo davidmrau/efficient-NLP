@@ -6,10 +6,10 @@ from torch import nn
 from run_model import train
 from torch.optim import Adam
 from bert_based import BERT_based
-import hydra
-from hydra import utils
 import os
 from datetime import datetime
+from omegaconf import OmegaConf
+
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
 from utils import str2lst
@@ -17,13 +17,10 @@ import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
 
-# loading 'params' using facebook's hydra
-@hydra.main(config_path='config.yaml')
 def exp(cfg):
 	# printing params
 	print(cfg.pretty())
 
-	orig_cwd = utils.get_original_cwd() + '/'
 	# select device depending on availability and user's setting
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
@@ -32,7 +29,7 @@ def exp(cfg):
 
 	# define which embeddings to load, depending on params
 	if cfg.embedding == 'glove':
-		embedding_path = orig_cwd + cfg.glove_embedding_path
+		embedding_path = cfg.glove_embedding_path
 	elif cfg.embedding == 'bert':
 		embedding_path = 'bert'
 
@@ -59,11 +56,11 @@ def exp(cfg):
 
 	print(model)
 	# initialize tensorboard
-	writer = SummaryWriter(log_dir=f'tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
+	writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
 	print('Loading data...')
 	# initialize dataloaders
-	dataloaders = get_data_loaders(orig_cwd + cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
+	dataloaders = get_data_loaders(cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
 	print('done')
 	# initialize loss function
 	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
@@ -73,7 +70,20 @@ def exp(cfg):
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
-	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, l1_scalar=cfg.l1_scalar)
+	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, cfg.model_folder, l1_scalar=cfg.l1_scalar)
 
 if __name__ == "__main__":
-	exp()
+    # getting command line arguments
+    cl_cfg = OmegaConf.from_cli()
+    # getting model config
+    cfg_load = OmegaConf.load(f'config.yaml')
+    # merging both
+    cfg = OmegaConf.merge(cfg_load, cl_cfg)
+    model_folder = cfg.dir
+    os.makedirs(model_folder, exist_ok=True)
+
+    # save config
+    OmegaConf.save(cfg, f'{model_folder}/config.yaml')
+    # set model_folder
+    cfg.model_folder = model_folder
+    exp(cfg)
