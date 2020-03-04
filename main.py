@@ -52,7 +52,7 @@ def exp(cfg):
 		model = BERT_based(  hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 		sparse_dimensions = cfg.sparse_dimensions, vocab_size = 30522,
 		num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
-		pretrained_embeddings = False, pooling_method = "CLS", device=device)
+		pretrained_embeddings = cfg.tf.pretrained_embeddings, pooling_method = "CLS", device=device)
 
 	# move model to device
 	model = model.to(device=device)
