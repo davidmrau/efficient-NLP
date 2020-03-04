@@ -7,10 +7,11 @@ from bert_based import BERT_based
 import os
 from datetime import datetime
 from omegaconf import OmegaConf
+from dataset import get_data_loaders
 
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
-from utils import str2lst, get_data_loaders
+from utils import str2lst
 import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
