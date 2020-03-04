@@ -15,23 +15,3 @@ def get_data_loaders(dataset_path, batch_size, debug=False):
 		batch_size=batch_size, collate_fn=collate_fn_padd)
 
 	return dataloaders
-
-
-
-def get_data_loaders_online(dataset_path, batch_size, debug=False):
-
-	dataloaders = {}
-	dataloaders['val'] = DataLoader(MSMarcoInference(f'{dataset_path}/queries.eval.tsv.p'),
-	batch_size=batch_size, collate_fn=collate_fn_padd)
-	dataloaders['test'] =  DataLoader(MSMarcoInference(f'{dataset_path}/queries.dev.tsv.p'),
-		batch_size=batch_size, collate_fn=collate_fn_padd)
-	return dataloaders
-
-
-def get_data_loaders_offline(dataset_path, batch_size, debug=False):
-	dataloaders = {}
-	debug_str = '' if not debug else '.debug'
-	dataloaders['docs'] = DataLoader(MSMarcoInference(f'{dataset_path}/qidpidtriples.{split}.full{debug_str}.tsv'),
-	batch_size=batch_size, collate_fn=collate_fn_padd)
-
-	return dataloaders
