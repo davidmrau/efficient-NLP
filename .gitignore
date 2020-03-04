@@ -4,3 +4,4 @@ __pycache__/*
 experiments/*
 data/*
 *.DS_store
+temp/*
