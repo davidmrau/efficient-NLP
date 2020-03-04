@@ -103,19 +103,3 @@ class MSMarcoSequential:
 			batch_data = pad_sequence(batch_data,1).long()
 
 			yield batch_ids, batch_data, batch_lengths
-				#
-				# # if line was last line then break!
-				# if not line:
-				# 	break
-
-
-#
-# class MSMarcoInference(data.Dataset):
-# 	def __init__(self, fname):
-# 		self.file = open(fname, 'r')
-# 	def __len__(self):
-# 		return len(self.data)
-#
-# 	def __getitem__(self, index):
-# 		id_, data = self.data.get_tokenized_element(index)
-# 		return [data], id_
