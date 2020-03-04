@@ -1,4 +1,4 @@
-from dataset import MSMarco, MSMarcoInference
+from dataset import MSMarco
 from torch.utils.data import DataLoader
 from os import path
 from utils import collate_fn_padd, read_pickle
