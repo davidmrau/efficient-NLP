@@ -3,7 +3,6 @@ model: 'snrm'
 vocab_size: 30522
 batch_size: 64
 lr: 0.0001
-model_path: ''
 sparse_dimensions: 400
 tf:
   hidden_size: 256
@@ -28,6 +27,4 @@ disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'bert'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.txt'
-hydra:
-  run:
-    dir: experiments/model_${model}_l1_scalar_${l1_scalar}_lr_${lr}_drop_${snrm.dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}
+dir: experiments/model_${model}_l1_scalar_${l1_scalar}_lr_${lr}_drop_${snrm.dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}

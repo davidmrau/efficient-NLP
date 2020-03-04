@@ -28,8 +28,11 @@ def exp(cfg):
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 	print('Creating index')
+	count = 0
 	for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 		# print(batch_data)
+		if count % 100000 == 0:
+			print(f'{count} batches processed')
 		logits = model(batch_data.to(device), batch_lengths.to(device))
 		ii.add_docs_to_index(batch_ids, logits.cpu())
 
