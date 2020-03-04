@@ -7,6 +7,9 @@ from os import path
 from fake_data import *
 from random import randint
 from file_interface import FileInterface
+from torch.utils.data import DataLoader
+from os import path
+from utils import collate_fn_padd
 
 
 
@@ -103,3 +106,14 @@ class MSMarcoSequential:
 			batch_data = pad_sequence(batch_data,1).long()
 
 			yield batch_ids, batch_data, batch_lengths
+
+
+def get_data_loaders(dataset_path, batch_size, debug=False):
+
+	dataloaders = {}
+	dataloaders['train'] = DataLoader(MSMarco(dataset_path, 'train', debug=debug),
+	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True)
+	dataloaders['val'] =  DataLoader(MSMarco(dataset_path, 'dev', debug=debug),
+		batch_size=batch_size, collate_fn=collate_fn_padd)
+
+	return dataloaders

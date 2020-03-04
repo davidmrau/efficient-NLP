@@ -1,5 +1,3 @@
-
-from data_loader import get_data_loaders
 import torch
 from snrm import SNRM
 from torch import nn
@@ -12,7 +10,7 @@ from omegaconf import OmegaConf
 
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
-from utils import str2lst
+from utils import str2lst, get_data_loaders
 import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
@@ -73,17 +71,18 @@ def exp(cfg):
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, cfg.model_folder, l1_scalar=cfg.l1_scalar)
 
 if __name__ == "__main__":
-    # getting command line arguments
-    cl_cfg = OmegaConf.from_cli()
-    # getting model config
-    cfg_load = OmegaConf.load(f'config.yaml')
-    # merging both
-    cfg = OmegaConf.merge(cfg_load, cl_cfg)
-    model_folder = cfg.dir
-    os.makedirs(model_folder, exist_ok=True)
+	# getting command line arguments
+	cl_cfg = OmegaConf.from_cli()
+	# getting model config
+	cfg_load = OmegaConf.load(f'config.yaml')
+	# merging both
+	cfg = OmegaConf.merge(cfg_load, cl_cfg)
+	model_folder = cfg.dir
+	print(model_folder)
+	os.makedirs(model_folder, exist_ok=True)
 
-    # save config
-    OmegaConf.save(cfg, f'{model_folder}/config.yaml')
-    # set model_folder
-    cfg.model_folder = model_folder
-    exp(cfg)
+	# save config
+	OmegaConf.save(cfg, f'{model_folder}/config.yaml')
+	# set model_folder
+	cfg.model_folder = model_folder
+	exp(cfg)
