@@ -1,5 +1,3 @@
-# efficient-NLP
-
 
 ## Running the complete pipeline
 
