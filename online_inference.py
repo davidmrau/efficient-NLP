@@ -21,33 +21,34 @@ def online_inference(cfg):
 	else:
 		device = torch.device('cpu')
 
-
-
+	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
+	'''
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
 
-	ms_batch_generator = MSMarcoSequential(cfg.query_file, cfg.batch_size).batch_generator()
+	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.query_file, cfg.batch_size).batch_generator()
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 
 	# open results file
-	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file.split('/')[-1])
+	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
 	results_file = open(results_file_path, 'w')
-
+	count = 0
 	for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 		# print(batch_data)
 		logits = model(batch_data.to(device), batch_lengths.to(device))
 		results = ii.get_scores(batch_ids, logits.cpu(), top_results = 10, max_candidates_per_posting_list = 1000)
-
+		if count % 1 == 0:
+			print(count, ' batches processed')
 		for query_id, result_list in results:
 			for rank, (doc_id, score) in enumerate(result_list):
 				results_file.write(f'{query_id}\t{doc_id}\t{rank + 1}\n' )
 
 	results_file.close()
+	'''
+	metrics = compute_metrics_from_files(path_to_reference = cfg.dataset_path + cfg.qrels, path_to_candidate = results_file_path)
 
-    metrics = compute_metrics_from_files(path_to_reference = cfg.qrels, path_to_candidate = results_file_path)
-
-	metrics_file = open(os.path.join(cfg.model_folder + '/metrics.' + cfg.query_file.split('/')[-1]), w)
+	metrics_file = open(os.path.join(cfg.model_folder + '/metrics.' + cfg.query_file, w))
 
 	for metric in metrics:
 		metrics_file_path.write(f'{metric}:\t{metrics[metric]}\n')
