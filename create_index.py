@@ -54,8 +54,6 @@ def create_index(cfg):
 	# sort the posting lists
 	ii.sort_posting_lists()
 
-
-	ii.sort_posting_lists()
 	ii.get_and_save_dict_of_lenghts_per_posting_list()
 	length_of_posting_lists_dict = ii.read_posting_lists_lengths_dictionary()
 	latent_lengths_dict = ii.load_latent_terms_per_doc_dictionary()
