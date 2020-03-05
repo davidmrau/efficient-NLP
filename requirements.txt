@@ -4,3 +4,5 @@ numpy
 torch
 tensorflow
 transformers
+seaborn
+matplotlib

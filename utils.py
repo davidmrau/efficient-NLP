@@ -9,7 +9,6 @@ import csv
 import subprocess
 import transformers
 
-
 def file_len(fname):
 	""" Get the number of lines from file
 	""" # https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python
