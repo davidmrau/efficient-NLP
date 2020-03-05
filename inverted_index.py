@@ -10,9 +10,10 @@ import pickle
 
 # class for inverted index
 class InvertedIndex:
-    def __init__(self, path ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4, num_of_decimals = 5):
+    def __init__(self, parent_dir ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4, num_of_decimals = 5):
 
-        self.path = f'{path}/{index_folder}'
+        self.parent_dir = parent_dir
+        self.path = f'{parent_dir}/{index_folder}'
         self.num_of_workers = num_of_workers
         self.vocab_size = vocab_size
         self.num_of_decimals = num_of_decimals
@@ -30,9 +31,9 @@ class InvertedIndex:
     # will create function that uses command line to get the length of each posting list
     # f'wc -l {}/* | awk "{print $1} >> posting_list_lengths.txt"'
 
-    def save_latent_terms_per_doc_dictionary(self):
-        pickle.dump( dict(self.latent_terms_per_doc), open(os.path.join(self.path, 'latent_terms_per_doc_dict.p'), 'wb'))
 
+    def save_latent_terms_per_doc_dictionary(self):
+        pickle.dump( dict(self.latent_terms_per_doc), open(os.path.join(self.parent_dir, 'latent_terms_per_doc_dict.p'), 'wb'))
 
     def initialize_index(self):
         """ Create an empty directory to save the index, and then initialize with one empty file for each dimension / posting list
@@ -54,8 +55,9 @@ class InvertedIndex:
         """
 
         # update the dictionary that containes counters of latent terms per doc_id
+
         for i, doc_id in enumerate(doc_ids):
-            self.latent_terms_per_doc[doc_id] += activation_vectors[i].sum().item()
+            self.latent_terms_per_doc[doc_id] += activation_vectors[i].nonzero().numel()
 
         # number of non zero dimentions, over batch
         non_zero_dims = activation_vectors.sum(dim = 0).nonzero().squeeze().tolist()
