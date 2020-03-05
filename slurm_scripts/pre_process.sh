@@ -5,6 +5,8 @@
 cd ..
 
 # tokenize
+python3 tokenizer.py --folder data/msmarco/ --fname  msmarco-test2019-queries.tsv
+python3 tokenizer.py --folder data/msmarco/ --fname msmarco-passagetest2019-top1000.tsv.d_id_doc.tsv --max_len 150
 python3 tokenizer.py --folder data/msmarco/ --fname collection.tsv --max_len 150 
 python3 tokenizer.py --folder data/msmarco/ --fname queries.dev.tsv 
 python3 tokenizer.py --folder data/msmarco/ --fname queries.eval.tsv

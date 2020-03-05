@@ -17,8 +17,7 @@ def create_index(cfg):
 		   device = torch.device('cpu')
 
 	# open file
-	filename = f'{cfg.dataset_path}/collection.tokenized.tsv'
-	ms_batch_generator = MSMarcoSequential(filename, cfg.batch_size).batch_generator()
+	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.docs_file, cfg.batch_size).batch_generator()
 
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
@@ -74,8 +73,8 @@ def create_index(cfg):
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
-	if not cl_cfg.model_folder:
-		raise ValueError("usage: online_inference.py model_folder=FOLDER_TO_MODEL")
+	if not cl_cfg.model_folder or not cl_cfg.docs_file :
+		raise ValueError("usage: create_index.py model_folder=MODEL_FOLDER docs_file=PATH_TO_DOCS_FILE (in dataset_path)")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both

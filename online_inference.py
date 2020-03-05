@@ -26,9 +26,7 @@ def online_inference(cfg):
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
 
-	filename = f'{cfg.dataset_path}/queries.{cfg.split}.tokenized.tsv'
-
-	ms_batch_generator = MSMarcoSequential(filename, cfg.batch_size).batch_generator()
+	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.queries_file, cfg.batch_size).batch_generator()
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 
@@ -74,11 +72,9 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder:
-		raise ValueError("usage: online_inference.py model_folder=FOLDER_TO_MODEL")
+	if not cl_cfg.model_folder or not cl_cfg.query_file:
+		raise ValueError("usage: online_inference.py model_folder=FOLDER_TO_MODEL query_file=QUERY_FILE (within dataset_path)")
 	# getting model config
-	if not cl_cfg.split or cl_cfg.split not in ['train', 'dev', 'eval']:
-		raise ValueError("usage: specify the split :{train/dev/eval}")
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
