@@ -6,7 +6,7 @@
 ```
 # clone git repository
 git clone https://github.com/davidmrau/efficient-NLP
-# mode to slurm_scripts dir
+# move to slurm_scripts dir
 cd slurm_scripts
 # download preprocessed tokenized data
 bash startup.sh
