@@ -79,7 +79,7 @@ if __name__ == "__main__":
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 	model_folder = cfg.dir
-	
+
 	os.makedirs(model_folder, exist_ok=True)
 
 	# save config

@@ -14,7 +14,7 @@ import os
 
 
 
-def exp(cfg):
+def online_inference(cfg):
 
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
@@ -67,4 +67,4 @@ if __name__ == "__main__":
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
-	exp(cfg)
+	online_inference(cfg)
