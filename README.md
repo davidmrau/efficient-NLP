@@ -42,15 +42,15 @@ We propagate the queries of the [Test Set ](#test-set) from the file {queries_fi
 
 ### File Structure (After Succesfully Completed Pipeline)
 "experiments" directory is being created under "efficient-NLP" directory. The experiments directory has one directory for each experiment, the name of which depends on the hyper-parameters of the experiments. Inside the directory of one experiment, we save:
-..* best_model.model (trained model)
-..* config.yaml     (parameters of the execution)
-..* Inverted_Index (directory that containes one file for each posting list / latent term)
-..* latent_terms_per_doc_dict.p (pickle python dictionary, containing the number of latent terms for each document key = str(doc_id)
-..* posting_lists_lengths (pickle python dictionary, containing the number of documents for each posting list, equal to the number of lines per posting list file)
-..* num_latent_terms_per_doc.pdf (histogram displaying the number of latent terms for the documents fo the dataset)
-..* num_docs_per_latent_term.pdf (plot showing the number of documents for each posting list (Sorted)
-..* ranking_results.{queries_filename} (top 10 results per query, accompanies by their rank)
-..* metrics.{queries_filename} (final metric results compared to ground truth file, obtained from official MS Marco script)
+* best_model.model (trained model)
+* config.yaml     (parameters of the execution)
+* Inverted_Index (directory that containes one file for each posting list / latent term)
+* latent_terms_per_doc_dict.p (pickle python dictionary, containing the number of latent terms for each document key = str(doc_id)
+* posting_lists_lengths (pickle python dictionary, containing the number of documents for each posting list, equal to the number of lines per posting list file)
+* num_latent_terms_per_doc.pdf (histogram displaying the number of latent terms for the documents fo the dataset)
+* num_docs_per_latent_term.pdf (plot showing the number of documents for each posting list (Sorted)
+* ranking_results.{queries_filename} (top 10 results per query, accompanies by their rank)
+* metrics.{queries_filename} (final metric results compared to ground truth file, obtained from official MS Marco script)
 
 
 
