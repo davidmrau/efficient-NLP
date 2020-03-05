@@ -16,7 +16,7 @@ import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
 
-def exp(cfg):
+def train(cfg):
 	# printing params
 	print(cfg.pretty())
 
@@ -86,4 +86,4 @@ if __name__ == "__main__":
 	OmegaConf.save(cfg, f'{model_folder}/config.yaml')
 	# set model_folder
 	cfg.model_folder = model_folder
-	exp(cfg)
+	train(cfg)
