@@ -25,35 +25,35 @@ def create_index(cfg):
 	# initialize the index
 	print('Initializing index')
 	ii.initialize_index()
+
+	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
+	print('Creating index')
+
+	# nom_docs = 1000
 	#
-	# model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
-	# print('Creating index')
-
-	nom_docs = 1000
-
-	temp = torch.rand(nom_docs, cfg.sparse_dimensions)
-	mask = torch.randn(nom_docs, cfg.sparse_dimensions) > 0.8
-	temp = temp* mask.float()
-	doc_ids = [str(i) for i in range(nom_docs)]
-	# temp = temp* (temp > 0)
-	ii.add_docs_to_index(doc_ids, temp.cpu())
-
-	ii.save_latent_terms_per_doc_dictionary()
-
-	ii.sort_posting_lists()
-
-	ii.get_and_save_dict_of_lenghts_per_posting_list()
-
-	length_of_posting_lists_dict = ii.read_posting_lists_lengths_dictionary()
-
-	latent_lengths_dict = ii.load_latent_terms_per_doc_dictionary()
-
-	ii.plot_histogram_of_latent_terms(list(latent_lengths_dict.values()))
-
-	ii.plot_ordered_posting_lists_lengths(list(length_of_posting_lists_dict.values()), n=-1)
-
-	exit()
-
+	# temp = torch.rand(nom_docs, cfg.sparse_dimensions)
+	# mask = torch.randn(nom_docs, cfg.sparse_dimensions) > 0.8
+	# temp = temp* mask.float()
+	# doc_ids = [str(i) for i in range(nom_docs)]
+	# # temp = temp* (temp > 0)
+	# ii.add_docs_to_index(doc_ids, temp.cpu())
+	#
+	# ii.save_latent_terms_per_doc_dictionary()
+	#
+	# ii.sort_posting_lists()
+	#
+	# ii.get_and_save_dict_of_lenghts_per_posting_list()
+	#
+	# length_of_posting_lists_dict = ii.read_posting_lists_lengths_dictionary()
+	#
+	# latent_lengths_dict = ii.load_latent_terms_per_doc_dictionary()
+	#
+	# ii.plot_histogram_of_latent_terms(list(latent_lengths_dict.values()))
+	#
+	# ii.plot_ordered_posting_lists_lengths(list(length_of_posting_lists_dict.values()), n=-1)
+	#
+	# exit()
+	#
 
 	count = 0
 	for batch_ids, batch_data, batch_lengths in ms_batch_generator:
@@ -68,10 +68,6 @@ def create_index(cfg):
 	ii.save_latent_terms_per_doc_dictionary()
 	# sort the posting lists
 	ii.sort_posting_lists()
-
-	for doc_id in ii.latent_terms_per_doc:
-		print(doc_id, ii.latent_terms_per_doc[doc_id])
-	# print(dict ii.)
 
 
 
