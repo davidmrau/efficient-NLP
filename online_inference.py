@@ -9,10 +9,9 @@ from ms_marco_eval import compute_metrics_from_files
 
 """ Load an pre-built inverted index and run online inference (for test set)
 """
-# usage: online_inference.py model_folder=FOLDER_TO_MODEL
+# usage: online_inference.py model_folder=MODEL_FOLDER query_file=QUERY_FILE qrels=QRELS
 # the script is loading FOLDER_TO_MODEL/best_model.model
 #
-
 
 
 def online_inference(cfg):
@@ -23,15 +22,16 @@ def online_inference(cfg):
 		device = torch.device('cpu')
 
 
+
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
 
-	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.queries_file, cfg.batch_size).batch_generator()
+	ms_batch_generator = MSMarcoSequential(cfg.query_file, cfg.batch_size).batch_generator()
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 
 	# open results file
-	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.split)
+	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file.split('/')[-1])
 	results_file = open(results_file_path, 'w')
 
 	for batch_ids, batch_data, batch_lengths in ms_batch_generator:
@@ -43,37 +43,23 @@ def online_inference(cfg):
 			for rank, (doc_id, score) in enumerate(result_list):
 				results_file.write(f'{query_id}\t{doc_id}\t{rank + 1}\n' )
 
-		# write them to the file in the form:
-		# q_id top_1_doc_id rank
-		# ...
-		# 1124703 8766037 1
-		# 1124703 8021997 2
-		# 1124703 7816201 3
-		break
-		# print(results)
-		# exit()
 	results_file.close()
 
-    """
-    path_to_candidate = sys.argv[2]
-    path_to_reference = sys.argv[1]
-	qres, output
-	
-    metrics = compute_metrics_from_files(path_to_reference, path_to_candidate = results_file_path)
+    metrics = compute_metrics_from_files(path_to_reference = cfg.qrels, path_to_candidate = results_file_path)
 
+	metrics_file = open(os.path.join(cfg.model_folder + '/metrics.' + cfg.query_file.split('/')[-1]), w)
 
-    print('#####################')
-    for metric in sorted(metrics):
-        print('{}: {}'.format(metric, metrics[metric]))
-    print('#####################')
+	for metric in metrics:
+		metrics_file_path.write(f'{metric}:\t{metrics[metric]}\n')
 
+	metrics_file.close()
 
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.query_file:
-		raise ValueError("usage: online_inference.py model_folder=FOLDER_TO_MODEL query_file=QUERY_FILE (within dataset_path)")
+	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.qrels:
+		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER query_file=QUERY_FILE qrels=QRELS")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
