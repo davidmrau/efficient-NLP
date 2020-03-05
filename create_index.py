@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 # usage: create_index.py model_folder=FOLDER_TO_MODEL
 # the script is loading FOLDER_TO_MODEL/best_model.model
 
-def exp(cfg):
+def create_index(cfg):
 	if not cfg.disable_cuda and torch.cuda.is_available():
 
 		   device = torch.device('cuda')
@@ -21,7 +21,7 @@ def exp(cfg):
 	ms_batch_generator = MSMarcoSequential(filename, cfg.batch_size).batch_generator()
 
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(path=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
+	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
 	# initialize the index
 	print('Initializing index')
 	ii.initialize_index()
@@ -57,4 +57,4 @@ if __name__ == "__main__":
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
-	exp(cfg)
+	create_index(cfg)

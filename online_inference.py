@@ -23,7 +23,7 @@ def exp(cfg):
 
 
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(path=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
+	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
 
 	filename = f'{cfg.dataset_path}/queries.{cfg.split}.tokenized.tsv'
 

@@ -25,7 +25,7 @@ class InvertedIndex:
             # if the dictionary already exists, then we load it
             self.latent_terms_per_doc = read_pickle(os.path.join(self.path, 'latent_terms_per_doc_dict.p'))
         except:
-            raise IOError(f'The dictionary with number of latent terms per document does not exists!\nFilename: {os.path.join(self.path, 'latent_terms_per_doc_dict.p')}!')
+            raise IOError(f'The dictionary with number of latent terms per document does not exists!\nFilename: {os.path.join(self.path, "latent_terms_per_doc_dict.p")}!')
 
 
     # will create function that uses command line to get the length of each posting list
