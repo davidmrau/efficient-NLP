@@ -39,7 +39,7 @@ num_latent_terms_per_doc.pdf  : gives an overview of the sparsity of the model
 num_docs_per_latent_term.pdf  : given an overview of the distribution of documetns over the latent terms / posting lists.
 
 ### Evaluation
-We propagate the queries of the [Test Set ](#test-set) through our model in order to get asparse representation, and retrieve relevant sentences using the inverted index. We save the top-10 results for each query to a file. Then we use the official MS Marco evaluation script (ms_marco_eval.py) in order to get the MRR metric results, that we also save to a file.
+We propagate the queries of the [Test Set ](#test-set) from the file {queries_filename} through our model in order to get asparse representation, and retrieve relevant sentences using the inverted index. We save the top-10 results for each query to a file (ranking_results.{queries_filename}). Then we use the official MS Marco evaluation script (ms_marco_eval.py) in order to get the MRR metric results, that we also save to a file (metrics.{queries_filename}).
 
 
 ### File Structure (After Succesfully Completed Pipeline)
@@ -51,7 +51,8 @@ We propagate the queries of the [Test Set ](#test-set) through our model in orde
 ..* posting_lists_lengths (pickle python dictionary, containing the number of documents for each posting list, equal to the number of lines per posting list file)
 ..* num_latent_terms_per_doc.pdf (histogram displaying the number of latent terms for the documents fo the dataset)
 ..* num_docs_per_latent_term.pdf (plot showing the number of documents for each posting list (Sorted)
-..*
+..* ranking_results.{queries_filename} (top 10 results per query, accompanies by their rank)
+..* metrics.{queries_filename} (final metric results compared to ground truth file, obtained from official MS Marco script)
 
 
 
