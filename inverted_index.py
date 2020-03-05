@@ -308,8 +308,6 @@ class InvertedIndex:
 		plt.ylabel('Document Frequency')
 		# plt.xlabel('Dimension of the Representation Space (sorted)')
 		n_text = f' (top {n})' if n != len(frequencies) else ''
-		print()
-		print(n_text)
 		plt.xlabel('Latent Dimension (Sorted)' + n_text)
 		plt.savefig(self.parent_dir + '/num_docs_per_latent_term.png', bbox_inches='tight')
 		plt.close()
