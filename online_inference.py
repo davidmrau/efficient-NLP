@@ -5,6 +5,7 @@ from inverted_index import InvertedIndex
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
 import os
+from ms_marco_eval import compute_metrics_from_files
 
 """ Load an pre-built inverted index and run online inference (for test set)
 """
@@ -32,7 +33,8 @@ def online_inference(cfg):
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 
 	# open results file
-	results_file = open(os.path.join(cfg.model_folder + '/ranking_results.' + cfg.split) , 'w')
+	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.split)
+	results_file = open(results_file_path, 'w')
 
 	for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 		# print(batch_data)
@@ -53,6 +55,19 @@ def online_inference(cfg):
 		# print(results)
 		# exit()
 	results_file.close()
+
+    """
+    path_to_candidate = sys.argv[2]
+    path_to_reference = sys.argv[1]
+	qres, output
+	
+    metrics = compute_metrics_from_files(path_to_reference, path_to_candidate = results_file_path)
+
+
+    print('#####################')
+    for metric in sorted(metrics):
+        print('{}: {}'.format(metric, metrics[metric]))
+    print('#####################')
 
 
 if __name__ == "__main__":
