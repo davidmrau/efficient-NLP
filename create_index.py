@@ -23,9 +23,9 @@ def create_index(cfg):
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
 	# initialize the index
 	print('Initializing index')
-	ii.initialize_index()
+	#ii.initialize_index()
 
-	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
+	#model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 	print('Creating index')
 
 	# nom_docs = 1000
@@ -35,23 +35,9 @@ def create_index(cfg):
 	# temp = temp* mask.float()
 	# doc_ids = [str(i) for i in range(nom_docs)]
 	# # temp = temp* (temp > 0)
-	# ii.add_docs_to_index(doc_ids, temp.cpu())
+	#ii.add_docs_to_index(doc_ids, temp.cpu())
 	#
-	# ii.save_latent_terms_per_doc_dictionary()
-	#
-	# ii.sort_posting_lists()
-	#
-	# ii.get_and_save_dict_of_lenghts_per_posting_list()
-	#
-	# length_of_posting_lists_dict = ii.read_posting_lists_lengths_dictionary()
-	#
-	# latent_lengths_dict = ii.load_latent_terms_per_doc_dictionary()
-	#
-	# ii.plot_histogram_of_latent_terms(list(latent_lengths_dict.values()))
-	#
-	# ii.plot_ordered_posting_lists_lengths(list(length_of_posting_lists_dict.values()), n=-1)
-	#
-	# exit()
+	#ii.save_latent_terms_per_doc_dictionary()
 	#
 
 	count = 0
@@ -69,6 +55,12 @@ def create_index(cfg):
 	ii.sort_posting_lists()
 
 
+	ii.sort_posting_lists()
+	ii.get_and_save_dict_of_lenghts_per_posting_list()
+	length_of_posting_lists_dict = ii.read_posting_lists_lengths_dictionary()
+	latent_lengths_dict = ii.load_latent_terms_per_doc_dictionary()
+	ii.plot_histogram_of_latent_terms(list(latent_lengths_dict.values()))
+	ii.plot_ordered_posting_lists_lengths(list(length_of_posting_lists_dict.values()), n=1000)
 
 if __name__ == "__main__":
 	# getting command line arguments
