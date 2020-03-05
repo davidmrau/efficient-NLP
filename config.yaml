@@ -27,4 +27,3 @@ disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'bert'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.txt'
-dir: experiments/model_${model}_l1_scalar_${l1_scalar}_lr_${lr}_drop_${snrm.dropout_p}_emb_${embedding}_batch_size_${batch_size}_debug_${debug}

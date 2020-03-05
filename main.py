@@ -78,8 +78,11 @@ if __name__ == "__main__":
 	cfg_load = OmegaConf.load(f'config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
-	model_folder = cfg.dir
 
+	if not cl_cfg.model_folder:
+		raise ValueError("usage: main.py model_folder=MODEL_FOLDER ARG1=DUMMY ARG2=DUMMY")
+	model_folder = cl_cfg.model_folder
+	
 	os.makedirs(model_folder, exist_ok=True)
 
 	# save config
