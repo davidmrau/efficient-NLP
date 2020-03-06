@@ -4,10 +4,13 @@
 ```
 # clone git repository
 git clone https://github.com/davidmrau/efficient-NLP
+
 # move to slurm_scripts dir
 cd efficient-NLP/slurm_scripts
+
 # download preprocessed tokenized data
 bash startup.sh
+
 # run a (train - build_index - evaluate) cycle
 bash main.sh
 ```
