@@ -20,7 +20,7 @@ def create_index(cfg):
 	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.docs_file, cfg.batch_size).batch_generator()
 
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
+	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions)
 	# initialize the index
 	print('Initializing index')
 	#ii.initialize_index()

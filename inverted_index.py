@@ -9,14 +9,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 matplotlib.use('Agg')
 from utils import read_pickle
+import multiprocessing
 
 # class for inverted index
 class InvertedIndex:
-	def __init__(self, parent_dir ,index_folder = "Inverted_Index", vocab_size = 100, num_of_workers = 4, num_of_decimals = 5):
+	def __init__(self, parent_dir ,index_folder = "Inverted_Index", vocab_size = 100, num_of_decimals = 5):
 
 		self.parent_dir = parent_dir
 		self.path = f'{parent_dir}/{index_folder}'
-		self.num_of_workers = num_of_workers
+		self.num_of_workers = max(multiprocessing.cpu_count() -1, 1)
 		self.vocab_size = vocab_size
 		self.num_of_decimals = num_of_decimals
 		self.latent_terms_per_doc = defaultdict(int)
