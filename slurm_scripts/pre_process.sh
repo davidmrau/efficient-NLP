@@ -1,7 +1,7 @@
 #!/bin/sh
-#SBATCH --job-name=download_docs_all
+#SBATCH --job-name=pre_processing
 #SBATCH --nodes=1 --ntasks-per-node=1
-#SBATCH --time=24:00:00
+#SBATCH --time=12:00:00
 cd ..
 
 # tokenize
