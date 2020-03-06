@@ -52,12 +52,10 @@ def exp(cfg):
 
 	# move model to device
 	model = model.to(device=device)
-    
-    if torch.cuda.device_count() > 1:
-        print("Using", torch.cuda.device_count(), "GPUs!")
-        model = nn.DataParallel(model)
-    
-    
+	if torch.cuda.device_count() > 1:
+		print("Using", torch.cuda.device_count(), "GPUs!")
+		model = nn.DataParallel(model)
+
 
 	print(model)
 	# initialize tensorboard
@@ -86,8 +84,10 @@ if __name__ == "__main__":
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 
 	if not cl_cfg.model_folder:
-		raise ValueError("usage: main.py model_folder=MODEL_FOLDER ARG1=DUMMY ARG2=DUMMY")
-	model_folder = cl_cfg.model_folder
+		print('No model folder specified, using timestemp instead.')	
+		model_folder = f'experiments/{datetime.now().strftime("%Y_%m_%d_%H_%M")}/'
+	else:
+		model_folder = cl_cfg.model_folder
 	
 	os.makedirs(model_folder, exist_ok=True)
 
