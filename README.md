@@ -2,16 +2,18 @@
 ## Running the complete pipeline
 
 ```
-# clone git repository
+# 1. clone git repository
 git clone https://github.com/davidmrau/efficient-NLP
 
-# move to slurm_scripts dir
+# 2. move to slurm_scripts dir
 cd efficient-NLP/slurm_scripts
 
-# download preprocessed tokenized data
+# 3. download preprocessed tokenized data
 bash startup.sh
 
-# run a (train - build_index - evaluate) cycle
+# 4. add your slurm header to main.sh
+
+# 5. run a (train - build_index - evaluate) cycle
 bash main.sh
 ```
 
