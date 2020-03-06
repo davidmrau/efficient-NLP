@@ -1,42 +1,29 @@
-#
-# cd ..
-#
-# DOCS_FILE=top1000.tsv.d_id_doc.tokenized.tsv
-# QUERY_FILE=msmarco-test2019-queries.tokenized.tsv
-# QRELS=qrels.train.tsv
-#
-#
-# EXPERIMENT_FOLDER='experiments/'
-#
-# echo ${QRELS}
-# echo ${QUERY_FILE}
-# echo ${DOCS_FILE}
-# for HIDDEN in 100 200;do
-# 	MODEL_FOLDER=${EXPERIMENT_FOLDER}${HIDDEN}_model
-# 	MODEL_FOLDER='experiments/model_snrm_l1_scalar_1_lr_0.0001_drop_0.2_emb_bert_batch_size_64_debug_False/'
-# 	echo ${MODEL_FOLDER}
-# 	python3 main.py model_folder=${MODEL_FOLDER}
-# 	python3 create_index.py model_folder=${MODEL_FOLDER} docs_file=${DOCS_FILE}
-# 	python3 online_inference.py model_folder=${MODEL_FOLDER} query_file=${QUERY_FILE} qrels=${QRELS}
-# done
 
+
+
+
+DOCS_FILE='top1000.tsv.d_id_doc.tokenized.tsv'
+QUERY_FILE='msmarco-test2019-queries.tokenized.tsv'
+QRELS='qrels.train.tsv'
+
+cd ..
 # Experiment parameters:
-NUM_WORKERS=7
+EXPERIMENT_FOLDER='experiments/'
 
 EMBEDDINGS="bert"
 SPARSE_DIMENSIONS="10000"
 L1_SCALARS="0 1 2"
-BATCH_SIZES="64 256"
+BATCH_SIZES="256"
 
 # Model parameters:
 MODELS="snrm tf"
-
-SNRM_HIDDENS="100-300 100-500"
-
-TF_LAYERS="1 2 4"
-TF_HEADS="2 4 8"
-TF_HID_DIMS="128 256 512"
-TF_POOLS="CLS MAX AVG"
+# SNRM parameters:
+SNRM_HIDDENS="100-300 300-500 300-100-3000"
+# Transformer parameters:
+TF_LAYERS="2 4"
+TF_HEADS="4 8"
+TF_HID_DIMS="256 512"
+TF_POOLS="CLS"
 
 
 for EMBEDDING in ${EMBEDDINGS}; do
@@ -49,9 +36,15 @@ for EMBEDDING in ${EMBEDDINGS}; do
 				for SNRM_HIDDEN in ${SNRM_HIDDENS}; do
 					MODEL_STRING=${MODEL}_${SNRM_HIDDEN}
 
-					EXP_DIR=l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
+					EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
 
 					echo ${EXP_DIR}
+					echo "Training"
+					python3 main.py model_folder=${EXP_DIR}
+					# echo "Building Inverted Index"
+					# python3 create_index.py model_folder=${EXP_DIR} docs_file=${DOCS_FILE}
+					# echo "Running Evaluation"
+					# python3 online_inference.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS}
 
 				done
 			done
@@ -67,6 +60,11 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 				MODEL=tf
 
+				if [ $EMBEDDING==bert ]; then
+				  TF_HID_DIM=768
+				fi
+
+
 				for TF_LAYER in ${TF_LAYERS}; do
 					for TF_HEAD in ${TF_HEADS}; do
 						for TF_HID_DIM in ${TF_HID_DIMS}; do
@@ -75,9 +73,15 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 								MODEL_STRING=${MODEL}_L_${TF_LAYER}_H_${TF_HEAD}_D_${TF_HID_DIM}_P_${TF_POOL}
 
-								EXP_DIR=l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
+								EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
 
 								echo ${EXP_DIR}
+								echo "Training"
+								python3 main.py model_folder=${EXP_DIR}
+								# echo "Building Inverted Index"
+								# python3 create_index.py model_folder=${EXP_DIR} docs_file=${DOCS_FILE}
+								# echo "Running Evaluation"
+								# python3 online_inference.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS}
 
 
 							done
@@ -88,11 +92,3 @@ for EMBEDDING in ${EMBEDDINGS}; do
 		done
 	done
 done
-
-#
-# if ${MODEL} = snrm
-# then
-#   MODEL_STRING=${MODEL}_layers_{}
-# else
-#   STATEMENTS2
-# fi
