@@ -24,7 +24,7 @@ def online_inference(cfg):
 	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
 	'''
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_workers=cfg.num_of_workers_index)
+	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions)
 
 	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.query_file, cfg.batch_size).batch_generator()
 
