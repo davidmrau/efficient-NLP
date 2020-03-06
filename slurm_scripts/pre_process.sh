@@ -14,7 +14,7 @@ python3 tokenizer.py --folder data/msmarco/ --fname queries.train.tsv
 
 # create debug triplets file
 
-head -100000 data/msmarco/qidpidtriples.train.full.tsv >> qidpidtriples.train.full.debug.tsv
+head -100000 data/msmarco/qidpidtriples.train.full.tsv >> data/msmarco/qidpidtriples.train.full.debug.tsv
 
 # calculate offset dicts
 
