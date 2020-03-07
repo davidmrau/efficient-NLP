@@ -73,14 +73,14 @@ def load_glove_embeddings(path, word2idx, device, embedding_dim=300):
 		return torch.from_numpy(embeddings).float().to(device)
 
 
-def l1_loss(q_repr, d1_repr, d2_repr):
+def l1_loss_fn(q_repr, d1_repr, d2_repr):
 	""" L1 loss ( Sum of vectors )
 	"""
 	concat = torch.cat([q_repr, d1_repr, d2_repr], 1)
 	return torch.mean(torch.sum(concat, 1))/q_repr.size(1)
 
 
-def l0_loss(q_repr, d1_repr, d2_repr):
+def l0_loss_fn(q_repr, d1_repr, d2_repr):
 	""" L0 loss ( Number of non zero elements )
 	"""
 	# return mean batch l0 loss of qery, and docs
@@ -175,7 +175,7 @@ def get_ids_from_tsv(line):
 
 
 
-def cv_squared(self, x, device):
+def cv_squared(x, device):
     """The squared coefficient of variation of a sample.
     Useful as a loss to encourage a positive distribution to be more uniform.
     Epsilons added for numerical stability.
@@ -192,7 +192,7 @@ def cv_squared(self, x, device):
     return x.float().var() / (x.float().mean()**2 + eps)
 
 
-def activations_to_load(self, activations):
+def activations_to_load(activations):
     """Compute the true load per latent term, given the activations.
     The load is the number of examples for which the corresponding latent term is >0.
     Args:
@@ -201,11 +201,10 @@ def activations_to_load(self, activations):
     a float32 `Tensor` of shape [hidden_dim]
     """
     load = (activations > 0).sum(0)
-    print(load.shape)
     return load
 
 
-def balance_latent_loss(actications, device):
+def balance_loss_fn(actications, device):
     """
     Loss to balance the load of the latent terms
     """

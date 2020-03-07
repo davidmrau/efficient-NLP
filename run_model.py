@@ -1,5 +1,5 @@
 import torch
-from utils import l1_loss, l0_loss, balance_latent_loss
+from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn
 import numpy as np
 import os
 
@@ -16,7 +16,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	mode = 'train' if optim != None else 'val'
 	# initialize counters and sum variables
-	av_loss, av_l1_loss, av_l1_loss, av_l0_q, av_l0_docs, av_task_loss, av_acc = 0, 0, 0, 0, 0, 0, 0
+	av_loss, av_l1_loss, av_balance_loss, av_l0_q, av_l0_docs, av_task_loss, av_acc = 0, 0, 0, 0, 0, 0, 0
 
 	num_batches = len(dataloader)
 	training_steps = 0
@@ -36,10 +36,10 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 		# calculating loss
 		loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
-		l1_loss = l1_loss(q_repr, d1_repr, d2_repr) * l1_scalar
-		balance_loss = balance_latent_loss(logits) * balance_scalar
+		l1_loss = l1_loss_fn(q_repr, d1_repr, d2_repr) * l1_scalar
+		balance_loss = balance_loss_fn(logits, device) * balance_scalar
 		# calculating L0 loss
-		l0_q, l0_docs = l0_loss(d1_repr, d2_repr, q_repr)
+		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 		# calculating classification accuracy (whether the correct document was classified as more relevant)
 		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float()+ ((dot_q_d2 > dot_q_d1).float() == targets*-1).float()).mean()
 
@@ -139,11 +139,11 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# training
 		with torch.enable_grad():
 			model.train()
-			av_train_loss, total_training_steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, total_training_steps, device,  optim=optim)
+			av_train_loss, total_training_steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device,  optim=optim)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
-			av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, total_training_steps, device)
+			av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
 
 
 		# check for early stopping
