@@ -73,7 +73,7 @@ def exp(cfg):
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
-	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, cfg.model_folder, l1_scalar=cfg.l1_scalar)
+	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar)
 
 if __name__ == "__main__":
 	# getting command line arguments
@@ -84,11 +84,11 @@ if __name__ == "__main__":
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 
 	if not cl_cfg.model_folder:
-		print('No model folder specified, using timestemp instead.')	
+		print('No model folder specified, using timestemp instead.')
 		model_folder = f'experiments/{datetime.now().strftime("%Y_%m_%d_%H_%M")}/'
 	else:
 		model_folder = cl_cfg.model_folder
-	
+
 	os.makedirs(model_folder, exist_ok=True)
 
 	# save config

@@ -23,6 +23,7 @@ debug: False
 num_epochs: 100
 num_of_workers_index: 7
 l1_scalar: 0.0
+balance_scalar: 1.0
 disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'bert'

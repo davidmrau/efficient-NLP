@@ -172,3 +172,42 @@ def get_ids_from_tsv(line):
 	id_ = int(line[:delim_pos])
 	ids = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 	return id_, ids
+
+
+
+def cv_squared(self, x, device):
+    """The squared coefficient of variation of a sample.
+    Useful as a loss to encourage a positive distribution to be more uniform.
+    Epsilons added for numerical stability.
+    Returns 0 for one example in batch
+    Args:
+    x: a `Tensor`.
+    Returns:
+    a `Scalar`.
+    """
+    eps = 1e-10
+    # if only one example in batch
+    if x.shape[0] == 1:
+        return torch.FloarTensor(0,device=device)
+    return x.float().var() / (x.float().mean()**2 + eps)
+
+
+def activations_to_load(self, activations):
+    """Compute the true load per latent term, given the activations.
+    The load is the number of examples for which the corresponding latent term is >0.
+    Args:
+    gates: a `Tensor` of shape [batch_size, hidden_dim]
+    Returns:
+    a float32 `Tensor` of shape [hidden_dim]
+    """
+    load = (activations > 0).sum(0)
+    print(load.shape)
+    return load
+
+
+def balance_latent_loss(actications, device):
+    """
+    Loss to balance the load of the latent terms
+    """
+    load = activations_to_load(actications)
+    return cv_squared(load, device)
