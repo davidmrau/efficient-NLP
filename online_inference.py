@@ -22,6 +22,7 @@ def online_inference(cfg):
 		device = torch.device('cpu')
 
 	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
+	results_file_trec = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file + '.trec')
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 
@@ -37,14 +38,16 @@ def online_inference(cfg):
 		for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 			# print(batch_data)
 			logits = model(batch_data.to(device), batch_lengths.to(device))
-			results = ii.get_scores(batch_ids, logits.cpu(), top_results = 1000, max_candidates_per_posting_list = -1)
+			results = ii.get_scores(batch_ids, logits.cpu(), top_results = -1, max_candidates_per_posting_list = -1)
 			if count % 1 == 0:
 				print(count, ' batches processed')
 			for query_id, result_list in results:
 				for rank, (doc_id, score) in enumerate(result_list):
 					results_file.write(f'{query_id}\t{doc_id}\t{rank + 1}\n' )
+					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{rank+1}\t{score}\teval\n')
 
 		results_file.close()
+		results_file_trec.close()
 		metrics = compute_metrics_from_files(path_to_reference = cfg.dataset_path + cfg.qrels, path_to_candidate = results_file_path)
 
 		metrics_file = open(os.path.join(cfg.model_folder + '/metrics.' + cfg.query_file, w))
