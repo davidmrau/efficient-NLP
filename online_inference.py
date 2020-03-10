@@ -22,7 +22,7 @@ def online_inference(cfg):
 		device = torch.device('cpu')
 
 	results_file_path = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file)
-	results_file_trec = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file + '.trec')
+	results_file_path_trec = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file + '.trec')
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 
@@ -32,8 +32,8 @@ def online_inference(cfg):
 	with torch.no_grad():
 		model.eval()
 		# open results file
-		results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
 		results_file = open(results_file_path, 'w')
+		results_file_trec = open(results_file_path_trec, 'w')
 		count = 0
 		for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 			# print(batch_data)
