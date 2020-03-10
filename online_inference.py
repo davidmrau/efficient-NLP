@@ -21,8 +21,8 @@ def online_inference(cfg):
 	else:
 		device = torch.device('cpu')
 
-	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
-	results_file_trec = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file + '.trec')
+	results_file_path = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file)
+	results_file_trec = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file + '.trec')
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 
