@@ -44,10 +44,14 @@ def inference(cfg):
 		doc_ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator:
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
+			# print(doc_repr[:10,:10])
+			# exit()
 			doc_reprs.append(doc_repr.T)
 			doc_ids += batch_ids_d
-			if count % 1 == 0:
+			if count % 100 == 0:
 				print(count, ' batches processed')
+
+
 
 			count += 1
 		print('docs forward pass done!')
@@ -57,13 +61,12 @@ def inference(cfg):
 		# save logits to file
 		count = 0
 		for batch_ids_q, batch_data_q, batch_lengths_q in query_batch_generator:
-			batch_len = len(batch_data_q)
+			batch_len = len(batch_ids_q)
 			q_reprs = model(batch_data_q.to(device), batch_lengths_q.to(device))
-			q_score_lists = [ []]*batch_len
+			# q_score_lists = [ []]*batch_len
+			q_score_lists = [[] for i in range(batch_len) ]
 			for doc_repr in doc_reprs:
 				dots_q_d = q_reprs @ doc_repr
-
-				# print(len(q_score_lists), " , ", dots_q_d.size())
 				# appending scores of batch_documents for this batch of queries
 				for i in range(batch_len):
 					q_score_lists[i] += dots_q_d[i].detach().cpu().tolist()
@@ -75,12 +78,9 @@ def inference(cfg):
 				tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
 				sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
 				query_id = batch_ids_q[i]
-				for j, (doc_id, score) in enumerate(sorted_by_relevance):
-					print(f'{query_id}\t{doc_id}\t{j+1}\n')
+				for j, (doc_id, score) in enumerate(sorted_by_relevance[:1000]):
 					results_file.write(f'{query_id}\t{doc_id}\t{j+1}\n' )
 					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
-				# print(dots_q_d.shape)
-
 			if count % 1 == 0:
 				print(count, ' batches processed')
 
@@ -88,7 +88,6 @@ def inference(cfg):
 		results_file.close()
 		results_file_trec.close()
 		metrics = compute_metrics_from_files(path_to_reference = cfg.dataset_path + cfg.qrels, path_to_candidate = results_file_path)
-
 
 
 		for metric in metrics:
