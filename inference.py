@@ -30,6 +30,7 @@ def inference(cfg):
 	doc_reprs_file_path = os.path.join(cfg.model_folder + '/doc_reprs.' + cfg.docs_file)
 	metrics_file = open(metrics_file_path, 'w')
 	results_file = open(results_file_path, 'w')
+	results_file_trec = open(results_file_path+ '.trec', 'w')
 
 
 
@@ -73,11 +74,11 @@ def inference(cfg):
 			for i in range(batch_len):
 				tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
 				sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
-				print(sorted_by_relevance)
 				query_id = batch_ids_q[i]
-				for j, (doc_id, score) in enumerate(sorted_by_relevance[:1000]):
+				for j, (doc_id, score) in enumerate(sorted_by_relevance):
 					print(f'{query_id}\t{doc_id}\t{j+1}\n')
 					results_file.write(f'{query_id}\t{doc_id}\t{j+1}\n' )
+					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
 				# print(dots_q_d.shape)
 
 			if count % 1 == 0:
@@ -85,6 +86,7 @@ def inference(cfg):
 
 			count += 1
 		results_file.close()
+		results_file_trec.close()
 		metrics = compute_metrics_from_files(path_to_reference = cfg.dataset_path + cfg.qrels, path_to_candidate = results_file_path)
 
 
