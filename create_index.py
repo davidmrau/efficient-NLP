@@ -23,7 +23,7 @@ def create_index(cfg):
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 	# initialize the index
 	print('Initializing index')
-	#ii.initialize_index()
+	ii.initialize_index()
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 	with torch.no_grad():
