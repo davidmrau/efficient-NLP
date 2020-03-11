@@ -1,7 +1,8 @@
-
-QUERY_FILE='msmarco-test2019-queries-43-judged.tokenized.tsv'
+QUERY_FILE='msmarco-test2019-queries_43.tokenized.tsv'
 QRELS='2019qrels-pass_filtered_ms_marco.txt'
-DOCS_FILE='msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv'
+#DOCS_FILE='msmarco-passagetest2019-top1000.tsv.d_id_doc.tokenized_uniq.tsv'
+DOCS_FILE='msmarco-passagetest2019-top1000_43.tokenized.tsv'
+
 
 
 cd ..

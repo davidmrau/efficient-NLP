@@ -6,10 +6,10 @@
 
 
 cd ..
-QUERY_FILE='msmarco-test2019-queries-43-judged.tokenized.tsv'
+QUERY_FILE='msmarco-test2019-queries_43.tokenized.tsv'
 QRELS='2019qrels-pass_filtered_ms_marco.txt'
 #DOCS_FILE='msmarco-passagetest2019-top1000.tsv.d_id_doc.tokenized_uniq.tsv'
-DOCS_FILE='msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv'
+DOCS_FILE='msmarco-passagetest2019-top1000_43.tokenized.tsv'
 #MODEL_DIR='experiments/model_snrm_l1_scalar_0.0_lr_0.0001_drop_0.2_emb_bert_batch_size_64_debug_False'
 #MODEL_DIR='experiments/model_snrm_l1_scalar_1_lr_0.0001_drop_0.2_emb_bert_batch_size_64_debug_False'
 MODEL_DIR='experiments/model_tf_l1_scalar_0.0_lr_0.0001_drop_0.2_emb_bert_batch_size_64_debug_False'

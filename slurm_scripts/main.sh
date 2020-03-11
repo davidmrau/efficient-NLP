@@ -6,9 +6,9 @@
 # QUERY_FILE='msmarco-test2019-queries.tokenized.tsv'
 # QRELS='qrels.train.tsv'
 
-QUERY_FILE='msmarco-test2019-queries-43-judged.tokenized.tsv'
-QRELS='2019qrels-pass_without_q_tabs.txt'
-DOCS_FILE='msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv'
+QUERY_FILE='msmarco-test2019-queries_43.tokenized.tsv'
+QRELS='2019qrels-pass_filtered_ms_marco.txt'
+DOCS_FILE='msmarco-passagetest2019-top1000_43.tokenized.tsv'
 
 
 cd ..
