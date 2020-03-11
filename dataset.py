@@ -18,7 +18,7 @@ class MSMarco(data.Dataset):
 	def __init__(self, dataset_path, split,  debug=False):
 
 		self.split = split
-
+		self.debug = debug
 		if split == 'train':
 			debug_str = '' if not debug else '.debug'
 			triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{debug_str}.tsv'
@@ -36,6 +36,8 @@ class MSMarco(data.Dataset):
 		self.max_doc_id = len(self.documents) - 1
 
 	def __len__(self):
+		if self.debug:
+			return 100
 		if self.split == 'train':
 			return len(self.triplets)
 

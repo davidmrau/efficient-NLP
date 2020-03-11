@@ -146,8 +146,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		with torch.no_grad():
 			model.eval()
 			# av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
-			run ms marco eval
-			MRR_at_1000 = inference(cfg)
+			#run ms marco eval
+			MRR_at_1000 = inference(cfg, model=model)
 
 			writer.add_scalar(f'Eval_MRR@1000', MRR_at_1000, total_training_steps  )
 

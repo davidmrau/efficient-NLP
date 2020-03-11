@@ -1,6 +1,6 @@
 
 QUERY_FILE='msmarco-test2019-queries-43-judged.tokenized.tsv'
-QRELS='2019qrels-pass_without_q_tabs.txt'
+QRELS='2019qrels-pass_filtered_ms_marco.txt'
 DOCS_FILE='msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv'
 
 
@@ -32,7 +32,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 					echo ${EXP_DIR}
 					# echo "Training"
-					python3 main.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+					python3 main.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE} debug=True
 
 				done
 			done
