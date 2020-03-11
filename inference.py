@@ -59,7 +59,7 @@ def inference(cfg, model = None):
 			count += 1
 		print('docs forward pass done!')
 
-		pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path, 'wb'))
+		pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
 
 		# save logits to file
 		count = 0
