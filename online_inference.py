@@ -38,7 +38,7 @@ def online_inference(cfg):
 		for batch_ids, batch_data, batch_lengths in ms_batch_generator:
 			# print(batch_data)
 			logits = model(batch_data.to(device), batch_lengths.to(device))
-			results = ii.get_scores(batch_ids, logits.cpu(), top_results = -1, max_candidates_per_posting_list = -1)
+			results = ii.get_scores(batch_ids, logits.cpu(), top_results = cfg.top_results, max_candidates_per_posting_list = cfg.max_candidates_per_posting_list)
 			if count % 1 == 0:
 				print(count, ' batches processed')
 			for query_id, result_list in results:
