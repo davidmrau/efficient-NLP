@@ -21,15 +21,15 @@ def inference(cfg):
 	else:
 		device = torch.device('cpu')
 
-	top_results = cfg.top_results 
-	
+	top_results = cfg.top_results
+
 
 	query_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.query_file, cfg.batch_size).batch_generator()
 	docs_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.docs_file, cfg.batch_size).batch_generator()
 
-	metrics_file_path = os.path.join(cfg.model_folder + '/metrics.' + cfg.query_file)
-	results_file_path = os.path.join(cfg.model_folder + '/ranking_results.' + cfg.query_file)
-	doc_reprs_file_path = os.path.join(cfg.model_folder + '/doc_reprs.' + cfg.docs_file)
+	metrics_file_path = cfg.model_folder + '/metrics.' + cfg.query_file
+	results_file_path = cfg.model_folder + '/ranking_results.' + cfg.query_file
+	doc_reprs_file_path = cfg.model_folder + '/doc_reprs.' + cfg.docs_file
 	metrics_file = open(metrics_file_path, 'w')
 	results_file = open(results_file_path, 'w')
 	results_file_trec = open(results_file_path+ '.trec', 'w')
