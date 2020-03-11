@@ -25,7 +25,7 @@ class SNRM(nn.Module):
                 # set embeddings for model
             self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
         else:
-            self.embedding = nn.Embedding(30000, self.embedding_dim)
+            self.embedding = nn.Embedding(len(word2idx), self.embedding_dim)
         self.sparse_dimensions = sparse_dimensions
         self.conv = nn.Conv1d(self.embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
         # create module list

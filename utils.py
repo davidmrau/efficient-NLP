@@ -81,10 +81,9 @@ def generate_word2idx_dict_from_glove(path):
 			word = line.split()[0]
 			word_id = line_counter
 			word2idx[word] = word_id
-	pickle.dump( word2idx, open( path +  'word2idx_dict.p'), 'wb'))
-
-
-
+			line = f.readline()
+			line_counter += 1
+	pickle.dump( word2idx, open( os.path.join( path +  'word2idx_dict.p'), 'wb'))
 
 
 def l1_loss_fn(q_repr, d1_repr, d2_repr):
