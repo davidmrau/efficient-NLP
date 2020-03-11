@@ -45,7 +45,8 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 					echo ${EXP_DIR}
 					# echo "Training"
-					python3 main.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+					python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
+					model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
 
 				done
 			done
@@ -62,7 +63,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 				MODEL=tf
 
 				if [ $EMBEDDING==bert ]; then
-				  TF_HID_DIM=768
+				  TF_HID_DIMS=768
 				fi
 
 
@@ -78,7 +79,9 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 								echo ${EXP_DIR}
 								# echo "Training"
-								main.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+								python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
+								tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}  \
+								model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
 
 							done
 						done
