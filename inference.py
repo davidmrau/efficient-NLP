@@ -21,6 +21,8 @@ def inference(cfg):
 	else:
 		device = torch.device('cpu')
 
+	top_results = cfg.top_results 
+	
 
 	query_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.query_file, cfg.batch_size).batch_generator()
 	docs_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.docs_file, cfg.batch_size).batch_generator()
@@ -78,7 +80,9 @@ def inference(cfg):
 				tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
 				sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
 				query_id = batch_ids_q[i]
-				for j, (doc_id, score) in enumerate(sorted_by_relevance[:1000]):
+				if top_results != -1:
+					sorted_by_relevance = sorted_by_relevance[:top_results]
+				for j, (doc_id, score) in enumerate(sorted_by_relevance):
 					results_file.write(f'{query_id}\t{doc_id}\t{j+1}\n' )
 					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
 			if count % 1 == 0:
@@ -99,8 +103,8 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.qrels or not cl_cfg.docs_file :
-		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs_file=DOCS_FILE query_file=QUERY_FILE qrels=QRELS")
+	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.qrels or not cl_cfg.docs_file:
+		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs_file=DOCS_FILE query_file=QUERY_FILE qrels=QRELS top_results=1000")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both

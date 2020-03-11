@@ -20,6 +20,7 @@ snrm:
   n: 5
   dropout_p: 0.2
 debug: False
+top_results: 1000
 num_epochs: 100
 num_of_workers_index: 7
 l1_scalar: 0.0
