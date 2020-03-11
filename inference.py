@@ -13,8 +13,7 @@ from ms_marco_eval import compute_metrics_from_files
 # the script is loading FOLDER_TO_MODEL/best_model.model
 #
 
-
-def inference(cfg):
+def inference(cfg, model = None):
 
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
@@ -30,13 +29,15 @@ def inference(cfg):
 	metrics_file_path = cfg.model_folder + '/metrics.' + cfg.query_file
 	results_file_path = cfg.model_folder + '/ranking_results.' + cfg.query_file
 	doc_reprs_file_path = cfg.model_folder + '/doc_reprs.' + cfg.docs_file
+
 	metrics_file = open(metrics_file_path, 'w')
 	results_file = open(results_file_path, 'w')
 	results_file_trec = open(results_file_path+ '.trec', 'w')
 
 
-
-	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
+	if model is None:
+		model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
+		
 	with torch.no_grad():
 		model.eval()
 		# open results file
@@ -98,6 +99,9 @@ def inference(cfg):
 			metrics_file.write(f'{metric}:\t{metrics[metric]}\n')
 
 		metrics_file.close()
+
+		# returning the MRR @ 1000
+		return metrics['MRR @1000']
 
 if __name__ == "__main__":
 	# getting command line arguments

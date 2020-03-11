@@ -12,7 +12,7 @@ import statistics
 
 from collections import Counter
 
-MaxMRRRank = 10
+MaxMRRRank = 1000
 
 def load_reference_from_stream(f):
     """Load Reference reference relevant passages
@@ -132,7 +132,7 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
         raise IOError("No matching QIDs found. Are you sure you are scoring the evaluation set?")
 
     MRR = MRR/len(qids_to_relevant_passageids)
-    all_scores['MRR @10'] = MRR
+    all_scores[f'MRR @{MaxMRRRank}'] = MRR
     all_scores['QueriesRanked'] = len(qids_to_ranked_candidate_passages)
     return all_scores
 

@@ -2,9 +2,14 @@
 
 
 
-DOCS_FILE='top1000.tsv.d_id_doc.tokenized.tsv'
-QUERY_FILE='msmarco-test2019-queries.tokenized.tsv'
-QRELS='qrels.train.tsv'
+# DOCS_FILE='top1000.tsv.d_id_doc.tokenized.tsv'
+# QUERY_FILE='msmarco-test2019-queries.tokenized.tsv'
+# QRELS='qrels.train.tsv'
+
+QUERY_FILE='msmarco-test2019-queries-43-judged.tokenized.tsv'
+QRELS='2019qrels-pass_without_q_tabs.txt'
+DOCS_FILE='msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv'
+
 
 cd ..
 # Experiment parameters:
@@ -39,12 +44,8 @@ for EMBEDDING in ${EMBEDDINGS}; do
 					EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
 
 					echo ${EXP_DIR}
-					echo "Training"
-					python3 main.py model_folder=${EXP_DIR}
-					# echo "Building Inverted Index"
-					# python3 create_index.py model_folder=${EXP_DIR} docs_file=${DOCS_FILE}
-					# echo "Running Evaluation"
-					# python3 online_inference.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS}
+					# echo "Training"
+					python3 main.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
 
 				done
 			done
@@ -76,13 +77,8 @@ for EMBEDDING in ${EMBEDDINGS}; do
 								EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
 
 								echo ${EXP_DIR}
-								echo "Training"
-								python3 main.py model_folder=${EXP_DIR}
-								# echo "Building Inverted Index"
-								# python3 create_index.py model_folder=${EXP_DIR} docs_file=${DOCS_FILE}
-								# echo "Running Evaluation"
-								# python3 online_inference.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS}
-
+								# echo "Training"
+								main.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
 
 							done
 						done

@@ -2,6 +2,7 @@ import torch
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn
 import numpy as np
 import os
+from inference import inference
 
 def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device, optim=None):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
@@ -106,7 +107,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, l1_scalar = 1, balance_scalar= 1, patience = 3):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, l1_scalar = 1, balance_scalar= 1, patience = 3, cfg = None):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -131,7 +132,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 	"""
 
-	best_eval_loss = 1e20
+	# best_eval_loss = 1e20
+	best_MRR_at_1000 = -1
 	temp_patience = 0
 	total_training_steps = 0
 
@@ -143,14 +145,18 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# evaluation
 		with torch.no_grad():
 			model.eval()
-			av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
+			# av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
+			run ms marco eval
+			MRR_at_1000 = inference(cfg)
+
+			writer.add_scalar(f'Eval_MRR@1000', MRR_at_1000, total_training_steps  )
 
 
 		# check for early stopping
-		if av_eval_loss < best_eval_loss:
-			print(f'Best model at current epoch {epoch}')
+		if MRR_at_1000 > best_MRR_at_1000:
+			print(f'Best model at current epoch {epoch}, with MRR@1000: {MRR_at_1000}')
 			temp_patience = 0
-			best_eval_loss = av_eval_loss
+			best_MRR_at_1000 = MRR_at_1000
 			# save best model so far to file
 			torch.save(model, f'{model_folder}/best_model.model' )
 		else:
