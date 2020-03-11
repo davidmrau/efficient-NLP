@@ -72,6 +72,20 @@ def load_glove_embeddings(path, word2idx, device, embedding_dim=300):
 				embeddings[index] = vector
 		return torch.from_numpy(embeddings).float().to(device)
 
+def generate_word2idx_dict_from_glove(path):
+	word2idx = {}
+	with open(path) as f:
+		line_counter = 0
+		line = f.readline()
+		while(line):
+			word = line.split()[0]
+			word_id = line_counter
+			word2idx[word] = word_id
+	pickle.dump( word2idx, open( path +  'word2idx_dict.p'), 'wb'))
+
+
+
+
 
 def l1_loss_fn(q_repr, d1_repr, d2_repr):
 	""" L1 loss ( Sum of vectors )
