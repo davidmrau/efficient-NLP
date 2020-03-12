@@ -34,7 +34,7 @@ qrels_val: '${dataset_path}/2019qrels-pass_filtered_ms_marco.txt'
 
 docs_file_train: '${dataset_path}/collection.tokenized.tsv'
 query_file_train: '${dataset_path}/queries.train.tokenized.tsv'
-triplets_file_train: '${dataset_path}qidpidtriples.train.full.debug.tsv'
+triplets_file_train: '${dataset_path}qidpidtriples.train.full.tsv'
 
 # debug_str = '' if not debug else '.debug'
 # triplets_fname = f'{dataset_path}/qidpidtriples.train.full{debug_str}.tsv'
