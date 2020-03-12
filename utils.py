@@ -2,12 +2,16 @@
 import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
-from os import path
+import os
 import json
 import pickle
 import csv
 import subprocess
 import transformers
+import matplotlib
+import matplotlib.pyplot as plt
+import seaborn as sns
+matplotlib.use('Agg')
 
 def file_len(fname):
 	""" Get the number of lines from file
@@ -97,7 +101,7 @@ def generate_word2idx_dict_from_glove(path):
 			word2idx[word] = word_id
 			line = f.readline()
 			line_counter += 1
-	pickle.dump( word2idx, open( os.path.join( path +  'word2idx_dict.p'), 'wb'))
+	pickle.dump( word2idx, open(os.path.join( path +  'word2idx_dict.p'), 'wb'))
 
 
 def l1_loss_fn(q_repr, d1_repr, d2_repr):
@@ -237,3 +241,32 @@ def balance_loss_fn(actications, device):
     """
     load = activations_to_load(actications)
     return cv_squared(load, device)
+
+
+def plot_histogram_of_latent_terms(path, latent_terms_per_doc, vocab_size):
+
+	sns.distplot(latent_terms_per_doc, bins=vocab_size//10)
+	# plot histogram
+	# save histogram
+
+	plt.ylabel('Document Frequency')
+	# plt.xlabel('Dimension of the Representation Space (sorted)')
+	plt.xlabel('# Latent Terms')
+	plt.savefig(path + '/num_latent_terms_per_doc.pdf', bbox_inches='tight')
+	plt.close()
+
+
+def plot_ordered_posting_lists_lengths(path,frequencies, n=-1):
+	n = n if n > 0 else len(frequencies)
+	top_n = sorted(frequencies, reverse=True)[:n]
+	# print(top_n)
+	# run matplotlib on background, not showing the plot
+
+
+	plt.plot(top_n)
+	plt.ylabel('Document Frequency')
+	# plt.xlabel('Dimension of the Representation Space (sorted)')
+	n_text = f' (top {n})' if n != len(frequencies) else ''
+	plt.xlabel('Latent Dimension (Sorted)' + n_text)
+	plt.savefig(path+ '/num_docs_per_latent_term.pdf', bbox_inches='tight')
+	plt.close()
