@@ -18,7 +18,7 @@ matplotlib.use('Agg')
 # the script is loading FOLDER_TO_MODEL/best_model.model
 #
 
-def evaluate(model, dataloaders, model_folder, qrels, dataset_path, sparse_dimensions):
+def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device):
 
 	query_batch_generator, docs_batch_generator = data_loaders
 	metrics_file_path = model_folder + '/metric'
@@ -42,6 +42,7 @@ def evaluate(model, dataloaders, model_folder, qrels, dataset_path, sparse_dimen
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			# print(doc_repr[:10,:10])
 			# exit()
+
 			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
 			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())
 			doc_reprs.append(doc_repr.T)
@@ -59,13 +60,14 @@ def evaluate(model, dataloaders, model_folder, qrels, dataset_path, sparse_dimen
 		# save logits to file
 		count = 0
 		posting_lengths = np.zeros(sparse_dimensions)
-		latent_terms_per_doc = list()
+		latent_terms_per_q = list()
 
 		for batch_ids_q, batch_data_q, batch_lengths_q in query_batch_generator:
 			batch_len = len(batch_ids_q)
 			q_reprs = model(batch_data_q.to(device), batch_lengths_q.to(device))
-			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
-			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())
+
+			posting_lengths += (q_reprs > 0).sum(0).detach().cpu().numpy()
+			latent_terms_per_q += list((q_reprs > 0).sum(1).detach().cpu().numpy())
 
 			# q_score_lists = [ []]*batch_len
 			q_score_lists = [[] for i in range(batch_len) ]
@@ -92,12 +94,12 @@ def evaluate(model, dataloaders, model_folder, qrels, dataset_path, sparse_dimen
 
 			count += 1
 		plot_ordered_posting_lists_lengths(model_folder, posting_lengths, 'query')
-		plot_histogram_of_latent_terms(model_folder, latent_terms_per_doc, sparse_dimensions, 'query')
+		plot_histogram_of_latent_terms(model_folder, latent_terms_per_q, sparse_dimensions, 'query')
 
 		results_file.close()
 		results_file_trec.close()
 
-		metrics = compute_metrics_from_files(path_to_reference = dataset_path + qrels, path_to_candidate = results_file_path)
+		metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path)
 
 		# returning the MRR @ 1000
 		return metrics['MRR @1000']

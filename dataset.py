@@ -15,9 +15,10 @@ from utils import collate_fn_padd
 
 class MSMarco(data.Dataset):
 
-	def __init__(self, split, triplets_path, documents_path, queries_path):
+	def __init__(self, split, triplets_path, documents_path, queries_path, debug=False):
 
 		self.split = split
+		self.debug = debug
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
 
@@ -107,10 +108,10 @@ class MSMarcoSequential:
 
 
 def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
- 	docs_file_val, batch_size):
+ 	docs_file_val, batch_size, debug=False):
 
 	dataloaders = {}
-	dataloaders['train'] = DataLoader(MSMarco('train', triplets_train_file, docs_file_train, query_file_train),
+	dataloaders['train'] = DataLoader(MSMarco('train', triplets_train_file, docs_file_train, query_file_train, debug=debug),
 	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True)
 
 	query_batch_generator = MSMarcoSequential(query_file_val, batch_size).batch_generator()

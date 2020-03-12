@@ -8,7 +8,7 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, hidden_sizes, sparse_dimensions, vocab_size, n, embedding_path, dropout_p):
+    def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_path, dropout_p):
         super(SNRM, self).__init__()
 
         self.embedding_dim = 300

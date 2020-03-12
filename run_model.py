@@ -107,7 +107,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, l1_scalar = 1, balance_scalar= 1, patience = 3):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 3):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -147,7 +147,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			model.eval()
 			# av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
 			#run ms marco eval
-			MRR_at_1000 = evaluate(model, dataloaders['val'], model_folder, qrels, dataset_path, sparse_dimensions):
+			MRR_at_1000 = evaluate(model, dataloaders['val'], model_folder, qrels, dataset_path, sparse_dimensions, top_results,device)
 			writer.add_scalar(f'Eval_MRR@1000', MRR_at_1000, total_training_steps  )
 
 

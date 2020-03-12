@@ -41,7 +41,7 @@ def exp(cfg):
 		# del tokenizer
 	else:
 		raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
-
+	print(cfg.triplets_file_train)
 	print('Initializing model...')
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
@@ -70,8 +70,8 @@ def exp(cfg):
 	# initialize dataloaders
 	#
 
-	dataloaders = get_data_loaders(cfg.triplets_train_file, cfg.docs_file_train,
-	cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size)
+	dataloaders = get_data_loaders(cfg.triplets_file_train, cfg.docs_file_train,
+	cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size, debug=cfg.debug)
 	print('done')
 	# initialize loss function
 	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
@@ -80,9 +80,9 @@ def exp(cfg):
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
-	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer,
-	device, cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar,
-	 cfg.qrels_eval, cfg.dataset_path, cfg.sparse_dimensions)
+	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
+	cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, top_results=cfg.top_results,
+	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar)
 
 if __name__ == "__main__":
 	# getting command line arguments
