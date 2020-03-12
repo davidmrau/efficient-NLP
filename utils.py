@@ -243,7 +243,7 @@ def balance_loss_fn(actications, device):
     return cv_squared(load, device)
 
 
-def plot_histogram_of_latent_terms(path, latent_terms_per_doc, vocab_size):
+def plot_histogram_of_latent_terms(path, latent_terms_per_doc, vocab_size, name):
 
 	sns.distplot(latent_terms_per_doc, bins=vocab_size//10)
 	# plot histogram
@@ -252,11 +252,11 @@ def plot_histogram_of_latent_terms(path, latent_terms_per_doc, vocab_size):
 	plt.ylabel('Document Frequency')
 	# plt.xlabel('Dimension of the Representation Space (sorted)')
 	plt.xlabel('# Latent Terms')
-	plt.savefig(path + '/num_latent_terms_per_doc.pdf', bbox_inches='tight')
+	plt.savefig(path + f'/num_latent_terms_per_doc_{name}.pdf', bbox_inches='tight')
 	plt.close()
 
 
-def plot_ordered_posting_lists_lengths(path,frequencies, n=-1):
+def plot_ordered_posting_lists_lengths(path,frequencies, name, n=-1):
 	n = n if n > 0 else len(frequencies)
 	top_n = sorted(frequencies, reverse=True)[:n]
 	# print(top_n)
@@ -268,5 +268,5 @@ def plot_ordered_posting_lists_lengths(path,frequencies, n=-1):
 	# plt.xlabel('Dimension of the Representation Space (sorted)')
 	n_text = f' (top {n})' if n != len(frequencies) else ''
 	plt.xlabel('Latent Dimension (Sorted)' + n_text)
-	plt.savefig(path+ '/num_docs_per_latent_term.pdf', bbox_inches='tight')
+	plt.savefig(path+ f'/num_docs_per_latent_term_{name}.pdf', bbox_inches='tight')
 	plt.close()

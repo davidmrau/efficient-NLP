@@ -66,8 +66,8 @@ def inference(cfg, model = None):
 
 
 			count += 1
-		plot_ordered_posting_lists_lengths(cfg.model_folder, posting_lengths)
-		plot_histogram_of_latent_terms(cfg.model_folder, latent_terms_per_doc, cfg.sparse_dimensions)
+		plot_ordered_posting_lists_lengths(cfg.model_folder, posting_lengths, 'docs')
+		plot_histogram_of_latent_terms(cfg.model_folder, latent_terms_per_doc, cfg.sparse_dimensions, 'docs')
 		#pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
 
 		# save logits to file
@@ -105,8 +105,8 @@ def inference(cfg, model = None):
 			#	print(count, ' batches processed')
 
 			count += 1
-		plot_ordered_posting_lists_lengths(cfg.model_folder, posting_lengths)
-		plot_histogram_of_latent_terms(cfg.model_folder, latent_terms_per_doc, cfg.sparse_dimensions)
+		plot_ordered_posting_lists_lengths(cfg.model_folder, posting_lengths, 'query')
+		plot_histogram_of_latent_terms(cfg.model_folder, latent_terms_per_doc, cfg.sparse_dimensions, 'query')
 
 		results_file.close()
 		results_file_trec.close()
