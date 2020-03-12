@@ -1,3 +1,5 @@
+nltk
+pickle
 omegaconf
 tensorboard
 numpy<1.17

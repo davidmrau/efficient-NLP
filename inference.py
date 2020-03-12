@@ -4,8 +4,13 @@ import pickle
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
 import os
+from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 import numpy as np
 from ms_marco_eval import compute_metrics_from_files
+import matplotlib
+import matplotlib.pyplot as plt
+import seaborn as sns
+matplotlib.use('Agg')
 
 """ Run online inference (for test set) without inverted index
 """
@@ -45,27 +50,37 @@ def inference(cfg, model = None):
 		count = 0
 		doc_reprs = list()
 		doc_ids = list()
+		posting_lengths = np.zeros(cfg.sparse_dimensions)
+		latent_terms_per_doc = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator:
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			# print(doc_repr[:10,:10])
 			# exit()
+			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
+			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())	
 			doc_reprs.append(doc_repr.T)
 			doc_ids += batch_ids_d
-			if count % 100 == 0:
-				print(count, ' batches processed')
+			#if count % 100 == 0:
+			#	print(count, ' batches processed')
 
 
 
 			count += 1
-		print('docs forward pass done!')
-
-		pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
+		plot_ordered_posting_lists_lengths(cfg.model_folder, posting_lengths)
+		plot_histogram_of_latent_terms(cfg.model_folder, latent_terms_per_doc, cfg.sparse_dimensions)
+		#pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
 
 		# save logits to file
 		count = 0
+		posting_lengths = np.zeros(cfg.sparse_dimensions)
+		latent_terms_per_doc = list()
+
 		for batch_ids_q, batch_data_q, batch_lengths_q in query_batch_generator:
 			batch_len = len(batch_ids_q)
 			q_reprs = model(batch_data_q.to(device), batch_lengths_q.to(device))
+			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
+			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())	
+
 			# q_score_lists = [ []]*batch_len
 			q_score_lists = [[] for i in range(batch_len) ]
 			for doc_repr in doc_reprs:
@@ -86,10 +101,13 @@ def inference(cfg, model = None):
 				for j, (doc_id, score) in enumerate(sorted_by_relevance):
 					results_file.write(f'{query_id}\t{doc_id}\t{j+1}\n' )
 					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
-			if count % 1 == 0:
-				print(count, ' batches processed')
+			#if count % 1 == 0:
+			#	print(count, ' batches processed')
 
 			count += 1
+		plot_ordered_posting_lists_lengths(cfg.model_folder, posting_lengths)
+		plot_histogram_of_latent_terms(cfg.model_folder, latent_terms_per_doc, cfg.sparse_dimensions)
+
 		results_file.close()
 		results_file_trec.close()
 		metrics = compute_metrics_from_files(path_to_reference = cfg.dataset_path + cfg.qrels, path_to_candidate = results_file_path)

@@ -24,3 +24,9 @@ awk '{print $1}' ${DATA_PATH}/2019qrels-pass.txt | uniq | xargs -I{} awk '$1 == 
 
 
 python3 ../tokenizer.py --folder ${DATA_PATH} --fname msmarco-test2019-queries_43.tsv
+
+
+python3 ../tokenizer.py --folder ${DATA_PATH} --fname msmarco-test2019-queries_43.tsv --whitespace
+
+python3 ../tokenizer.py --folder ${DATA_PATH} --fname msmarco-passagetest2019-top1000_43.tsv --max_len 150 --whitespace
+
