@@ -29,19 +29,18 @@ def exp(cfg):
 	# define which embeddings to load, depending on params
 	if cfg.embedding == 'glove':
 		embedding_path = cfg.glove_embedding_path
-		# word2idx = generate_word2idx_dict_from_glove
-		word2idx = read_pickle(cfg.glove_word2idx_path)
+		# # word2idx = generate_word2idx_dict_from_glove
+		# word2idx = read_pickle(cfg.glove_word2idx_path)
 
 	elif cfg.embedding == 'bert':
 		embedding_path = 'bert'
-		# load BERT's BertTokenizer
-		tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-		# use BERT's word to ID
-		word2idx = tokenizer.vocab
-		del tokenizer
+		# # load BERT's BertTokenizer
+		# tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+		# # use BERT's word to ID
+		# word2idx = tokenizer.vocab
+		# del tokenizer
 	else:
-		print('Define pretrained embeddings !')
-		exit()
+		raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
 
 	print('Initializing model...')
 
@@ -49,13 +48,12 @@ def exp(cfg):
 	if cfg.model == "snrm":
 		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
 		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=embedding_path,
-		word2idx=word2idx, dropout_p=cfg.snrm.dropout_p, debug=cfg.debug, device=device)
+		dropout_p=cfg.snrm.dropout_p, debug=cfg.debug)
 
 	elif cfg.model == "tf":
-		model = BERT_based(  hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
-		sparse_dimensions = cfg.sparse_dimensions, vocab_size = len(word2idx),
-		num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
-		embedding_path = embedding_path, word2idx = word2idx, pooling_method = cfg.tf.pooling_method, device=device)
+		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
+		embedding_path = embedding_path, pooling_method = cfg.tf.pooling_method)
 
 	# move model to device
 	model = model.to(device=device)

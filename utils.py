@@ -58,19 +58,33 @@ def get_pretrained_BERT_embeddings():
 
 
 
-def load_glove_embeddings(path, word2idx, device, embedding_dim=300):
+def load_glove_embeddings(path):
 	""" Load Glove embeddings from file
 	"""
+	embeddings = []
 	with open(path) as f:
-		embeddings = np.zeros((len(word2idx), embedding_dim))
-		for line in f.readlines():
-			values = line.split()
-			word = values[0]
-			index = word2idx.get(word)
-			if index:
-				vector = np.array(values[1:], dtype='float32')
-				embeddings[index] = vector
-		return torch.from_numpy(embeddings).float().to(device)
+		index = 0
+		line = f.readline()
+		while(line):
+			line = line.split()
+			word = line[0]
+			embeddings.append( [ line[1:] ] )
+			line = f.readline()
+			index += 1
+	embeddings = np.array(embeddings, dtype='float32')
+	embeddings = torch.from_numpy(embeddings).float()
+	return embeddings
+
+	# with open(path) as f:
+	# 	embeddings = np.zeros((len(word2idx), embedding_dim))
+	# 	for index, line in enumerate(f.readlines()):
+	# 		values = line.split()
+	# 		word = values[0]
+	# 		index = word2idx.get(word)
+	# 		if index:
+	# 			vector = np.array(values[1:], dtype='float32')
+	# 			embeddings[index] = vector
+	# 	return torch.from_numpy(embeddings).float().to(device)
 
 def generate_word2idx_dict_from_glove(path):
 	word2idx = {}
