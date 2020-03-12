@@ -15,23 +15,19 @@ from utils import collate_fn_padd
 
 class MSMarco(data.Dataset):
 
-	def __init__(self, dataset_path, split,  debug=False):
+	def __init__(self, split, triplets_path, documents_path, queries_path):
 
 		self.split = split
-		self.debug = debug
-		if split == 'train':
-			debug_str = '' if not debug else '.debug'
-			triplets_fname = f'{dataset_path}/qidpidtriples.{split}.full{debug_str}.tsv'
-			# "open" triplets file
-			self.triplets = FileInterface(triplets_fname)
+		# "open" triplets file
+		self.triplets = FileInterface(triplets_path)
 
 
 		# "open" documents file
-		self.documents = FileInterface(f'{dataset_path}/collection.tokenized.tsv')
+		self.documents = FileInterface(documents_path)
 		# "open" queries file
-		self.queries = FileInterface(f'{dataset_path}/queries.{split}.tokenized.tsv')
+		self.queries = FileInterface(queries_path)
 		# read qrels
-		self.qrels = read_qrels(f'{dataset_path}/qrels.{split}.tsv')
+		# self.qrels = read_qrels(f'{dataset_path}/qrels.{split}.tsv')
 
 		self.max_doc_id = len(self.documents) - 1
 
@@ -52,15 +48,15 @@ class MSMarco(data.Dataset):
 			q_id, d1_id, d2_id = self.triplets.get_triplet(index)
 
 		elif self.split == 'dev':
-
-			q_id, d1_id = self.qrels[index]
-
-			d2_id = randint(0, self.max_doc_id)
-			# making sure that the sampled d1_id is diferent from relevant d2_id
-			while int(d1_id) == d2_id:
-				d2_id = randint(0, self.max_doc_id)
-			# type cast the id into a string
-			d2_id = str(d2_id)
+			pass
+			# q_id, d1_id = self.qrels[index]
+			#
+			# d2_id = randint(0, self.max_doc_id)
+			# # making sure that the sampled d1_id is diferent from relevant d2_id
+			# while int(d1_id) == d2_id:
+			# 	d2_id = randint(0, self.max_doc_id)
+			# # type cast the id into a string
+			# d2_id = str(d2_id)
 		else:
 			raise ValueError(f'Unknown split: {split}')
 
@@ -110,12 +106,18 @@ class MSMarcoSequential:
 			yield batch_ids, batch_data, batch_lengths
 
 
-def get_data_loaders(dataset_path, batch_size, debug=False):
+def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
+ 	docs_file_val, batch_size):
 
 	dataloaders = {}
-	dataloaders['train'] = DataLoader(MSMarco(dataset_path, 'train', debug=debug),
+	dataloaders['train'] = DataLoader(MSMarco('train', triplets_train_file, docs_file_train, query_file_train),
 	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True)
-	dataloaders['val'] =  DataLoader(MSMarco(dataset_path, 'dev', debug=debug),
-		batch_size=batch_size, collate_fn=collate_fn_padd)
+
+	query_batch_generator = MSMarcoSequential(query_file_val, batch_size).batch_generator()
+	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size).batch_generator()
+
+	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
+
+	#dataloaders['test'] =  DataLoader(MSMarco('eval'), batch_size=batch_size, collate_fn=collate_fn_padd)
 
 	return dataloaders

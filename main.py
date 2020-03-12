@@ -48,7 +48,7 @@ def exp(cfg):
 	if cfg.model == "snrm":
 		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
 		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_path=embedding_path,
-		dropout_p=cfg.snrm.dropout_p, debug=cfg.debug)
+		dropout_p=cfg.snrm.dropout_p)
 
 	elif cfg.model == "tf":
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
@@ -68,17 +68,21 @@ def exp(cfg):
 
 	print('Loading data...')
 	# initialize dataloaders
-	dataloaders = get_data_loaders(cfg.dataset_path, cfg.batch_size, debug=cfg.debug)
+	#
+
+	dataloaders = get_data_loaders(cfg.triplets_train_file, cfg.docs_file_train,
+	cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size)
 	print('done')
 	# initialize loss function
 	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
-
 
 	# initialize optimizer
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
-	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device, cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, cfg=cfg)
+	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer,
+	device, cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar,
+	 cfg.qrels_eval, cfg.dataset_path, cfg.sparse_dimensions)
 
 if __name__ == "__main__":
 	# getting command line arguments

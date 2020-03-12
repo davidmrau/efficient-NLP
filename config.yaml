@@ -27,4 +27,16 @@ disable_cuda: False
 dataset_path: 'data/msmarco/'
 embedding: 'bert'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.txt'
-glove_word2idx_path: 'small_data/glove.6B.300d.txt.word2idx_dict.p'
+glove_word2idx_path: 'data/embeddings/glove.6B.300d.txt.word2idx_dict.p'
+docs_file_val: ${dataset_path}'msmarco-test2019-queries_43.tokenized.tsv'
+query_file_val: ${dataset_path}'msmarco-passagetest2019-top1000_43.tokenized.tsv'
+qrels_eval: ${dataset_path}'2019qrels-pass_filtered_ms_marco.txt'
+docs_file_train: ${dataset_path}'collection.tokenized.tsv'
+query_file_train: ${dataset_path}'queries.train.tokenized.tsv'
+
+
+
+# debug_str = '' if not debug else '.debug'
+# triplets_fname = f'{dataset_path}/qidpidtriples.train.full{debug_str}.tsv'
+# documents_path = f'{dataset_path}/collection.tokenized.tsv'
+# queries_path = f'{dataset_path}/queries.train.tokenized.tsv'
