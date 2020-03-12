@@ -20,17 +20,17 @@ EXPERIMENT_FOLDER='experiments/'
 
 
 # Transformer parameters:
-TF_LAYERS="2 4 8"
-TF_HEADS="4 8"
-TF_HID_DIMS="256 512"
-TF_POOLS="CLS MAX AVG"
+TF_LAYERS="2"
+TF_HEADS="4"
+# TF_HID_DIMS="256 512"
+TF_POOLS="CLS AVG MAX"
 EMBEDDINGS="bert glove"
 
 
       # All dense experiments
 echo 'Dense Experiments :'
 L1_SCALAR="0"
-# Dense EMB-300-100-300
+# Dense
 SPARSE_DIMENSIONS="500 300"
 
 
@@ -74,10 +74,10 @@ done
 
 
 
-      # All dense experiments
+      # All sparse experiments
 echo 'Sparse TF Experiments :'
 L1_SCALARS="1 2"
-# Dense EMB-300-100-300
+
 SPARSE_DIMENSIONS="500 300 1000 5000 10000"
 
 

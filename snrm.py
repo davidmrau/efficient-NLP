@@ -8,24 +8,24 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_path, word2idx, dropout_p, device, debug=False):
+    def __init__(self, hidden_sizes, sparse_dimensions, vocab_size, n, embedding_path, dropout_p):
         super(SNRM, self).__init__()
 
         self.embedding_dim = 300
         self.n = n
         self.hidden_sizes = hidden_sizes
-        if embedding_path != '':
-            # load the appropriate embeddings
-            if embedding_path == 'bert':
-                embedding_weights = get_pretrained_BERT_embeddings()
-                self.embedding_dim = embedding_weights.size(1)
-            else:
-                embedding_weights = load_glove_embeddings(embedding_path, word2idx, device)
-                self.embedding_dim = 300
-                # set embeddings for model
-            self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
+
+        # load the appropriate embeddings
+        if embedding_path == 'bert':
+            embedding_weights = get_pretrained_BERT_embeddings()
         else:
-            self.embedding = nn.Embedding(len(word2idx), self.embedding_dim)
+            embedding_weights = load_glove_embeddings(embedding_path)
+
+        # embedding dimensionality depends on the embeddings that we use
+        self.embedding_dim = embedding_weights.size(1)
+            # set embeddings for model
+        self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
+
         self.sparse_dimensions = sparse_dimensions
         self.conv = nn.Conv1d(self.embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
         # create module list

@@ -2,23 +2,23 @@ import numpy as np
 import torch
 
 import transformers
+from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 
 
 
 
 class BERT_based(torch.nn.Module):
-    def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, vocab_size = 30522, num_attention_heads = 4, input_length_limit = 150, embedding_path = 'bert', word2idx = None, pooling_method = "CLS", device='cpu'):
+    def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, embedding_path = 'bert', pooling_method = "CLS"):
         super(BERT_based, self).__init__()
 
-        # if we use pretrained BERT embeddings, we have to use the same hidden size
-        if embedding_path != '':
+        # hidden size and vocab size depend on the embeddings that we load
+        if embedding_path == "bert":
+            embeddings = get_pretrained_BERT_embeddings()
+        else:
+            embeddings = load_glove_embeddings(embedding_path)
 
-            if embedding_path == "bert":
-                embeddings = self.get_pretrained_BERT_embeddings()
-            else:
-                embeddings = load_glove_embeddings(embedding_path, word2idx, device)
-
-            hidden_size = embeddings.size(1)
+        hidden_size = embeddings.size(1)
+        vocab_size = embeddings.size(0)
 
         # traditionally the intermediate_size is set to be 4 times the size of the hidden size
         intermediate_size = hidden_size*4
@@ -30,23 +30,23 @@ class BERT_based(torch.nn.Module):
         # Initialize the Bert-like encoder
         self.encoder = transformers.BertModel(config)
         self.relu = torch.nn.ReLU()
-        self.device = device
 
-        if pretrained_embeddings:
-            self.encoder.embeddings.word_embeddings.weight = embeddings
+        # copy loaded pretrained embeddings to model
+        self.encoder.embeddings.word_embeddings.weight = embeddings
 
         # the last linear of the model that projects the dense space to sparse space
         self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
-    def get_pretrained_BERT_embeddings(self):
-        bert = transformers.BertModel.from_pretrained('bert-base-uncased')
-        return bert.embeddings.word_embeddings.weight
-
     def forward(self, input, lengths):
-        attention_masks = torch.zeros(input.size(0), lengths.max().int().item()).to(self.device)
+
+        attention_masks = torch.zeros(input.size(0), lengths.max().int().item())
 
         for i in range(lengths.size(0)):
             attention_masks[i, : lengths[i].int()] = 1
+
+        if next(self.parameters()).is_cuda:
+            attention_masks = attention_masks.cuda()
+
 
         last_hidden_state, pooler_output = self.encoder(input_ids = input, attention_mask=attention_masks)
 
