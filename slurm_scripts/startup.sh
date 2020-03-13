@@ -6,7 +6,7 @@ curl -Lb /tmp/cookie "https://drive.google.com/uc?export=download&confirm=${code
 
 
 # download data
-tar -xzf data.tar.gz
+tar -xzvf data.tar.gz
 mv data ../
 rm data.tar.gz
 
