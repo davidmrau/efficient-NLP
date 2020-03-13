@@ -36,7 +36,6 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 		doc_ids = list()
 		posting_lengths = np.zeros(sparse_dimensions)
 		latent_terms_per_doc = list()
-		posting_av_values = np.zeros(sparse_dimensions)
 		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator:
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			# print(doc_repr[:10,:10])
@@ -45,7 +44,6 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
 			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())
 			
-			posting_av_values += doc_reprs[doc_repr > 0].sum(0).detach().cpu().numpy()
 			doc_reprs.append(doc_repr.T)
 			doc_ids += batch_ids_d
 			#if count % 100 == 0:
