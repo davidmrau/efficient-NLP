@@ -2,7 +2,7 @@
 
 MODEL=tf
 
-BATCH_SIZES="1024"
+BATCH_SIZE="1024"
 
 cd ..
 

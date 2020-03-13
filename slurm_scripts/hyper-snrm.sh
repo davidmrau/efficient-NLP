@@ -1,5 +1,5 @@
 
-BATCH_SIZES="256"
+BATCH_SIZE="256"
 
 cd ..
 
