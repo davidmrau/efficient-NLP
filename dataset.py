@@ -19,7 +19,7 @@ class MSMarco(data.Dataset):
 
 		self.split = split
 		self.debug = debug
-		
+
 		triplets_path = add_before_ending(triplets_path, '.debug' if debug else '')
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
@@ -96,7 +96,7 @@ class MSMarcoSequential:
 				# extracting the token_ids and creating a numpy array
 				tokens_list = np.fromstring(self.previous_line[delim_pos+1:], dtype=int, sep=' ')
 				batch_ids.append(id)
-				batch_data.append(torch.ShortTensor(tokens_list))
+				batch_data.append(torch.IntTensor(tokens_list))
 
 				self.previous_line = self.file.readline()
 
