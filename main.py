@@ -41,7 +41,6 @@ def exp(cfg):
 		# del tokenizer
 	else:
 		raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
-	print(cfg.triplets_file_train)
 	print('Initializing model...')
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)

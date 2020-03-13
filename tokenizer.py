@@ -20,8 +20,8 @@ args = parser.parse_args()
 
 in_fname = args.folder + args.fname
 base = os.path.splitext(in_fname)[0]
-add = '.white' if args.whitespace else ''
-out_fname = f'{base}.tokenized{add}.tsv'
+add = 'glove' if args.whitespace else 'bert'
+out_fname = f'{base}.{add}.tsv'
 
 word2idx = pickle.load(open(args.word2index_path, 'rb')) 
 with open(out_fname, 'w') as out_f:

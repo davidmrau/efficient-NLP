@@ -9,7 +9,7 @@ from random import randint
 from file_interface import FileInterface
 from torch.utils.data import DataLoader
 from os import path
-from utils import collate_fn_padd
+from utils import collate_fn_padd, add_before_ending
 
 
 
@@ -19,6 +19,8 @@ class MSMarco(data.Dataset):
 
 		self.split = split
 		self.debug = debug
+		
+		triplets_path = add_before_ending(triplets_path, '.debug' if debug else '')
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
 
@@ -33,8 +35,6 @@ class MSMarco(data.Dataset):
 		self.max_doc_id = len(self.documents) - 1
 
 	def __len__(self):
-		if self.debug:
-			return 100
 		if self.split == 'train':
 			return len(self.triplets)
 

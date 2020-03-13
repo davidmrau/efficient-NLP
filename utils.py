@@ -40,9 +40,9 @@ def collate_fn_padd(batch):
 	batch_q, batch_doc1, batch_doc2 = list(), list(), list()
 	for item in batch:
 		q, doc1, doc2 = item[0]
-		batch_q.append(torch.ShortTensor(q))
-		batch_doc1.append(torch.ShortTensor(doc1))
-		batch_doc2.append(torch.ShortTensor(doc2))
+		batch_q.append(torch.IntTensor(q))
+		batch_doc1.append(torch.IntTensor(doc1))
+		batch_doc2.append(torch.IntTensor(doc2))
 		batch_targets.append(item[1])
 	batch_data = batch_q + batch_doc1 + batch_doc2
 	batch_targets = torch.Tensor(batch_targets)
@@ -72,11 +72,36 @@ def load_glove_embeddings(path):
 		while(line):
 			line = line.split()
 			word = line[0]
-			embeddings.append( [ line[1:] ] )
+			# print(line[1:])
+			# print(len(line[1:]))
+			# print([line[1:]])
+			embeddings.append( line[-300:] )
+			# print(embeddings)
+			# exit()
+			if len(embeddings[-1]) != 300:
+				print(embeddings[-1])
+				print(len(embeddings[-1]))
+				#print(line)
+			# 	print()
+			# 	print(len(line))
+			# 	# print(len(line[1:]))
+				#print(line)
+				raise ValueError('Error')
+
 			line = f.readline()
 			index += 1
+		# print(len(embeddings))
+		# for i in range(len(embeddings)):
+		#
+		# 	if len(embeddings[i]!= 300)
+		# 		print(len(embeddings[i]))
+
 	embeddings = np.array(embeddings, dtype='float32')
 	embeddings = torch.from_numpy(embeddings).float()
+	# exit()
+
+
+
 	return embeddings
 
 	# with open(path) as f:
@@ -270,3 +295,8 @@ def plot_ordered_posting_lists_lengths(path,frequencies, name, n=-1):
 	plt.xlabel('Latent Dimension (Sorted)' + n_text)
 	plt.savefig(path+ f'/num_docs_per_latent_term_{name}.pdf', bbox_inches='tight')
 	plt.close()
+
+
+def add_before_ending(filename, add_before_ending):
+	name, ending = os.path.splitext(filename)
+	return name + add_before_ending + ending
