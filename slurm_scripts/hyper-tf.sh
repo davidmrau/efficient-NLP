@@ -1,9 +1,5 @@
 
 
-QUERY_FILE='msmarco-test2019-queries_43.tokenized.tsv'
-QRELS='2019qrels-pass_filtered_ms_marco.txt'
-DOCS_FILE='msmarco-passagetest2019-top1000_43.tokenized.tsv'
-
 MODEL=tf
 
 BATCH_SIZES="256"
@@ -13,7 +9,7 @@ cd ..
 # test what is the max batch size that can fit in the gpu. If the folloing trains at least one epoch, we are good for the rest experiments that follow
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=bert sparse_dimensions=10000 l1_scalar=0 \
 tf.num_of_layers=8 tf.num_attention_heads=8 tf.hidden_size=768 tf.pooling_method=CLS  \
-model_folder=Test_Batch_size_exp query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=Test_Batch_size_exp
 
 # Experiment parameters:
 EXPERIMENT_FOLDER='experiments/'
@@ -62,7 +58,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 						# echo "Training"
 						python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
 						tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}  \
-						model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+						model_folder=${EXP_DIR}
 
 					done
 				done
@@ -110,7 +106,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 							# echo "Training"
 							python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
 							tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}  \
-							model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+							model_folder=${EXP_DIR}
 
 						done
 					done
