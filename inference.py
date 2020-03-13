@@ -31,34 +31,24 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 		model.eval()
 		# open results file
 
-		count = 0
 		doc_reprs = list()
 		doc_ids = list()
 		posting_lengths = np.zeros(sparse_dimensions)
 		latent_terms_per_doc = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator:
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
-			# print(doc_repr[:10,:10])
-			# exit()
 
 			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
 			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())
 			
 			doc_reprs.append(doc_repr.T)
 			doc_ids += batch_ids_d
-			#if count % 100 == 0:
-			#	print(count, ' batches processed')
-
-
-
-			count += 1
 			
 		plot_ordered_posting_lists_lengths(model_folder, posting_lengths, 'docs')
 		plot_histogram_of_latent_terms(model_folder, latent_terms_per_doc, sparse_dimensions, 'docs')
 		#pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
 
 		# save logits to file
-		count = 0
 		posting_lengths = np.zeros(sparse_dimensions)
 		latent_terms_per_q = list()
 
@@ -89,10 +79,8 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 				for j, (doc_id, score) in enumerate(sorted_by_relevance):
 					results_file.write(f'{query_id}\t{doc_id}\t{j+1}\n' )
 					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
-			#if count % 1 == 0:
-			#	print(count, ' batches processed')
 
-			count += 1
+
 		plot_ordered_posting_lists_lengths(model_folder, posting_lengths, 'query')
 		plot_histogram_of_latent_terms(model_folder, latent_terms_per_q, sparse_dimensions, 'query')
 
