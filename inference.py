@@ -21,11 +21,9 @@ matplotlib.use('Agg')
 def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device):
 
 	query_batch_generator, docs_batch_generator = data_loaders
-	metrics_file_path = model_folder + '/metric'
 	results_file_path = model_folder + '/ranking_results'
 	doc_reprs_file_path = model_folder + '/doc_reprs'
 
-	metrics_file = open(metrics_file_path, 'w')
 	results_file = open(results_file_path, 'w')
 	results_file_trec = open(results_file_path+ '.trec', 'w')
 
@@ -114,16 +112,17 @@ def inference(cfg):
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 
+	metrics_file_path = cfg.model_folder + '/metric'
+	metrics_file = open(metrics_file_path, 'w')
 	# load data
-	query_batch_generator = MSMarcoSequential(dataset_path + query_file, batch_size).batch_generator()
-	docs_batch_generator = MSMarcoSequential(dataset_path + docs_file, batch_size).batch_generator()
+	query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size).batch_generator()
+	docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size).batch_generator()
 
 	dataloader = [query_batch_generator, docs_batch_generator]
 	top_results = cfg.top_results
-	metrics = evaluate(model, dataloader, cfg.model_folder, cfg.qrels, cfg.dataset_path, cfg.sparse_dimensions)
+	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device)
 
-	for metric in metrics:
-		metrics_file.write(f'{metric}:\t{metrics[metric]}\n')
+	metrics_file.write(f'{metric}:\t{metric}\n')
 
 	metrics_file.close()
 
@@ -131,8 +130,8 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.qrels or not cl_cfg.docs_file:
-		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs_file=DOCS_FILE query_file=QUERY_FILE qrels=QRELS top_results=1000")
+	if not cl_cfg.model_folder:
+		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
