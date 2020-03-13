@@ -1,18 +1,11 @@
 
-
-QUERY_FILE='msmarco-test2019-queries_43.tokenized.tsv'
-QRELS='2019qrels-pass_filtered_ms_marco.txt'
-DOCS_FILE='msmarco-passagetest2019-top1000_43.tokenized.tsv'
-
-MODEL=snrm
-
 BATCH_SIZES="256"
 
 cd ..
 
-# test what is the max batch size that can fit in the gpu. If the folloing trains at least one epoch, we are good for the rest experiments that follow
-python3 main.py model=snrm batch_size=${BATCH_SIZE} embedding=bert sparse_dimensions=10000 l1_scalar=0 snrm.hidden_sizes=500-300-100-300-500 \
-model_folder=Test_Batch_size_exp query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+
+MODEL=snrm
+
 
 # Experiment parameters:
 EXPERIMENT_FOLDER='experiments/'
@@ -31,7 +24,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 # Dense EMB-500-100-500
@@ -43,7 +36,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 # Dense 300-100
@@ -55,7 +48,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 # Dense 500-300-100-300-500
@@ -67,7 +60,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 
@@ -82,7 +75,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 SPARSE_DIMENSION="500"
@@ -93,7 +86,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 SPARSE_DIMENSION="500"
@@ -104,7 +97,7 @@ EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIM
 echo ${EXP_DIR}
 # echo "Training"
 python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+model_folder=${EXP_DIR}
 
 
 
@@ -130,7 +123,7 @@ for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
 				echo ${EXP_DIR}
 				# echo "Training"
 				python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-				model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+				model_folder=${EXP_DIR}
 
 			done
 	done
@@ -159,7 +152,7 @@ for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
 				echo ${EXP_DIR}
 				# echo "Training"
 				python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} \
-				model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
+				model_folder=${EXP_DIR}
 
 			done
 	done
