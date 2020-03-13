@@ -32,7 +32,7 @@ class BERT_based(torch.nn.Module):
         self.relu = torch.nn.ReLU()
 
         # copy loaded pretrained embeddings to model
-        self.encoder.embeddings.word_embeddings.weight = embeddings
+        self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embeddings)
 
         # the last linear of the model that projects the dense space to sparse space
         self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
