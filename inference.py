@@ -36,6 +36,7 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 		doc_ids = list()
 		posting_lengths = np.zeros(sparse_dimensions)
 		latent_terms_per_doc = list()
+		posting_av_values = np.zeros(sparse_dimensions)
 		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator:
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			# print(doc_repr[:10,:10])
@@ -43,6 +44,8 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 
 			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
 			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())
+			
+			posting_av_values += doc_reprs[doc_repr > 0].sum(0).detach().cpu().numpy()
 			doc_reprs.append(doc_repr.T)
 			doc_ids += batch_ids_d
 			#if count % 100 == 0:
@@ -51,6 +54,7 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 
 
 			count += 1
+			
 		plot_ordered_posting_lists_lengths(model_folder, posting_lengths, 'docs')
 		plot_histogram_of_latent_terms(model_folder, latent_terms_per_doc, sparse_dimensions, 'docs')
 		#pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
