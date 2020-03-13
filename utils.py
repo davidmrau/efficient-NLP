@@ -61,8 +61,7 @@ def get_pretrained_BERT_embeddings():
 	return bert.embeddings.word_embeddings.weight
 
 
-
-def load_glove_embeddings(path):
+def save_glove_embeddings_to_pickle(path = "data/embeddings/glove.6B.300d.txt"):
 	""" Load Glove embeddings from file
 	"""
 	embeddings = []
@@ -72,37 +71,27 @@ def load_glove_embeddings(path):
 		while(line):
 			line = line.split()
 			word = line[0]
-			# print(line[1:])
-			# print(len(line[1:]))
-			# print([line[1:]])
+
 			embeddings.append( line[-300:] )
-			# print(embeddings)
-			# exit()
+
 			if len(embeddings[-1]) != 300:
 				print(embeddings[-1])
 				print(len(embeddings[-1]))
-				#print(line)
-			# 	print()
-			# 	print(len(line))
-			# 	# print(len(line[1:]))
-				#print(line)
-				raise ValueError('Error')
+				raise ValueError('Error on reading glove embeddings from file!')
 
 			line = f.readline()
 			index += 1
-		# print(len(embeddings))
-		# for i in range(len(embeddings)):
-		#
-		# 	if len(embeddings[i]!= 300)
-		# 		print(len(embeddings[i]))
-
 	embeddings = np.array(embeddings, dtype='float32')
 	embeddings = torch.from_numpy(embeddings).float()
-	# exit()
+	pickle.dump( embeddings, open(os.path.join( "data/embeddings/glove.6B.300d.p"), 'wb'))
+
+def load_glove_embeddings(path = "data/embeddings/glove.6B.300d.p"):
+	return read_pickle(path)
 
 
 
-	return embeddings
+
+	# return embeddings
 
 	# with open(path) as f:
 	# 	embeddings = np.zeros((len(word2idx), embedding_dim))
