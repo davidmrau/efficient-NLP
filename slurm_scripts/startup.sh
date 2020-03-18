@@ -1,9 +1,10 @@
 fileId=1CYIu5InPucyEAr_77xVI8-xNGFdy4Vic
 fileName=data.tar.gz
-curl -sc /tmp/cookie "https://drive.google.com/uc?export=download&id=${fileId}" > /dev/null
+curl -sc cookie "https://drive.google.com/uc?export=download&id=${fileId}" > /dev/null
 code="$(awk '/_warning_/ {print $NF}' /tmp/cookie)"  
-curl -Lb /tmp/cookie "https://drive.google.com/uc?export=download&confirm=${code}&id=${fileId}" -o ${fileName} 
+curl -Lb cookie "https://drive.google.com/uc?export=download&confirm=${code}&id=${fileId}" -o ${fileName} 
 
+rm cookie
 
 # download data
 tar -xzvf data.tar.gz
