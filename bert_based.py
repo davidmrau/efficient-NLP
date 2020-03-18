@@ -39,7 +39,7 @@ class BERT_based(torch.nn.Module):
 
     def forward(self, input, lengths):
 
-        attention_masks = torch.zeros(input.size(0), lengths.max().int().item())
+        attention_masks = torch.zeros_like(input)
 
         for i in range(lengths.size(0)):
             attention_masks[i, : lengths[i].int()] = 1
