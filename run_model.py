@@ -167,6 +167,6 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 		#torch.save(model, f'{model_folder}/model_epoch_{epoch}.model' )
 	# load best model
-	torch.load(f'{model_folder}/best_model.model')
+	model = torch.load(f'{model_folder}/best_model.model')
 
 	return model
