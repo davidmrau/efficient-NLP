@@ -35,7 +35,7 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 		doc_ids = list()
 		posting_lengths = np.zeros(sparse_dimensions)
 		latent_terms_per_doc = list()
-		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator:
+		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator.batch_generator():
 			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
 
 			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
@@ -52,7 +52,7 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 		posting_lengths = np.zeros(sparse_dimensions)
 		latent_terms_per_q = list()
 
-		for batch_ids_q, batch_data_q, batch_lengths_q in query_batch_generator:
+		for batch_ids_q, batch_data_q, batch_lengths_q in query_batch_generator.batch_generator():
 			batch_len = len(batch_ids_q)
 			q_reprs = model(batch_data_q.to(device), batch_lengths_q.to(device))
 
@@ -86,7 +86,6 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 
 		results_file.close()
 		results_file_trec.close()
-
 		metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path)
 
 		# returning the MRR @ 1000
@@ -105,8 +104,8 @@ def inference(cfg):
 	metrics_file_path = cfg.model_folder + '/metric'
 	metrics_file = open(metrics_file_path, 'w')
 	# load data
-	query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size).batch_generator()
-	docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size).batch_generator()
+	query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
+	docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size)
 
 	dataloader = [query_batch_generator, docs_batch_generator]
 	top_results = cfg.top_results

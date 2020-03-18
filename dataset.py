@@ -75,37 +75,36 @@ class MSMarcoSequential:
 	def __init__(self, fname, batch_size):
 
 		# open file
-		self.file = open(fname, 'r')
 		self.batch_size = batch_size
-
-		self.previous_line = self.file.readline()
-
+		self.fname = fname
+			
 	def batch_generator(self):
 
+		file_ = open(self.fname, 'r')
+		previous_line = file_.readline()
 		# line = self.file.readline()
-		while self.previous_line:
+		while previous_line:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
-			while(self.previous_line and ( len(batch_ids) < self.batch_size) ):
+			while(previous_line and ( len(batch_ids) < self.batch_size) ):
 
 				# getting position of first ' ' that separates the doc_id and the begining of the token ids
-				delim_pos = self.previous_line.find(' ')
+				delim_pos = previous_line.find(' ')
 				# extracting the id
-				id = self.previous_line[:delim_pos]
+				id_ = previous_line[:delim_pos]
 				# extracting the token_ids and creating a numpy array
-				tokens_list = np.fromstring(self.previous_line[delim_pos+1:], dtype=int, sep=' ')
-				batch_ids.append(id)
+				tokens_list = np.fromstring(previous_line[delim_pos+1:], dtype=int, sep=' ')
+				batch_ids.append(id_)
 				batch_data.append(torch.IntTensor(tokens_list))
 
-				self.previous_line = self.file.readline()
+				previous_line = file_.readline()
 
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
 			#padd data along axis 1
 			batch_data = pad_sequence(batch_data,1).long()
 
 			yield batch_ids, batch_data, batch_lengths
-
 
 def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
  	docs_file_val, batch_size, debug=False):
@@ -114,8 +113,8 @@ def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, que
 	dataloaders['train'] = DataLoader(MSMarco('train', triplets_train_file, docs_file_train, query_file_train, debug=debug),
 	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True)
 
-	query_batch_generator = MSMarcoSequential(query_file_val, batch_size).batch_generator()
-	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size).batch_generator()
+	query_batch_generator = MSMarcoSequential(query_file_val, batch_size)
+	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size)
 
 	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
 
