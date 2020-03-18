@@ -1,7 +1,7 @@
 fileId=1CYIu5InPucyEAr_77xVI8-xNGFdy4Vic
 fileName=data.tar.gz
 curl -sc cookie "https://drive.google.com/uc?export=download&id=${fileId}" > /dev/null
-code="$(awk '/_warning_/ {print $NF}' /tmp/cookie)"  
+code="$(awk '/_warning_/ {print $NF}' cookie)"  
 curl -Lb cookie "https://drive.google.com/uc?export=download&confirm=${code}&id=${fileId}" -o ${fileName} 
 
 rm cookie
