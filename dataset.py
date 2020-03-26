@@ -121,3 +121,28 @@ def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, que
 	#dataloaders['test'] =  DataLoader(MSMarco('eval'), batch_size=batch_size, collate_fn=collate_fn_padd)
 
 	return dataloaders
+
+
+
+class MSMarcoLM(data.Dataset):
+
+	def __init__(self, data_path, documents_path, queries_path):
+
+
+		self.data = open(data_path, 'r').readlines()
+
+		# "open" documents file
+		self.documents = FileInterface(documents_path)
+		# "open" queries file
+		self.queries = FileInterface(queries_path)
+
+
+	def __len__(self):
+		return len(self.data)
+
+	def __getitem__(self, index):
+		q_id, _, d1_id, _  = self.data[index].split('\t')
+		query = self.queries.get_tokenized_element(q_id)
+		doc = self.documents.get_tokenized_element(d1_id)
+		inp = list(query[1:]) + list(doc[1:])
+		return torch.LongTensor(inp)

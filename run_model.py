@@ -51,15 +51,14 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 			total_loss.backward()
 			optim.step()
 
-
+		torch.cuda.empty_cache()
 		# calculate tensorboard update dynamically
 		print_n_times = 10000
 		freq = num_batches // print_n_times if num_batches > print_n_times else 1
-
 		# update tensorboard only for training on intermediate steps
 		if training_steps % freq == 0 and mode == 'train':
 			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss.item(), l1_loss.item(), balance_loss.item()))
-			# update tensorboard
+				# update tensorboard
 			writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
 			writer.add_scalar(f'{mode}_l1_loss', l1_loss.item(), total_training_steps)
 			writer.add_scalar(f'{mode}_balance_loss', balance_loss.item(), total_training_steps)
@@ -149,7 +148,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			#run ms marco eval
 			MRR_at_1000 = evaluate(model, dataloaders['val'], model_folder, qrels, dataset_path, sparse_dimensions, top_results,device)
 			writer.add_scalar(f'Eval_MRR@1000', MRR_at_1000, total_training_steps  )
-
+			print(f'Eval -  MRR@1000: {MRR_at_1000}')
 
 		# check for early stopping
 		if MRR_at_1000 > best_MRR_at_1000:
