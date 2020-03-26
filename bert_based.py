@@ -52,7 +52,8 @@ class BERT_based(torch.nn.Module):
 
         # aggregate output of model, to a single representation
         if self.pooling_method == "CLS":
-            encoder_output = pooler_output
+            # encoder_output = pooler_output
+            encoder_output = last_hidden_state[:,0,:]
 
         elif self.pooling_method == "AVG":
             # not taking into account outputs of padded input tokens
