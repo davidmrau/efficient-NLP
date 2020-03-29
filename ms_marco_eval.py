@@ -12,7 +12,6 @@ import statistics
 
 from collections import Counter
 
-MaxMRRRank = 1000
 
 def load_reference_from_stream(f):
     """Load Reference reference relevant passages
@@ -104,7 +103,7 @@ def quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_pa
 
     return allowed, message
 
-def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages):
+def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages, MaxMRRRank=100):
     """Compute MRR metric
     Args:
     p_qids_to_relevant_passageids (dict): dictionary of query-passage mapping
@@ -136,7 +135,7 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
     all_scores['QueriesRanked'] = len(qids_to_ranked_candidate_passages)
     return all_scores
 
-def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_checks=True):
+def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_checks=True, MaxMRRRank=100):
     """Compute MRR metric
     Args:
     p_path_to_reference_file (str): path to reference file.
@@ -159,7 +158,7 @@ def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_che
         allowed, message = quality_checks_qids(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
         if message != '': print(message)
 
-    return compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages)
+    return compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passages, MaxMRRRank=MaxMRRRank)
 
 def main():
     """Command line:
