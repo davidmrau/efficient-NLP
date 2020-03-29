@@ -96,7 +96,8 @@ if __name__ == "__main__":
 		model_folder = f'experiments/{datetime.now().strftime("%Y_%m_%d_%H_%M")}/'
 	else:
 		model_folder = cl_cfg.model_folder
-
+	if os.path.isdir(model_folder):
+		exit()
 	os.makedirs(model_folder, exist_ok=True)
 
 	# save config
