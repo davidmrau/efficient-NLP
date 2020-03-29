@@ -18,10 +18,10 @@ matplotlib.use('Agg')
 # the script is loading FOLDER_TO_MODEL/best_model.model
 #
 
-def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device):
+def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device, MaxMRRRank=1000):
 
 	query_batch_generator, docs_batch_generator = data_loaders
-	results_file_path = model_folder + '/ranking_results'
+	results_file_path = model_folder + f'/ranking_results_MRRRank_{MaxMRRRank}'
 	doc_reprs_file_path = model_folder + '/doc_reprs'
 
 	results_file = open(results_file_path, 'w')
@@ -86,10 +86,10 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 
 		results_file.close()
 		results_file_trec.close()
-		metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path)
+		metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path, MaxMRRRank=MaxMRRRank)
 
 		# returning the MRR @ 1000
-		return metrics['MRR @1000']
+		return metrics[f'MRR @{MaxMRRRank}']
 
 
 def inference(cfg):
@@ -101,7 +101,7 @@ def inference(cfg):
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 
-	metrics_file_path = cfg.model_folder + '/metric'
+	metrics_file_path = cfg.model_folder + f'/eval.txt'
 	metrics_file = open(metrics_file_path, 'w')
 	# load data
 	query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
@@ -109,9 +109,9 @@ def inference(cfg):
 
 	dataloader = [query_batch_generator, docs_batch_generator]
 	top_results = cfg.top_results
-	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device)
+	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device, MaxMRRRank=cfg.MaxMRRRank)
 
-	metrics_file.write(f'{metric}:\t{metric}\n')
+	metrics_file.write(f'MRR@{cfg.MaxMRRRank}:\t{metric}\n')
 
 	metrics_file.close()
 
@@ -119,8 +119,8 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder:
-		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER")
+	if not cl_cfg.model_folder or not cl_cfg.MaxMRRRank:
+		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER MaxMRRRank=100")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
