@@ -271,7 +271,7 @@ def balance_loss_fn(actications, device):
     return cv_squared(load, device)
 
 
-def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):	
+def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
 	latent_terms_per_doc = get_latent_terms_per_doc(reprs)
 	sns.distplot(latent_terms_per_doc, bins=sparse_dims//10)
 	# plot histogram
