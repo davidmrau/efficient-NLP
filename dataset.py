@@ -11,6 +11,9 @@ from torch.utils.data import DataLoader
 from os import path
 from utils import collate_fn_padd, add_before_ending
 
+from transformers import BertTokenizer
+from nltk import word_tokenize
+import pickle
 
 
 class MSMarco(data.Dataset):
@@ -77,34 +80,121 @@ class MSMarcoSequential:
 		# open file
 		self.batch_size = batch_size
 		self.fname = fname
-			
+
 	def batch_generator(self):
 
 		file_ = open(self.fname, 'r')
-		previous_line = file_.readline()
+		line = file_.readline()
 		# line = self.file.readline()
-		while previous_line:
+		while line:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
-			while(previous_line and ( len(batch_ids) < self.batch_size) ):
+			while(line and ( len(batch_ids) < self.batch_size) ):
 
 				# getting position of first ' ' that separates the doc_id and the begining of the token ids
-				delim_pos = previous_line.find(' ')
+				delim_pos = line.find(' ')
 				# extracting the id
-				id_ = previous_line[:delim_pos]
+				id_ = line[:delim_pos]
 				# extracting the token_ids and creating a numpy array
-				tokens_list = np.fromstring(previous_line[delim_pos+1:], dtype=int, sep=' ')
+				tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 				batch_ids.append(id_)
 				batch_data.append(torch.IntTensor(tokens_list))
 
-				previous_line = file_.readline()
+				line = file_.readline()
 
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
 			#padd data along axis 1
 			batch_data = pad_sequence(batch_data,1).long()
 
 			yield batch_ids, batch_data, batch_lengths
+
+
+
+
+class MSMarcoSequentialDev:
+	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, max_len=150):
+
+		# open file
+		self.batch_size = batch_size
+		self.fname = fname
+		self.is_query = is_query
+		self.tokenizer_bert = BertTokenizer.from_pretrained('bert-base-uncased')
+		self.word2idx = pickle.load(open(word2index_path, 'rb'))
+		self.max_len = max_len
+		self.embedding = embedding
+
+	def reset(self):
+		self.file_ = open(self.fname, 'r')
+
+	def tokenize(self, text):
+		if self.embedding == 'bert':
+			tokenized_ids = self.tokenizer_bert.encode(text, max_length = self.max_len)
+		elif self.embedding == 'glove':
+			tokenized_ids = list()
+			for word in word_tokenize(line)[:self.max_len]:
+				try:
+					tokenized_ids.append(self.word2idx[word.lower()])
+				except:
+					pass
+		else:
+			raise ValueError(f" Embedding {selfembedding} not valid!")
+
+		return torch.IntTensor(tokenized_ids)
+
+
+	def get_id(self, line):
+		spl = line.split('\t')
+
+		if self.is_query:
+			return spl[0]
+		else:
+			return spl[1]
+
+	def get_text(self, line):
+		spl = line.split('\t')
+
+		if self.is_query:
+			return spl[2]
+		else:
+			return spl[3]
+
+	def batch_generator(self):
+
+		line = self.file_.readline()
+		# line = self.file.readline()
+		#
+		prev_id = get_id(line)
+		curr_id = prev_id
+
+		while line:
+			# read a number of lines equal to batch_size
+			batch_ids = []
+			batch_data = []
+			while (line and ( len(batch_ids) < self.batch_size) ) or prev_id != curr_id:
+
+				id_ = self.get_id(line)
+				curr_id = id_
+				# extracting the token_ids and creating a numpy array
+				text = get_text(line)
+
+				if id_ not in batch_ids:
+					batch_ids.append(id_)
+
+				tokens_list = self.tokenize(text)
+
+				if tokens_list not in batch_data:
+					batch_data.append()
+
+				line = self.file_.readline()
+
+			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
+			#padd data along axis 1
+			batch_data = pad_sequence(batch_data,1).long()
+
+			yield batch_ids, batch_data, batch_lengths
+
+
 
 def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
  	docs_file_val, batch_size, debug=False):

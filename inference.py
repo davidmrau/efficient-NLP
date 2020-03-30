@@ -1,4 +1,4 @@
-from dataset import MSMarcoSequential
+from dataset import MSMarcoSequential, MSMarcoSequentialDev
 import torch
 import pickle
 from torch.nn.utils.rnn import pad_sequence
@@ -68,14 +68,14 @@ def write_scores(scores, q_ids, results_file_path, MaxMRRRank):
 def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device, MaxMRRRank=1000):
 
 	results_file_path = model_folder + f'/ranking_results_MRRRank_{MaxMRRRank}'
-	
+
 	query_batch_generator, docs_batch_generator = data_loaders
-	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
+	d_repr, d_ids = get_repr(model, docs_batch_generator.reset(), device)
 
 	plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 	plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
-	q_repr, q_ids = get_repr(model, query_batch_generator, device)
+	q_repr, q_ids = get_repr(model, query_batch_generator.reset(), device)
 
 	plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 	plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
@@ -112,12 +112,17 @@ def inference(cfg):
 	metrics_file_path = cfg.model_folder + f'/eval.txt'
 	metrics_file = open(metrics_file_path, 'w')
 	# load data
-	query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
-	docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size)
+	#
+	# query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
+	# docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size)
+
+	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_dev, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
+	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_dev, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
+
 
 	dataloader = [query_batch_generator, docs_batch_generator]
 	top_results = cfg.top_results
-	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device, MaxMRRRank=cfg.MaxMRRRank)
+	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_dev, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device, MaxMRRRank=cfg.MaxMRRRank)
 
 	metrics_file.write(f'MRR@{cfg.MaxMRRRank}:\t{metric}\n')
 

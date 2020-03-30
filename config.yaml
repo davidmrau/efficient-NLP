@@ -32,6 +32,8 @@ query_file_val: '${dataset_path}/msmarco-test2019-queries_43.${embedding}.tsv'
 docs_file_val: '${dataset_path}/msmarco-passagetest2019-top1000_43.${embedding}.tsv'
 qrels_val: '${dataset_path}/2019qrels-pass_filtered_ms_marco.txt'
 
+qrels_dev: '${dataset_path}/qrels.dev.small.tsv'
+q_docs_file_dev: '${dataset_path}/top1000.dev'
 docs_file_train: '${dataset_path}/collection.${embedding}.tsv'
 query_file_train: '${dataset_path}/queries.train.${embedding}.tsv'
 triplets_file_train: '${dataset_path}qidpidtriples.train.full.tsv'
