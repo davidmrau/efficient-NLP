@@ -136,14 +136,14 @@ def l0_loss_fn(q_repr, d1_repr, d2_repr):
 
 def get_posting_lengths(reprs, sparse_dims):
 	lengths = np.zeros(sparse_dims)
-	for repr in  reprs:
-		lengths += (repr > 0).sum(0).detach().cpu().numpy()
+	for repr_ in  reprs:
+		lengths += (repr_ > 0).sum(0).detach().cpu().numpy()
 	return lengths
 
 def get_latent_terms_per_doc(reprs):
 	terms = list()
-	for repr in reprs:
-		terms += list((repr > 0).sum(1).detach().cpu().numpy())
+	for repr_ in reprs:
+		terms += list((repr_ > 0).sum(1).detach().cpu().numpy())
 	return terms
 
 
@@ -272,6 +272,7 @@ def balance_loss_fn(actications, device):
 
 
 def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
+	sparse_dims = reprs[0].size(1)
 	latent_terms_per_doc = get_latent_terms_per_doc(reprs)
 	sns.distplot(latent_terms_per_doc, bins=sparse_dims//10)
 	# plot histogram
@@ -285,7 +286,7 @@ def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
 
 
 def plot_ordered_posting_lists_lengths(path,reprs, name, n=-1):
-	sparse_dims = reprs[0].size(0)
+	sparse_dims = reprs[0].size(1)
 	frequencies = get_posting_lengths(reprs, sparse_dims)
 	n = n if n > 0 else len(frequencies)
 	top_n = sorted(frequencies, reverse=True)[:n]

@@ -19,14 +19,14 @@ matplotlib.use('Agg')
 #
 
 
-def get_repr(model, dataloader):
+def get_repr(model, dataloader, device):
 	with torch.no_grad():
 		model.eval()
 		reprs = list()
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
-			reprs.append(repr)
+			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
+			reprs.append(repr_)
 			ids += batch_ids_d
 		return reprs, ids
 
@@ -49,13 +49,11 @@ def get_scores(doc_reprs, doc_ids, q_reprs, top_results):
 			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
 			if top_results != -1:
 				sorted_by_relevance = sorted_by_relevance[:top_results]
-		scores += sorted_by_relevance
-
+			scores.append(sorted_by_relevance)
+	#print(scores[0])
 	return scores
 
-def write_scores(scores, q_ids, model_folder, MaxMRRRank):
-	results_file_path = model_folder + f'/ranking_results_MRRRank_{MaxMRRRank}'
-	doc_reprs_file_path = model_folder + '/doc_reprs'
+def write_scores(scores, q_ids, results_file_path, MaxMRRRank):
 
 	results_file = open(results_file_path, 'w')
 	results_file_trec = open(results_file_path+ '.trec', 'w')
@@ -69,34 +67,36 @@ def write_scores(scores, q_ids, model_folder, MaxMRRRank):
 
 def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device, MaxMRRRank=1000):
 
+	results_file_path = model_folder + f'/ranking_results_MRRRank_{MaxMRRRank}'
+	
 	query_batch_generator, docs_batch_generator = data_loaders
-	d_repr, d_ids = get_repr(model, docs_batch_generator)
+	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
 
 	plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 	plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
-	q_repr, q_ids = get_repr(model, query_batch_generator)
+	q_repr, q_ids = get_repr(model, query_batch_generator, device)
 
 	plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 	plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
 
 	scores = get_scores(d_repr, d_ids, q_repr, top_results)
 
-	write_scores(scores, q_ids, model_folder, MaxMRRRank)
+	write_scores(scores, q_ids, results_file_path, MaxMRRRank)
 	metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path, MaxMRRRank=MaxMRRRank)
 
 	# returning the MRR @ 1000
 	return metrics[f'MRR @{MaxMRRRank}']
 
 
-def evaluate_dev():
-	while True:
-		dataloder(dev=True):
-		repr_d, ids = get_repr(model, dataloader)
-		plot(repr_d)
-		repr_q, ids = get_repr(model, dataloader)
-		plot(repr_d)
-		scores = score(repr_d, d_ids, repr_q)
+#def evaluate_dev():
+	#while True:
+#		dataloder(dev=True):
+#		repr_d, ids = get_repr(model, dataloader)
+#		plot(repr_d)
+#		repr_q, ids = get_repr(model, dataloader)
+#		plot(repr_d)
+#		scores = score(repr_d, d_ids, repr_q)
 	#restuls write and aggreate
 
 
