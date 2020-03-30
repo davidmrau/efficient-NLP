@@ -148,11 +148,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			#run ms marco eval
 			MRR_at_1000 = evaluate(model, dataloaders['val'], model_folder, qrels, dataset_path, sparse_dimensions, top_results,device)
 			writer.add_scalar(f'Eval_MRR@1000', MRR_at_1000, total_training_steps  )
-<<<<<<< Updated upstream
 			print(f'Eval -  MRR@1000: {MRR_at_1000}')
-=======
-			print('Eval - MRR@1000:', MRR_at_1000)
->>>>>>> Stashed changes
 
 		# check for early stopping
 		if MRR_at_1000 > best_MRR_at_1000:

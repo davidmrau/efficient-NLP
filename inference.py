@@ -19,22 +19,22 @@ matplotlib.use('Agg')
 #
 
 
-def get_repr(model, dataloader):
+def get_repr(model, dataloader, device):
 	with torch.no_grad():
 		model.eval()
 		reprs = list()
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
+			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
 
-			reprs.append(repr.T)
+			reprs.append(repr_.T)
 			ids += batch_ids_d
 		return reprs, ids
 
 def get_scores(doc_reprs, doc_ids, q_reprs, q_ids, top_results):
 
 	scores = {}
-	for i in range(len(q_ids):
+	for i in range(len(q_ids)):
 		q_score = list()
 		q_repr = q_reprs[i]
 		q_id = q_ids[i]
@@ -67,12 +67,12 @@ def write_scores(scores, model_folder, MaxMRRRank):
 def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device, MaxMRRRank=1000):
 
 	query_batch_generator, docs_batch_generator = data_loaders
-	d_repr, d_ids = get_repr(model, docs_batch_generator)
+	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
 
 	plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 	plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
-	q_repr, q_ids = get_repr(model, query_batch_generator)
+	q_repr, q_ids = get_repr(model, query_batch_generator, device)
 
 	plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 	plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
@@ -86,14 +86,14 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 	return metrics[f'MRR @{MaxMRRRank}']
 
 
-def evaluate_dev():
-	while:
-		dataloder(dev=True):
-		repr_d, ids = get_repr(model, dataloader)
-		plot(repr_d)
-		repr_q, ids = get_repr(model, dataloader)
-		plot(repr_d)
-		scores = score(repr_d, d_ids, repr_q)
+#def evaluate_dev():
+#	while:
+#		dataloder(dev=True):
+#		repr_d, ids = get_repr(model, dataloader)
+#		plot(repr_d)
+#		repr_q, ids = get_repr(model, dataloader)
+#		plot(repr_d)
+#		scores = score(repr_d, d_ids, repr_q)
 	#restuls write and aggreate
 
 
