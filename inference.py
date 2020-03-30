@@ -18,78 +18,83 @@ matplotlib.use('Agg')
 # the script is loading FOLDER_TO_MODEL/best_model.model
 #
 
-def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device, MaxMRRRank=1000):
 
-	query_batch_generator, docs_batch_generator = data_loaders
+def get_repr(model, dataloader):
+	with torch.no_grad():
+		model.eval()
+		reprs = list()
+		ids = list()
+		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
+
+			reprs.append(repr.T)
+			ids += batch_ids_d
+		return reprs, ids
+
+def get_scores(doc_reprs, doc_ids, q_reprs, q_ids, top_results):
+
+	scores = {}
+	for i in range(len(q_ids):
+		q_score = list()
+		q_repr = q_reprs[i]
+		q_id = q_ids[i]
+		for j in range(len(doc_ids)):
+			score = q_repr @ doc_repr[j]
+			doc_id = doc_ids[j]
+			q_score.append((doc_id, score))
+
+		q_score = sorted(q_score, key=lambda x: x[1], reverse = True)
+		if top_results != -1:
+			q_score = q_score[:top_results]
+		scores[q_id] = q_score
+
+	return scores
+
+def write_scores(scores, model_folder, MaxMRRRank):
 	results_file_path = model_folder + f'/ranking_results_MRRRank_{MaxMRRRank}'
 	doc_reprs_file_path = model_folder + '/doc_reprs'
 
 	results_file = open(results_file_path, 'w')
 	results_file_trec = open(results_file_path+ '.trec', 'w')
+	for q_id in scores:
+		for j, (doc_id, score) in enumerate(scores[q_id]):
+			results_file.write(f'{q_id}\t{doc_id}\t{j+1}\n' )
+			results_file_trec.write(f'{q_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
 
-	with torch.no_grad():
-		model.eval()
-		# open results file
+	results_file.close()
+	results_file_trec.close()
 
-		doc_reprs = list()
-		doc_ids = list()
-		posting_lengths = np.zeros(sparse_dimensions)
-		latent_terms_per_doc = list()
-		for batch_ids_d, batch_data_d, batch_lengths_d in docs_batch_generator.batch_generator():
-			doc_repr = model(batch_data_d.to(device), batch_lengths_d.to(device))
+def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dimensions, top_results, device, MaxMRRRank=1000):
 
-			posting_lengths += (doc_repr > 0).sum(0).detach().cpu().numpy()
-			latent_terms_per_doc += list((doc_repr > 0).sum(1).detach().cpu().numpy())
-			
-			doc_reprs.append(doc_repr.T)
-			doc_ids += batch_ids_d
-			
-		plot_ordered_posting_lists_lengths(model_folder, posting_lengths, 'docs')
-		plot_histogram_of_latent_terms(model_folder, latent_terms_per_doc, sparse_dimensions, 'docs')
-		#pickle.dump([doc_ids, doc_reprs], open(doc_reprs_file_path + '.p', 'wb'))
+	query_batch_generator, docs_batch_generator = data_loaders
+	d_repr, d_ids = get_repr(model, docs_batch_generator)
 
-		# save logits to file
-		posting_lengths = np.zeros(sparse_dimensions)
-		latent_terms_per_q = list()
+	plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
+	plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
-		for batch_ids_q, batch_data_q, batch_lengths_q in query_batch_generator.batch_generator():
-			batch_len = len(batch_ids_q)
-			q_reprs = model(batch_data_q.to(device), batch_lengths_q.to(device))
+	q_repr, q_ids = get_repr(model, query_batch_generator)
 
-			posting_lengths += (q_reprs > 0).sum(0).detach().cpu().numpy()
-			latent_terms_per_q += list((q_reprs > 0).sum(1).detach().cpu().numpy())
+	plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
+	plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
 
-			# q_score_lists = [ []]*batch_len
-			q_score_lists = [[] for i in range(batch_len) ]
-			for doc_repr in doc_reprs:
-				dots_q_d = q_reprs @ doc_repr
-				# appending scores of batch_documents for this batch of queries
-				for i in range(batch_len):
-					q_score_lists[i] += dots_q_d[i].detach().cpu().tolist()
+	scores = get_scores(d_repr, d_ids, q_repr, q_ids, top_results)
 
-			# at this point, we have a list of document scores, for each query in the batch
+	write_scores(scores, model_folder, MaxMRRRank)
+	metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path, MaxMRRRank=MaxMRRRank)
 
-			# now we will sort the documents by relevance, for each query
-			for i in range(batch_len):
-				tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
-				sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
-				query_id = batch_ids_q[i]
-				if top_results != -1:
-					sorted_by_relevance = sorted_by_relevance[:top_results]
-				for j, (doc_id, score) in enumerate(sorted_by_relevance):
-					results_file.write(f'{query_id}\t{doc_id}\t{j+1}\n' )
-					results_file_trec.write(f'{query_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
+	# returning the MRR @ 1000
+	return metrics[f'MRR @{MaxMRRRank}']
 
 
-		plot_ordered_posting_lists_lengths(model_folder, posting_lengths, 'query')
-		plot_histogram_of_latent_terms(model_folder, latent_terms_per_q, sparse_dimensions, 'query')
-
-		results_file.close()
-		results_file_trec.close()
-		metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = results_file_path, MaxMRRRank=MaxMRRRank)
-
-		# returning the MRR @ 1000
-		return metrics[f'MRR @{MaxMRRRank}']
+def evaluate_dev():
+	while:
+		dataloder(dev=True):
+		repr_d, ids = get_repr(model, dataloader)
+		plot(repr_d)
+		repr_q, ids = get_repr(model, dataloader)
+		plot(repr_d)
+		scores = score(repr_d, d_ids, repr_q)
+	#restuls write and aggreate
 
 
 def inference(cfg):

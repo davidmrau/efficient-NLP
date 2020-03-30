@@ -134,6 +134,20 @@ def l0_loss_fn(q_repr, d1_repr, d2_repr):
 	non_zero_q = (q_repr > 0).float().mean(1).mean()
 	return non_zero_d, non_zero_q
 
+def get_posting_lengths(reprs, sparse_dims):
+	lengths = np.zeros(sparse_dims)
+	for repr in  reprs:
+		lengths += (repr > 0).sum(0).detach().cpu().numpy()
+	return lengths
+
+def get_latent_terms_per_doc(reprs):
+	terms = list()
+	for repr in reprs:
+		terms += list((repr > 0).sum(1).detach().cpu().numpy())
+	return terms
+
+
+
 
 
 def read_csv(path, delimiter='\t'):
@@ -257,9 +271,11 @@ def balance_loss_fn(actications, device):
     return cv_squared(load, device)
 
 
-def plot_histogram_of_latent_terms(path, latent_terms_per_doc, vocab_size, name):
-
-	sns.distplot(latent_terms_per_doc, bins=vocab_size//10)
+def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
+	
+	sparse_dims = reprs[0].size(0)
+	latent_terms_per_doc = get_latent_terms_per_doc(reprs, sparse_dims)
+	sns.distplot(latent_terms_per_doc, bins=sparse_dims//10)
 	# plot histogram
 	# save histogram
 
@@ -270,7 +286,8 @@ def plot_histogram_of_latent_terms(path, latent_terms_per_doc, vocab_size, name)
 	plt.close()
 
 
-def plot_ordered_posting_lists_lengths(path,frequencies, name, n=-1):
+def plot_ordered_posting_lists_lengths(path,reprs, name, n=-1):
+	frequencies = get_posting_lengths(reprs)
 	n = n if n > 0 else len(frequencies)
 	top_n = sorted(frequencies, reverse=True)[:n]
 	# print(top_n)
