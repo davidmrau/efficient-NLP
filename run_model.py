@@ -37,7 +37,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 		# calculating loss
 		loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
-		l1_loss = l1_loss_fn(q_repr, d1_repr, d2_repr) * l1_scalar
+		l1_loss = l1_loss_fn(q_repr, d1_repr, d2_repr)
 		balance_loss = balance_loss_fn(logits, device) * balance_scalar
 		# calculating L0 loss
 		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
@@ -45,7 +45,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float()+ ((dot_q_d2 > dot_q_d1).float() == targets*-1).float()).mean()
 
 		# aggregating losses and running backward pass and update step
-		total_loss = loss +  l1_loss + balance_loss
+		total_loss = loss +  l1_loss * l1_scalar + balance_loss
 		if optim != None:
 			optim.zero_grad()
 			total_loss.backward()
