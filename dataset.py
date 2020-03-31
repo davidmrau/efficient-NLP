@@ -113,7 +113,6 @@ class MSMarcoSequential:
 
 
 
-
 class MSMarcoSequentialDev:
 	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, max_len=150):
 
@@ -126,6 +125,7 @@ class MSMarcoSequentialDev:
 		self.max_len = max_len
 		self.embedding = embedding
 		self.file = None
+		self.stop = False
 
 	def reset(self):
 		self.file_ = open(self.fname, 'r')
@@ -172,8 +172,9 @@ class MSMarcoSequentialDev:
 		#
 		prev_q_id = self.get_id(line, is_query=True)
 		curr_q_id = prev_q_id
+		self.stop = False
 
-		while line:
+		while line and not self.stop:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
@@ -183,6 +184,7 @@ class MSMarcoSequentialDev:
 				curr_q_id = self.get_id(line, is_query=True)
 				if curr_q_id != prev_q_id:
 					prev_q_id = curr_q_id
+					self.stop = True
 					break
 # extracting the token_ids and creating a numpy array
 				text = self.get_text(line)

@@ -31,7 +31,7 @@ glove_word2idx_path: 'data/embeddings/glove.6B.300d_word2idx_dict.p'
 query_file_val: '${dataset_path}/msmarco-test2019-queries_43.${embedding}.tsv'
 docs_file_val: '${dataset_path}/msmarco-passagetest2019-top1000_43.${embedding}.tsv'
 qrels_val: '${dataset_path}/2019qrels-pass_filtered_ms_marco.txt'
-
+q_docs_file_val: '${dataset_path}/msmarco-passagetest2019-top1000.tsv.sorted'
 qrels_dev: '${dataset_path}/qrels.dev.small.tsv'
 q_docs_file_dev: '${dataset_path}/top1000.dev.sorted'
 docs_file_train: '${dataset_path}/collection.${embedding}.tsv'

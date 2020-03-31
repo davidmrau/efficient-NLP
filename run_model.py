@@ -137,6 +137,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 	total_training_steps = 0
 
 	for epoch in range(1, epochs+1):
+		print('Epoch', epoch)
 		# training
 		with torch.enable_grad():
 			model.train()

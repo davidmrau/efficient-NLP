@@ -25,7 +25,6 @@ def get_repr(model, dataloader, device):
 		reprs = list()
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			print(batch_data_d.shape)
 			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			reprs.append(repr_)
 			ids += batch_ids_d
@@ -119,8 +118,8 @@ def inference(cfg):
 	# query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
 	# docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size)
 
-	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_dev, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
-	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_dev, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
+	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_val, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
+	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_val, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
 
 
 	dataloader = [query_batch_generator, docs_batch_generator]
@@ -129,24 +128,31 @@ def inference(cfg):
 #	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_dev, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device, MaxMRRRank=cfg.MaxMRRRank)
 
 	results_file_path = cfg.model_folder + f'/ranking_results_MRRRank_{cfg.MaxMRRRank}_dev'
-
+	
 	docs_batch_generator.reset()
-	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
-	
 	query_batch_generator.reset()
-	q_repr, q_ids = get_repr(model, query_batch_generator, device)
+	
+	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
+	q_repr, q_ids_q = get_repr(model, query_batch_generator, device)
+	scores= get_scores(d_repr, d_ids, q_repr, top_results)
+
+	q_ids = q_ids_q
+
+	while len(d_repr) > 0:
+		d_repr, d_ids = get_repr(model, docs_batch_generator, device)
+		q_repr, q_ids_q = get_repr(model, query_batch_generator, device)
+
+		scores += get_scores(d_repr, d_ids, q_repr, top_results)
+		q_ids += q_ids_q
+
+	write_scores(scores, q_ids, results_file_path, cfg.MaxMRRRank)
+
 	
 
-
-	scores = get_scores(d_repr, d_ids, q_repr[-1], top_results)
-	print(scores)
-	exit()
-	write_scores(scores, q_ids[-1], results_file_path, cfg.MaxMRRRank)
-
-	metric = compute_metrics_from_files(path_to_reference = cfg.qrels_dev, path_to_candidate = results_file_path, MaxMRRRank=cfg.MaxMRRRank)
+	metric = compute_metrics_from_files(path_to_reference = cfg.qrels_val, path_to_candidate = results_file_path, MaxMRRRank=cfg.MaxMRRRank)
 
 	# returning the MRR @ 1000
-	metrics_file.write(f'MRR@{cfg.MaxMRRRank}:\t{metric}\n')
+	metrics_file.write(f'MRR@{cfg.MaxMRRRank} dev:\t{metric}\n')
 
 	metrics_file.close()
 
