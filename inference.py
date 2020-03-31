@@ -25,6 +25,7 @@ def get_repr(model, dataloader, device):
 		reprs = list()
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+			print(batch_data_d.shape)
 			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			reprs.append(repr_)
 			ids += batch_ids_d
@@ -70,12 +71,14 @@ def evaluate(model, data_loaders, model_folder, qrels, dataset_path, sparse_dime
 	results_file_path = model_folder + f'/ranking_results_MRRRank_{MaxMRRRank}'
 
 	query_batch_generator, docs_batch_generator = data_loaders
-	d_repr, d_ids = get_repr(model, docs_batch_generator.reset(), device)
+	docs_batch_generator.reset()
+	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
 
 	plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 	plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
-	q_repr, q_ids = get_repr(model, query_batch_generator.reset(), device)
+	query_batch_generator.reset()
+	q_repr, q_ids = get_repr(model, query_batch_generator, device)
 
 	plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 	plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
@@ -122,8 +125,27 @@ def inference(cfg):
 
 	dataloader = [query_batch_generator, docs_batch_generator]
 	top_results = cfg.top_results
-	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_dev, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device, MaxMRRRank=cfg.MaxMRRRank)
 
+#	metric = evaluate(model, dataloader, cfg.model_folder, cfg.qrels_dev, cfg.dataset_path, cfg.sparse_dimensions, cfg.top_results, device, MaxMRRRank=cfg.MaxMRRRank)
+
+	results_file_path = cfg.model_folder + f'/ranking_results_MRRRank_{cfg.MaxMRRRank}_dev'
+
+	docs_batch_generator.reset()
+	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
+	
+	query_batch_generator.reset()
+	q_repr, q_ids = get_repr(model, query_batch_generator, device)
+	
+
+
+	scores = get_scores(d_repr, d_ids, q_repr[-1], top_results)
+	print(scores)
+	exit()
+	write_scores(scores, q_ids[-1], results_file_path, cfg.MaxMRRRank)
+
+	metric = compute_metrics_from_files(path_to_reference = cfg.qrels_dev, path_to_candidate = results_file_path, MaxMRRRank=cfg.MaxMRRRank)
+
+	# returning the MRR @ 1000
 	metrics_file.write(f'MRR@{cfg.MaxMRRRank}:\t{metric}\n')
 
 	metrics_file.close()
