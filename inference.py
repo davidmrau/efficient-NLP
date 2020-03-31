@@ -118,8 +118,8 @@ def inference(cfg):
 	# query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
 	# docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size)
 
-	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_val, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
-	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_val, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
+	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_dev, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
+	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs_file_dev, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
 
 
 	dataloader = [query_batch_generator, docs_batch_generator]
@@ -139,6 +139,7 @@ def inference(cfg):
 	q_ids = q_ids_q
 
 	while len(d_repr) > 0:
+		print(q_ids_q)
 		d_repr, d_ids = get_repr(model, docs_batch_generator, device)
 		q_repr, q_ids_q = get_repr(model, query_batch_generator, device)
 
@@ -149,7 +150,7 @@ def inference(cfg):
 
 	
 
-	metric = compute_metrics_from_files(path_to_reference = cfg.qrels_val, path_to_candidate = results_file_path, MaxMRRRank=cfg.MaxMRRRank)
+	metric = compute_metrics_from_files(path_to_reference = cfg.qrels_dev, path_to_candidate = results_file_path, MaxMRRRank=cfg.MaxMRRRank)
 
 	# returning the MRR @ 1000
 	metrics_file.write(f'MRR@{cfg.MaxMRRRank} dev:\t{metric}\n')

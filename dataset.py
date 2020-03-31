@@ -120,8 +120,10 @@ class MSMarcoSequentialDev:
 		self.batch_size = batch_size
 		self.fname = fname
 		self.is_query = is_query
-		self.tokenizer_bert = BertTokenizer.from_pretrained('bert-base-uncased')
-		self.word2idx = pickle.load(open(word2index_path, 'rb'))
+		if embedding == 'glove':
+			self.word2idx = pickle.load(open(word2index_path, 'rb'))
+		elif embedding == 'bert':
+			self.tokenizer_bert = BertTokenizer.from_pretrained('bert-base-uncased')
 		self.max_len = max_len
 		self.embedding = embedding
 		self.file = None
