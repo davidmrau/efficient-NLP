@@ -67,8 +67,11 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 							EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
 
+							echo Testing:
 							echo ${EXP_DIR}
-							# echo "Training"
+							echo with name test_tf_bsz
+							EXP_DIR=test_tf_bsz
+
 							python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
 							tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}  \
 							model_folder=${EXP_DIR} > test.out
