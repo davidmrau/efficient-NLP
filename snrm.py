@@ -8,23 +8,19 @@ import gensim
 
 class SNRM(nn.Module):
 
-    def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_path, dropout_p):
+    def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, dropout_p):
         super(SNRM, self).__init__()
 
         self.embedding_dim = 300
         self.n = n
         self.hidden_sizes = hidden_sizes
 
-        # load the appropriate embeddings
-        if embedding_path == 'bert':
-            embedding_weights = get_pretrained_BERT_embeddings()
-        else:
-            embedding_weights = load_glove_embeddings(embedding_path)
-
+        if embedding_parameters is None:
+        	raise ValueError("SNRM has not been implemented to start with random Embeddings!")
         # embedding dimensionality depends on the embeddings that we use
-        self.embedding_dim = embedding_weights.size(1)
+        self.embedding_dim = embedding_parameters.size(1)
             # set embeddings for model
-        self.embedding = nn.Embedding.from_pretrained(embedding_weights, freeze=False)
+        self.embedding = nn.Embedding.from_pretrained(embedding_parameters, freeze=False)
 
         self.sparse_dimensions = sparse_dimensions
         self.conv = nn.Conv1d(self.embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride

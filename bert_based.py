@@ -8,20 +8,13 @@ from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 
 
 class BERT_based(torch.nn.Module):
-	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, vocab_size = 30522, embeddings = 'bert', pooling_method = "CLS"):
+	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS"):
 		super(BERT_based, self).__init__()
 
-		if embeddings != "random":
-			# hidden size and vocab size depend on the embeddings that we load
-			if embeddings == "bert":
-				embedding_params = get_pretrained_BERT_embeddings()
-			elif "glove" in embeddings:
-				embedding_params = load_glove_embeddings(embeddings)
-			else:
-				raise ValueError("Invalid embeddings path :" + embeddings + ", does not match 'bert' nor 'random' nor includes 'glove'")
+		if embedding_parameters is not None:
 			# adjust hidden size and vocab size
-			hidden_size = embedding_params.size(1)
-			vocab_size = embedding_params.size(0)
+			hidden_size = embedding_parameters.size(1)
+			vocab_size = embedding_parameters.size(0)
 
 
 		# traditionally the intermediate_size is set to be 4 times the size of the hidden size
@@ -35,9 +28,9 @@ class BERT_based(torch.nn.Module):
 		self.encoder = transformers.BertModel(config)
 		self.relu = torch.nn.ReLU()
 
-		if embeddings != "random":
+		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
-			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_params)
+			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
 
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
@@ -63,17 +56,19 @@ class BERT_based(torch.nn.Module):
 		elif self.pooling_method == "AVG":
 			# exclude CLS from average hidden representation (always the first token of input)
 			last_hidden_state = last_hidden_state[:,1:,:]
+			attention_masks = attention_masks[:,:1].float()
 			# not taking into account outputs of padded input tokens
-			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size).float()).sum(dim = 1)
+			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).sum(dim = 1)
 			# dividing each sample with its actual lenght for proper averaging
 			encoder_output = encoder_output / attention_masks.sum(dim = -1).unsqueeze(1)
 
 		elif self.pooling_method == "MAX":
 			# exclude CLS from average hidden representation (always the first token of input)
 			last_hidden_state = last_hidden_state[:,1:,:]
+			attention_masks = attention_masks[:,:1].float()
 			# not taking into account outputs of padded input tokens
 			# taking the maximum activation for each hidden dimension over all sequence steps
-			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size).float()).max(dim = 1)[0]
+			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).max(dim = 1)[0]
 
 		output = self.sparse_linear(encoder_output)
 		output = self.relu(output)

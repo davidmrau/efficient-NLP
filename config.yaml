@@ -17,6 +17,8 @@ snrm:
   dropout_p: 0.2
 debug: False
 top_results: 1000
+experiments_dir: "experiments"
+temp_exp_prefix: "Dev..."
 max_candidates_per_posting_list: -1
 num_epochs: 100
 num_of_workers_index: 7
