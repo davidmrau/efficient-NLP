@@ -69,6 +69,8 @@ class BERT_based(torch.nn.Module):
 			encoder_output = encoder_output / attention_masks.sum(dim = -1).unsqueeze(1)
 
 		elif self.pooling_method == "MAX":
+			# exclude CLS from average hidden representation (always the first token of input)
+			last_hidden_state = last_hidden_state[:,1:,:]
 			# not taking into account outputs of padded input tokens
 			# taking the maximum activation for each hidden dimension over all sequence steps
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size).float()).max(dim = 1)[0]
