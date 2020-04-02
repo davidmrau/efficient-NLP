@@ -8,20 +8,20 @@ from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 
 
 class BERT_based(torch.nn.Module):
-	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, vocab_size = 30522, embedding_path = 'bert', pooling_method = "CLS"):
+	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, vocab_size = 30522, embeddings = 'bert', pooling_method = "CLS"):
 		super(BERT_based, self).__init__()
 
-		if embedding_path != "random":
+		if embeddings != "random":
 			# hidden size and vocab size depend on the embeddings that we load
-			if embedding_path == "bert":
-				embeddings = get_pretrained_BERT_embeddings()
-			elif embedding_path == "glove":
-				embeddings = load_glove_embeddings(embedding_path)
+			if embeddings == "bert":
+				embedding_params = get_pretrained_BERT_embeddings()
+			elif "glove" in embeddings:
+				embedding_params = load_glove_embeddings(embeddings)
 			else:
-				raise ValueError("Invalid embedding path :" + embedding_path + ", does not match 'bert' nor 'glove' nor 'random'")
+				raise ValueError("Invalid embeddings path :" + embeddings + ", does not match 'bert' nor 'random' nor includes 'glove'")
 			# adjust hidden size and vocab size
-			hidden_size = embeddings.size(1)
-			vocab_size = embeddings.size(0)
+			hidden_size = embedding_params.size(1)
+			vocab_size = embedding_params.size(0)
 
 
 		# traditionally the intermediate_size is set to be 4 times the size of the hidden size
@@ -35,9 +35,9 @@ class BERT_based(torch.nn.Module):
 		self.encoder = transformers.BertModel(config)
 		self.relu = torch.nn.ReLU()
 
-		if embedding_path != "random":
+		if embeddings != "random":
 			# copy loaded pretrained embeddings to model
-			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embeddings)
+			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_params)
 
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
@@ -118,9 +118,9 @@ class BERT_based(torch.nn.Module):
 # BertModel:
 #
 # (embeddings): BertEmbeddings(
-# (word_embeddings): Embedding(30522, 768, padding_idx=0)
-# (position_embeddings): Embedding(512, 768)
-# (token_type_embeddings): Embedding(2, 768)
+# (word_embeddings): Embeddings(30522, 768, padding_idx=0)
+# (position_embeddings): Embeddings(512, 768)
+# (token_type_embeddings): Embeddings(2, 768)
 # (LayerNorm): LayerNorm((768,), eps=1e-12, elementwise_affine=True)
 # (dropout): Dropout(p=0.1, inplace=False)
 # )

@@ -52,7 +52,7 @@ def exp(cfg):
 	elif cfg.model == "tf":
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
-		vocab_size = cfg.vocab_size, embedding_path = embedding_path, pooling_method = cfg.tf.pooling_method)
+		vocab_size = cfg.vocab_size, embeddings = embedding_path, pooling_method = cfg.tf.pooling_method)
 
 	# move model to device
 	model = model.to(device=device)
@@ -111,10 +111,11 @@ if __name__ == "__main__":
 	else:
 		model_folder = cl_cfg.model_folder
 
-	print("Training :", model_folder)
-	
 	if os.path.isdir(model_folder):
+		print("\nExperiment Directory:\n",model_folder,"\nis allready there, skipping the experiment !!!")
 		exit()
+
+	print("Training :", model_folder)
 	os.makedirs(model_folder, exist_ok=True)
 
 	# save config
