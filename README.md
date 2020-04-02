@@ -11,9 +11,9 @@ cd efficient-NLP/slurm_scripts
 # 3. download preprocessed tokenized data
 bash startup.sh
 
-# 4. add your slurm header to main.sh
+# 4. [OPTIONAL] add your slurm header to main.sh
 
-# 5. run a (train - build_index - evaluate) cycle
+# 5. run hyper-param search
 bash hyper-tf.sh
 ```
 
