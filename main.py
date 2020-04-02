@@ -9,7 +9,7 @@ from datetime import datetime
 from omegaconf import OmegaConf
 from dataset import get_data_loaders
 import shutil
-from utils import load_glove_embeddings, get_model_folder_name
+from utils import load_glove_embeddings, get_model_folder_name, get_pretrained_BERT_embeddings
 
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
