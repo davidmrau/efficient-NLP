@@ -14,7 +14,7 @@ bash startup.sh
 # 4. add your slurm header to main.sh
 
 # 5. run a (train - build_index - evaluate) cycle
-bash main.sh
+bash hyper-tf.sh
 ```
 
 ### Training
