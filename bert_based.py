@@ -11,14 +11,14 @@ class BERT_based(torch.nn.Module):
 	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, vocab_size = 30522, embedding_path = 'bert', pooling_method = "CLS"):
 		super(BERT_based, self).__init__()
 
-		if embedding_path != "":
+		if embedding_path != "random":
 			# hidden size and vocab size depend on the embeddings that we load
 			if embedding_path == "bert":
 				embeddings = get_pretrained_BERT_embeddings()
 			elif embedding_path == "glove":
 				embeddings = load_glove_embeddings(embedding_path)
 			else:
-				raise ValueError("Embedding path :" + embedding_path + ", does not match 'bert' nor 'glove'")	
+				raise ValueError("Invalid embedding path :" + embedding_path + ", does not match 'bert' nor 'glove' nor 'random'")
 			# adjust hidden size and vocab size
 			hidden_size = embeddings.size(1)
 			vocab_size = embeddings.size(0)
@@ -35,7 +35,7 @@ class BERT_based(torch.nn.Module):
 		self.encoder = transformers.BertModel(config)
 		self.relu = torch.nn.ReLU()
 
-		if embedding_path != "":
+		if embedding_path != "random":
 			# copy loaded pretrained embeddings to model
 			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embeddings)
 
@@ -61,6 +61,8 @@ class BERT_based(torch.nn.Module):
 			encoder_output = last_hidden_state[:,0,:]
 
 		elif self.pooling_method == "AVG":
+			# exclude CLS from average hidden representation (always the first token of input)
+			last_hidden_state = last_hidden_state[:,1:,:]
 			# not taking into account outputs of padded input tokens
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size).float()).sum(dim = 1)
 			# dividing each sample with its actual lenght for proper averaging
