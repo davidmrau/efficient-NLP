@@ -1,8 +1,10 @@
 import torch
-from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn
+from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, write_ranking
 import numpy as np
 import os
 from inference import evaluate
+from ms_marco_eval import compute_metrics_from_files
+from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 
 def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device, optim=None):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
@@ -106,7 +108,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 3):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 3, MaxMRRRank=1000):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -132,9 +134,12 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 	"""
 
 	# best_eval_loss = 1e20
-	best_MRR_at_1000 = -1
+	best_MRR = -1
 	temp_patience = 0
 	total_training_steps = 0
+	qrels_base = qrels.split('/')[-1]
+	ranking_file_path = f'{model_folder}/{qrels_base}_full_ranking'
+	tmp_ranking_file = f'{ranking_file_path}_tmp'
 
 	for epoch in range(1, epochs+1):
 		print('Epoch', epoch)
@@ -147,17 +152,34 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			model.eval()
 			# av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
 			#run ms marco eval
-			MRR_at_1000 = evaluate(model, dataloaders['val'], model_folder, qrels, dataset_path, sparse_dimensions, top_results,device)
-			writer.add_scalar(f'Eval_MRR@1000', MRR_at_1000, total_training_steps  )
-			print(f'Eval -  MRR@1000: {MRR_at_1000}')
+			#
+
+			scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, top_results)
+
+			write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
+
+			metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
+			MRR = metrics[f'MRR @{MaxMRRRank}']
+
+
+			writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
+			print(f'Eval -  MRR@1000: {MRR}')
 
 		# check for early stopping
-		if MRR_at_1000 > best_MRR_at_1000:
-			print(f'Best model at current epoch {epoch}, with MRR@1000: {MRR_at_1000}')
+		if MRR > best_MRR:
+			print(f'Best model at current epoch {epoch}, with MRR@1000: {MRR}')
 			temp_patience = 0
-			best_MRR_at_1000 = MRR_at_1000
+			best_MRR = MRR
 			# save best model so far to file
 			torch.save(model, f'{model_folder}/best_model.model' )
+			# write ranking file
+			write_ranking(scores, q_ids, ranking_file_path, MaxMRRRank)
+			# plot stats
+			plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
+			plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
+			plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
+			plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
+
 		else:
 			temp_patience += 1
 
@@ -168,5 +190,5 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		#torch.save(model, f'{model_folder}/model_epoch_{epoch}.model' )
 	# load best model
 	model = torch.load(f'{model_folder}/best_model.model')
-
+	os.remove(tmp_ranking_file)
 	return model

@@ -306,3 +306,24 @@ def plot_ordered_posting_lists_lengths(path,reprs, name, n=-1):
 def add_before_ending(filename, add_before_ending):
 	name, ending = os.path.splitext(filename)
 	return name + add_before_ending + ending
+
+
+
+def write_ranking(scores, q_ids, results_file_path, MaxMRRRank):
+
+	results_file = open(results_file_path, 'w')
+	for i, q_id in enumerate(q_ids):
+		for j, (doc_id, score) in enumerate(scores[i]):
+			results_file.write(f'{q_id}\t{doc_id}\t{j+1}\n' )
+
+	results_file.close()
+
+
+
+def write_ranking_trec(scores, q_ids, results_file_path, MaxMRRRank):
+
+	results_file = open(results_file_path, 'w')
+	for i, q_id in enumerate(q_ids):
+		for j, (doc_id, score) in enumerate(scores[i]):
+			results_file.write(f'{q_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
+	results_file.close()
