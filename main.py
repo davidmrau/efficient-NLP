@@ -9,7 +9,7 @@ from datetime import datetime
 from omegaconf import OmegaConf
 from dataset import get_data_loaders
 import shutil
-from utils import load_glove_embeddings
+from utils import load_glove_embeddings, get_model_folder_name
 
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
@@ -91,21 +91,7 @@ if __name__ == "__main__":
 
 	# create model string, depending on the model
 	if not cl_cfg.model_folder:
-		if cfg.model == "tf":
-			# updating hidden dimensions according to selected embeddings
-			if cfg.embedding == "bert":
-				cfg.tf.hidden_size=768
-			elif cfg.embedding == "glove":
-				cfg.tf.hidden_size=300
-
-			model_string=f"{cfg.model}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}"
-		elif cfg.model == "snrm":
-			model_string=f"{cfg.model}_{cfg.snrm.hidden_sizes}"
-
-		else:
-			raise ValueError("Model not set properly!:", cfg.model)
-		# create experiment directory name
-		model_folder = f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
+		model_folder = get_model_folder_name(cfg)
 	else:
 		model_folder = cl_cfg.model_folder
 
@@ -118,7 +104,7 @@ if __name__ == "__main__":
 		exit()
 	elif os.path.isdir(temp_model_folder):
 		print("Incomplete experiment directory found :\n", temp_model_folder)
-		shutil.rmtree(temp_model_folder)
+		shutil.rmtree(te mp_model_folder)
 		print("Deleted it and starting from scratch.")
 
 	print("Training :", model_folder)
@@ -133,4 +119,3 @@ if __name__ == "__main__":
 	# after the training is done, we remove the temp prefix from the dir name
 	print("Training completed! Changing from temporary name to final name.")
 	os.renames(temp_model_folder, completed_model_folder)
-

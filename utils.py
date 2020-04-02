@@ -327,3 +327,21 @@ def write_ranking_trec(scores, q_ids, results_file_path, MaxMRRRank):
 		for j, (doc_id, score) in enumerate(scores[i]):
 			results_file.write(f'{q_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
 	results_file.close()
+
+
+def get_model_folder_name(cfg):
+		if cfg.model == "tf":
+			# updating hidden dimensions according to selected embeddings
+			if cfg.embedding == "bert":
+				cfg.tf.hidden_size=768
+			elif cfg.embedding == "glove":
+				cfg.tf.hidden_size=300
+
+			model_string=f"{cfg.model}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}"
+		elif cfg.model == "snrm":
+			model_string=f"{cfg.model}_{cfg.snrm.hidden_sizes}"
+
+		else:
+			raise ValueError("Model not set properly!:", cfg.model)
+		# create experiment directory name
+		model_folder = f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
