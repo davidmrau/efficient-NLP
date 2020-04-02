@@ -102,7 +102,7 @@ class MSMarcoSequential:
 				# extracting the token_ids and creating a numpy array
 				tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 				batch_ids.append(id_)
-				batch_data.append(torch.IntTensor(tokens_list))	
+				batch_data.append(torch.IntTensor(tokens_list))
 				line = self.file_.readline()
 
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
@@ -131,7 +131,8 @@ class MSMarcoSequentialDev:
 
 	def reset(self):
 		self.file_ = open(self.fname, 'r')
-
+		return self
+		
 	def tokenize(self, text):
 		if self.embedding == 'bert':
 			tokenized_ids = self.tokenizer_bert.encode(text, max_length = self.max_len)
@@ -181,7 +182,7 @@ class MSMarcoSequentialDev:
 			batch_ids = []
 			batch_data = []
 			while (line and ( len(batch_ids) < self.batch_size) ):
-				
+
 				id_ = self.get_id(line, self.is_query)
 				curr_q_id = self.get_id(line, is_query=True)
 				if curr_q_id != prev_q_id:
@@ -190,19 +191,19 @@ class MSMarcoSequentialDev:
 					break
 # extracting the token_ids and creating a numpy array
 				text = self.get_text(line)
-				
+
 				tokens_list = self.tokenize(text)
-				
+
 				if id_ not in batch_ids:
-					
+
 					batch_ids.append(id_)
 
 					batch_data.append(tokens_list)
 
 				prev_q_id = curr_q_id
-				
+
 				line = self.file_.readline()
-				
+
 				#print(self.is_query, id_)
 
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])

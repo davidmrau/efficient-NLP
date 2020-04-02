@@ -162,11 +162,12 @@ def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_che
 
 def main():
     """Command line:
-    python msmarco_eval_ranking.py <path to reference> <path_to_candidate_file>
+    python msmarco_eval_ranking.py <path to reference> <path_to_candidate_file> <MaxMRRRank>
     """
     path_to_candidate = sys.argv[2]
     path_to_reference = sys.argv[1]
-    metrics = compute_metrics_from_files(path_to_reference, path_to_candidate)
+    MaxMRRRank = int(sys.argv[3])
+    metrics = compute_metrics_from_files(path_to_reference, path_to_candidate, MaxMRRRank=MaxMRRRank)
     print('#####################')
     for metric in sorted(metrics):
         print('{}: {}'.format(metric, metrics[metric]))
