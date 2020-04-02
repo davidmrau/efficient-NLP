@@ -104,7 +104,7 @@ if __name__ == "__main__":
 		exit()
 	elif os.path.isdir(temp_model_folder):
 		print("Incomplete experiment directory found :\n", temp_model_folder)
-		shutil.rmtree(te mp_model_folder)
+		shutil.rmtree(temp_model_folder)
 		print("Deleted it and starting from scratch.")
 
 	print("Training :", model_folder)

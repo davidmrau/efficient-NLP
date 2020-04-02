@@ -344,4 +344,4 @@ def get_model_folder_name(cfg):
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)
 		# create experiment directory name
-		model_folder = f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
+		return f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"

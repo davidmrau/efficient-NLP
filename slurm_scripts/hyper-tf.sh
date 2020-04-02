@@ -1,19 +1,19 @@
 
 cd ..
 
-BATCH_SIZE="10"
+BATCH_SIZE="1024"
 # Transformer parameters:
 TF_LAYERS="2"
-TF_HEADS="4"
+TF_HEADS="4 8"
 
 TF_POOLS="AVG"
-EMBEDDINGS="bert random glove"
+EMBEDDINGS="bert random"
 
-L1_SCALARS="0"
+L1_SCALARS="0 0.1 1"
 # Dense
-SPARSE_DIMENSIONS="1000"
+SPARSE_DIMENSIONS="1000 5000 10000"
 
-TF_HID_DIM=500
+TF_HID_DIM=768
 
 
 
@@ -27,7 +27,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 						# echo "Training"
 						python3 main.py model=tf batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
-						tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} debug=True
+						tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}
 
 					done
 				done
@@ -38,9 +38,19 @@ done
 
 
 
-# random embeddings
-
-
 # lr rate
+python3 main.py model=tf batch_size=${BATCH_SIZE} embedding=bert sparse_dimensions=10000 l1_scalar=0 \
+tf.num_of_layers=2 tf.num_attention_heads=8 tf.hidden_size=768 tf.pooling_method=AVG lr=0.00001
+
+python3 main.py model=tf batch_size=${BATCH_SIZE} embedding=bert sparse_dimensions=10000 l1_scalar=0 \
+tf.num_of_layers=2 tf.num_attention_heads=8 tf.hidden_size=768 tf.pooling_method=AVG lr=0.001
 
 # glove
+python3 main.py model=tf batch_size=128 embedding=glove sparse_dimensions=10000 l1_scalar=0 \
+tf.num_of_layers=2 tf.num_attention_heads=8 tf.hidden_size=768 tf.pooling_method=AVG
+# comparable bert
+python3 main.py model=tf batch_size=128 embedding=bert sparse_dimensions=10000 l1_scalar=0 \
+tf.num_of_layers=2 tf.num_attention_heads=8 tf.hidden_size=768 tf.pooling_method=AVG
+
+
+tar cvfz experiments.tar.gz experiments/
