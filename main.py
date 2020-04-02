@@ -91,11 +91,28 @@ if __name__ == "__main__":
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 
+	# create model string, depending on the model
 	if not cl_cfg.model_folder:
-		print('No model folder specified, using timestemp instead.')
-		model_folder = f'experiments/{datetime.now().strftime("%Y_%m_%d_%H_%M")}/'
+		if cfg.model == "tf":
+			# updating hidden dimensions according to selected embeddings
+			if cfg.embedding == "bert":
+				cfg.tf.hidden_size=768
+			elif cfg.embedding == "glove":
+				cfg.tf.hidden_size=300
+
+			model_string=f"{cfg.model}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P{cfg.tf.pooling_method}"
+		elif cfg.model == "snrm":
+			model_string=f"{cfg.model}_{cfg.snrm.hidden_sizes}"
+
+		else:
+			raise ValueError("Model not set properly!:", cfg.model)
+		# create experiment directory name
+		model_folder = f"experiments/l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
 	else:
 		model_folder = cl_cfg.model_folder
+
+	print("Training :", model_folder)
+	
 	if os.path.isdir(model_folder):
 		exit()
 	os.makedirs(model_folder, exist_ok=True)
