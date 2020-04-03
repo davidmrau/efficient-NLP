@@ -337,9 +337,9 @@ def get_model_folder_name(cfg):
 			elif cfg.embedding == "glove":
 				cfg.tf.hidden_size=300
 
-			model_string=f"{cfg.model}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}"
+			model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}"
 		elif cfg.model == "snrm":
-			model_string=f"{cfg.model}_{cfg.snrm.hidden_sizes}"
+			model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
 
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)

@@ -45,7 +45,8 @@ def exp(cfg):
 	if cfg.model == "snrm":
 		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
 		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=embedding_parameters,
-		dropout_p=cfg.snrm.dropout_p)
+		embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
+		n_gram_model = cfg.snrm.n_gram_model)
 
 	elif cfg.model == "tf":
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
