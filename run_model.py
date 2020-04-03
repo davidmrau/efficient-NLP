@@ -108,7 +108,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 3, MaxMRRRank=1000):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -181,6 +181,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
 		else:
+
 			temp_patience += 1
 
 			if temp_patience >= patience:

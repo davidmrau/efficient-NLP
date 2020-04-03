@@ -1,7 +1,7 @@
 
 cd ..
 
-BATCH_SIZE="1024"
+BATCH_SIZE="1400"
 # Transformer parameters:
 TF_LAYERS="2"
 TF_HEADS="4 8"
@@ -11,7 +11,7 @@ EMBEDDINGS="bert random"
 
 L1_SCALARS="0 0.1 1"
 # Dense
-SPARSE_DIMENSIONS="1000 5000 10000"
+SPARSE_DIMENSIONS="5000 10000"
 
 TF_HID_DIM=768
 
