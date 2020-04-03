@@ -31,7 +31,6 @@ class BERT_based(torch.nn.Module):
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
 			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
-
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
@@ -56,7 +55,7 @@ class BERT_based(torch.nn.Module):
 		elif self.pooling_method == "AVG":
 			# exclude CLS from average hidden representation (always the first token of input)
 			last_hidden_state = last_hidden_state[:,1:,:]
-			attention_masks = attention_masks[:,:1].float()
+			attention_masks = attention_masks[:,1:].float()
 			# not taking into account outputs of padded input tokens
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).sum(dim = 1)
 			# dividing each sample with its actual lenght for proper averaging
@@ -65,7 +64,7 @@ class BERT_based(torch.nn.Module):
 		elif self.pooling_method == "MAX":
 			# exclude CLS from average hidden representation (always the first token of input)
 			last_hidden_state = last_hidden_state[:,1:,:]
-			attention_masks = attention_masks[:,:1].float()
+			attention_masks = attention_masks[:,1:].float()
 			# not taking into account outputs of padded input tokens
 			# taking the maximum activation for each hidden dimension over all sequence steps
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).max(dim = 1)[0]
