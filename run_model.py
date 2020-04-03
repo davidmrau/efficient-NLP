@@ -180,16 +180,17 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 			plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
-		elif MRR < 0.05:
-			print("MRR smaller than 0.05. Ending Training!")
-			break
-
 		else:
 			temp_patience += 1
 
 			if temp_patience >= patience:
 				print("Early Stopping!")
 				break
+
+		if MRR < 0.05:
+			print("MRR smaller than 0.05. Ending Training!")
+			break
+
 
 		#torch.save(model, f'{model_folder}/model_epoch_{epoch}.model' )
 	# load best model
