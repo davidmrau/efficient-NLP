@@ -32,7 +32,7 @@ EXPERIMENT_FOLDER='experiments/'
 
 # Transformer parameters:
 TF_LAYERS="2"
-TF_HEADS="8"
+TF_HEADS="4"
 # TF_HID_DIMS="256 512"
 TF_POOLS="AVG"
 EMBEDDINGS="bert"
@@ -42,7 +42,7 @@ L1_SCALARS="0"
 
 
 
-SPARSE_DIMENSIONS="10000"
+SPARSE_DIMENSIONS="1000"
 
 for EMBEDDING in ${EMBEDDINGS}; do
 	for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
@@ -62,21 +62,8 @@ for EMBEDDING in ${EMBEDDINGS}; do
 					for TF_HID_DIM in ${TF_HID_DIMS}; do
 						for TF_POOL in ${TF_POOLS}; do
 
-
-							MODEL_STRING=${MODEL}_L_${TF_LAYER}_H_${TF_HEAD}_D_${TF_HID_DIM}_P_${TF_POOL}
-
-							EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
-
-							echo Testing:
-							echo ${EXP_DIR}
-							echo with name test_tf_bsz
-							EXP_DIR=test_tf_bsz
-
 							python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
-							tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}  \
-							model_folder=${EXP_DIR} > test.out
-							echo ${EXP_DIR}
-
+							tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} 
 						done
 					done
 				done
