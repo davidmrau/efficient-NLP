@@ -80,7 +80,7 @@ def exp(cfg):
 	# train the model
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, top_results=cfg.top_results,
-	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank)
+	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every)
 
 if __name__ == "__main__":
 	# getting command line arguments

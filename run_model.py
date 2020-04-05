@@ -6,7 +6,7 @@ from inference import evaluate
 from ms_marco_eval import compute_metrics_from_files
 from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 
-def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device, optim=None):
+def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device, optim=None, eval_every = 10000):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
@@ -55,7 +55,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 		torch.cuda.empty_cache()
 		# calculate tensorboard update dynamically
-		print_n_times = 10000
+		print_n_times = eval_every
 		freq = num_batches // print_n_times if num_batches > print_n_times else 1
 		# update tensorboard only for training on intermediate steps
 		if training_steps % freq == 0 and mode == 'train':
@@ -81,7 +81,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		# calculate av_acc
 		av_acc += acc
 
-		if training_steps > 10000:
+		if training_steps > eval_every:
 			break
 
 	# average losses and counters
@@ -108,7 +108,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000, eval_every = 10000):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -146,7 +146,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# training
 		with torch.enable_grad():
 			model.train()
-			av_train_loss, total_training_steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device,  optim=optim)
+			av_train_loss, total_training_steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device,  optim=optim, eval_every = eval_every)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
