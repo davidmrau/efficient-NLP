@@ -7,6 +7,7 @@ MaxMRRRank: 1000
 patience: 2
 eval_every: 10000
 sparse_dimensions: 10000
+large_out_biases: False
 tf:
   hidden_size: 256
   num_of_layers: 2
@@ -32,7 +33,7 @@ num_of_decimals: 5
 balance_scalar: 0.0
 disable_cuda: False
 dataset_path: 'data/msmarco/'
-embedding: 'glove'
+embedding: 'bert'
 glove_embedding_path: 'data/embeddings/glove.6B.300d.p'
 glove_word2idx_path: 'data/embeddings/glove.6B.300d_word2idx_dict.p'
 query_file_val: '${dataset_path}/msmarco-test2019-queries_43.${embedding}.tsv'

@@ -9,7 +9,7 @@ import transformers
 
 class SNRM(nn.Module):
 
-	def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, embedding_dim, vocab_size, dropout_p, n_gram_model = 'cnn'):
+	def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, embedding_dim, vocab_size, dropout_p, n_gram_model = 'cnn', large_out_biases = False):
 		super(SNRM, self).__init__()
 
 		self.n = n
@@ -45,6 +45,9 @@ class SNRM(nn.Module):
 
 		self.linears.append(nn.Conv1d(hidden_sizes[-1], sparse_dimensions, 1, stride=1))
 
+		if large_out_biases:
+			self.linears[-1].bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
+
 	def forward(self, x, lengths):
 		# generate mask for averaging over non-zero elements later
 		mask = (x > 0)[:, self.n - 1: ]
@@ -72,6 +75,7 @@ class SNRM(nn.Module):
 
 		# we do not apply dropout on the last layer
 		out = self.linears[-1](out)
+
 		out= self.relu(out)
 
 

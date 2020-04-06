@@ -8,7 +8,8 @@ from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 
 
 class BERT_based(torch.nn.Module):
-	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150, vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS"):
+	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150,
+			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False):
 		super(BERT_based, self).__init__()
 
 		if embedding_parameters is not None:
@@ -33,6 +34,9 @@ class BERT_based(torch.nn.Module):
 			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
+
+		if large_out_biases:
+			self.sparse_linear.bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
 
 	def forward(self, input, lengths):
 
