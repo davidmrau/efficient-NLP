@@ -181,7 +181,7 @@ class MSMarcoSequentialDev:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
-			while (line and ( len(batch_ids) < self.batch_size) ):
+			while (line and ( len(batch_ids) <= self.batch_size) ):
 
 				id_ = self.get_id(line, self.is_query)
 				curr_q_id = self.get_id(line, is_query=True)

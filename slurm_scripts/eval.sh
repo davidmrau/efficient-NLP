@@ -19,7 +19,7 @@ module load NCCL/2.0.5-CUDA-9.0.176
 
 QRELS_PATH="data/msmarco/2019qrels-pass_filtered_ms_marco.txt" 
 
-QUERY_DOCS_PATH="data/msmarco/msmarco-passagetest2019-top1000.tsv.sorted_cut"
+QUERY_DOCS_PATH="data/msmarco/msmarco-passagetest2019-top1000.tsv.sorted"
 
 MODEL_PATH="experiments/l1_0_Emb_bert_Sparse_1000_bsz_512_lr_0.0001_TF_L_2_H_4_D_768_P_AVG"
 
