@@ -1,106 +1,32 @@
+#!/bin/bash
+# Set job requirements
+#SBATCH --job-name=eval
+#SBATCH --ntasks=1
+#SBATCH --partition=gpu_short
+#SBATCH --mem=100G
+
+BATCH_SIZE="1000"
+
+#Loading modules
+module purge
+module load pre2019
+module load eb
+module load Python/3.6.3-foss-2017b
+module load cuDNN/7.0.5-CUDA-9.0.176
+module load NCCL/2.0.5-CUDA-9.0.176
 
 
+
+QRELS_PATH="data/msmarco/2019qrels-pass_filtered_ms_marco.txt" 
+
+QUERY_DOCS_PATH="data/msmarco/msmarco-passagetest2019-top1000.tsv.sorted_cut"
+
+MODEL_PATH="experiments/l1_0_Emb_bert_Sparse_1000_bsz_512_lr_0.0001_TF_L_2_H_4_D_768_P_AVG"
 
 
 
 cd ..
-QUERY_FILE='msmarco-test2019-queries-43-judged.tokenized.tsv'
-QRELS='2019qrels-pass_without_q_tabs.txt'
-DOCS_FILE='msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv'
-TREC_QRELS='data/msmarco/2019qrels-pass.txt'
-
-MODEL_DIR='experiments/model_tf_l1_scalar_0.0_lr_0.0001_drop_0.2_emb_bert_batch_size_64_debug_False'
-python3 inference.py model_folder=${MODEL_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
 
 
-# run trec
-./trec_eval -l 2 ${TREC_QRELS} experiments/${EXP_DIR}/ranking_results${QUERY_FILE}.trec > trec_metrics.txt
+python3 inference.py model_path=$MODEL_PATH qrels=$QRELS_PATH q_docs=$QUERY_DOCS_PATH batch_size=$BATCH_SIZE MaxMRRRank=10
 
-
-
-# Experiment parameters:
-EXPERIMENT_FOLDER='experiments/'
-
-EMBEDDINGS="bert"
-SPARSE_DIMENSIONS="10000"
-L1_SCALARS="0 1 2"
-BATCH_SIZES="256"
-
-# Model parameters:
-MODELS="snrm tf"
-# SNRM parameters:
-SNRM_HIDDENS="100-300 300-500 300-100-3000"
-# Transformer parameters:
-TF_LAYERS="2 4"
-TF_HEADS="4 8"
-TF_HID_DIMS="256 512"
-TF_POOLS="CLS"
-
-
-for EMBEDDING in ${EMBEDDINGS}; do
-	for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
-		for L1_SCALAR in ${L1_SCALARS}; do
-			for BATCH_SIZE in ${BATCH_SIZES}; do
-
-				MODEL=snrm
-
-				for SNRM_HIDDEN in ${SNRM_HIDDENS}; do
-					MODEL_STRING=${MODEL}_${SNRM_HIDDEN}
-
-					EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
-
-					echo ${EXP_DIR}
-					# echo "Training"
-					# python3 main.py model_folder=${EXP_DIR}
-
-					echo "Evaluating"
-					python3 inference.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}
-					# run trec
-					./trec_eval -l 2 ${TREC_QRELS} experiments/${EXP_DIR}/ranking_results${QUERY_FILE}.trec > trec_metrics.txt
-
-				done
-			done
-		done
-	done
-done
-
-
-for EMBEDDING in ${EMBEDDINGS}; do
-	for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
-		for L1_SCALAR in ${L1_SCALARS}; do
-			for BATCH_SIZE in ${BATCH_SIZES}; do
-
-				MODEL=tf
-
-				if [ $EMBEDDING==bert ]; then
-				  TF_HID_DIM=768
-				fi
-
-
-				for TF_LAYER in ${TF_LAYERS}; do
-					for TF_HEAD in ${TF_HEADS}; do
-						for TF_HID_DIM in ${TF_HID_DIMS}; do
-							for TF_POOL in ${TF_POOLS}; do
-
-
-								MODEL_STRING=${MODEL}_L_${TF_LAYER}_H_${TF_HEAD}_D_${TF_HID_DIM}_P_${TF_POOL}
-
-								EXP_DIR=${EXPERIMENT_FOLDER}l1_${L1_SCALAR}_Emb_${EMBEDDING}_Sparse_${SPARSE_DIMENSION}_bsz_${BATCH_SIZE}_${MODEL_STRING}
-
-								echo ${EXP_DIR}
-								# echo "Training"
-								# python3 main.py model_folder=${EXP_DIR}
-
-								echo "Evaluating"
-								python3 inference.py model_folder=${EXP_DIR} query_file=${QUERY_FILE} qrels=${QRELS} docs_file=${DOCS_FILE}# run trec
-								./trec_eval -l 2 ${TREC_QRELS} experiments/${EXP_DIR}/ranking_results${QUERY_FILE}.trec > trec_metrics.txt
-
-
-							done
-						done
-					done
-				done
-			done
-		done
-	done
-done

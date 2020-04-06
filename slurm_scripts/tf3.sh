@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:4
-#SBATCH --time=120:00:00
+#SBATCH --time=60:00:00
 #SBATCH --mem=100G
 
 
@@ -19,7 +19,7 @@ module load Python/3.6.3-foss-2017b
 module load cuDNN/7.0.5-CUDA-9.0.176
 module load NCCL/2.0.5-CUDA-9.0.176
 
-BATCH_SIZE="512"
+BATCH_SIZE="400"
 
 
 
@@ -44,7 +44,7 @@ L1_SCALARS="0"
 
 
 
-SPARSE_DIMENSIONS="1000 5000 10000"
+SPARSE_DIMENSIONS="10000"
 
 for EMBEDDING in ${EMBEDDINGS}; do
 	for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
