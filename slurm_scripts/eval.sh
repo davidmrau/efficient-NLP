@@ -2,7 +2,8 @@
 # Set job requirements
 #SBATCH --job-name=eval
 #SBATCH --ntasks=1
-#SBATCH --partition=gpu_short
+#SBATCH --partition=gpu_shared
+#SBATCH --time=01:00:00
 #SBATCH --mem=100G
 
 BATCH_SIZE="1000"
