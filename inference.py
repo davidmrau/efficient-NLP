@@ -92,7 +92,8 @@ def inference(cfg):
 	model = model.to(device=device)
 	if torch.cuda.device_count() > 1:
 		print("Using", torch.cuda.device_count(), "GPUs!")
-		model = torch.nn.DataParallel(model)
+		if not isinstance(model, torch.nn.DataParallel):
+			model = torch.nn.DataParallel(model)
 
 	metrics_file_path = cfg.model_path + f'/ranking_results.txt'
 	metrics_file = open(metrics_file_path, 'w')
