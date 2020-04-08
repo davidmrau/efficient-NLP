@@ -14,7 +14,7 @@ bash startup.sh
 # 4. [OPTIONAL] add your slurm header to main.sh
 
 # 5. run hyper-param search
-bash hyper-tf.sh
+bash hyper-tf_bias_plus_3.sh
 ```
 
 ### Training
