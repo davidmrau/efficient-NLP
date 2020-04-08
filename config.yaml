@@ -20,7 +20,7 @@ snrm:
   n: 5
   dropout_p: 0.2
   n_gram_model: "cnn" # cnn or bert, defining the way that the n gram is being aggregated
-  embedding_dim: 300
+  embedding_dim: 768
 debug: False
 top_results: 1000
 experiments_dir: "experiments"

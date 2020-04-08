@@ -1,16 +1,14 @@
 #!/bin/bash
 # Set job requirements
-#SBATCH --job-name=snrm
+#SBATCH --job-name=test
 #SBATCH --ntasks=1
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
-#SBATCH --time=120:00:00
+#SBATCH --partition=gpu_short
+#SBATCH --time=00:05:00
 #SBATCH --mem=100G
 
 
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=kondilidisn9@gmail.com
-
 
 #Loading modules
 module purge
@@ -20,7 +18,7 @@ module load Python/3.6.3-foss-2017b
 module load cuDNN/7.0.5-CUDA-9.0.176
 module load NCCL/2.0.5-CUDA-9.0.176
 
-BATCH_SIZE="512"
+BATCH_SIZE="128"
 
 cd ..
 
@@ -28,11 +26,11 @@ cd ..
 MODEL=snrm
 
 
-EMBEDDINGS="bert glove"
-L1_SCALARS="0 0.1 1"
-SPARSE_DIMENSIONS="1000 5000"
-N_GRAM_MODELS="cnn bert"
-LARGE_OUT_BIASES_OPTIONS="True False"
+EMBEDDINGS="glove"
+L1_SCALARS="0"
+SPARSE_DIMENSIONS="1000"
+N_GRAM_MODELS="bert"
+LARGE_OUT_BIASES_OPTIONS="True"
 
 # Dense EMB-500-100-500
 SNRM_HIDDEN="256-768"
