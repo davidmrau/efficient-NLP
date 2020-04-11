@@ -180,6 +180,11 @@ def read_qrels(path, delimiter='\t'):
 def read_pickle(path):
 	return pickle.load(open(path, 'rb'))
 
+def write_pickle(object, path):
+	pickle_out = open(path,"wb")
+	pickle.dump(object, pickle_out)
+	pickle_out.close()
+
 def read_json(path):
 	with open(path, "r") as read_file:
 		return json.load(read_file)
