@@ -353,3 +353,48 @@ def get_model_folder_name(cfg):
 			model_string += "_large_out_biases"
 		# create experiment directory name
 		return f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
+
+
+def plot_top_k_analysis(analysis_dict):
+
+	MRR_top_k_freq = analysis_dict["MRR_top_k_freq"]
+	MRR_bottom_k_freq = analysis_dict["MRR_bottom_k_freq"]
+	MRR_top_k_var = analysis_dict["MRR_top_k_var"]
+	MRR_bottom_k_var = analysis_dict["MRR_bottom_k_var"]
+	most_freq_dims = analysis_dict["most_freq_dims"]
+	least_freq_dims = analysis_dict["least_freq_dims"]
+	most_var_dims = analysis_dict["most_var_dims"]
+	least_var_dims = analysis_dict["least_var_dims"]
+
+
+
+	x = np.arange(len(MRR_top_k_freq))
+
+	# fig = plt.figure()
+	# ax1 = fig.add_subplot(121)
+	# ax2 = fig.add_subplot(122)
+
+	# axs = [ax1, ax2]
+
+
+	fig, axs = plt.subplots(2)
+	fig.suptitle('Top and Bottom k analysis (Ignoring dimensions one-by-one)')
+	axs[0].plot(x, MRR_top_k_freq, "-b", label="Frequent")
+	axs[0].plot(x, MRR_top_k_var, "-r", label="Variant")
+	axs[0].legend(loc="upper right")
+	axs[0].axis(ymin=0, ymax=1.0)
+	axs[0].title.set_text('Ignoring TOP k')
+
+	axs[1].plot(x, MRR_bottom_k_freq, "-b", label="Frequent")
+	axs[1].plot(x, MRR_bottom_k_var, "-r", label="Variant")
+	axs[1].legend(loc="upper right")
+	axs[1].axis(ymin=0, ymax=1.0)
+	axs[1].title.set_text('Ignoring BOTTOM k')
+
+	# plt.title('Removing the top k dimensions one-by-one')
+
+	# axs[1].plot(x, -y)
+
+
+
+	plt.show()
