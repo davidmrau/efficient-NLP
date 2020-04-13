@@ -351,11 +351,13 @@ def get_model_folder_name(cfg):
 
 		if cfg.large_out_biases:
 			model_string += "_large_out_biases"
+		if cfg.ignore_special_tokens:
+			model_string += "_ignore_special_tokens"
 		# create experiment directory name
 		return f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
 
 
-def plot_top_k_analysis(analysis_dict):
+def plot_top_k_analysis(model_dir, analysis_dict):
 
 	MRR_top_k_freq = analysis_dict["MRR_top_k_freq"]
 	MRR_bottom_k_freq = analysis_dict["MRR_bottom_k_freq"]
@@ -370,14 +372,14 @@ def plot_top_k_analysis(analysis_dict):
 
 	x = np.arange(len(MRR_top_k_freq))
 
-	# fig = plt.figure()
-	# ax1 = fig.add_subplot(121)
-	# ax2 = fig.add_subplot(122)
+	fig = plt.figure()
+	ax1 = fig.add_subplot(121)
+	ax2 = fig.add_subplot(122)
 
-	# axs = [ax1, ax2]
+	axs = [ax1, ax2]
 
 
-	fig, axs = plt.subplots(2)
+	# fig, axs = plt.subplots(2)
 	fig.suptitle('Top and Bottom k analysis (Ignoring dimensions one-by-one)')
 	axs[0].plot(x, MRR_top_k_freq, "-b", label="Frequent")
 	axs[0].plot(x, MRR_top_k_var, "-r", label="Variant")
@@ -391,10 +393,8 @@ def plot_top_k_analysis(analysis_dict):
 	axs[1].axis(ymin=0, ymax=1.0)
 	axs[1].title.set_text('Ignoring BOTTOM k')
 
-	# plt.title('Removing the top k dimensions one-by-one')
 
-	# axs[1].plot(x, -y)
+	plt.savefig(model_dir+ f'/top_k_analysis.pdf', bbox_inches='tight')
+	plt.close()
 
-
-
-	plt.show()
+	# plt.show()

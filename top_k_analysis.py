@@ -317,6 +317,8 @@ def analysis(cfg, max_k = -1):
 
 	write_pickle(top_k_analysis_dict, cfg.model_path+"/top_k_analysis_dict.pickle")
 
+	plot_top_k_analysis(cfg.model_path, top_k_analysis_dict)
+
 
 
 if __name__ == "__main__":
