@@ -8,13 +8,14 @@ patience: 2
 eval_every: 5000
 sparse_dimensions: 10000
 large_out_biases: False
+ignore_special_tokens: False
 tf:
   hidden_size: 256
   num_of_layers: 2
   num_attention_heads: 4
   input_length_limit: 150
   # the method that the hidden states over all sequence steps are being aggregated {CLS, AVG, MAX}
-  pooling_method: 'CLS'
+  pooling_method: 'AVG'
 snrm:
   hidden_sizes: '200' # for multiple layers add '-' between hidden sizes  eg. ('100-400-200')
   n: 5

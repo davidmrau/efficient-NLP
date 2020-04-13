@@ -9,8 +9,11 @@ import transformers
 
 class SNRM(nn.Module):
 
-	def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, embedding_dim, vocab_size, dropout_p, n_gram_model = 'cnn', large_out_biases = False):
+	def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, embedding_dim, vocab_size, dropout_p, n_gram_model = 'cnn', large_out_biases = False, ignore_special_tokens = False):
 		super(SNRM, self).__init__()
+
+		if ignore_special_tokens:
+			raise ValueError("ignore_special_tokens==True has not been implemented yet for SNRM!")
 
 		self.n = n
 		self.hidden_sizes = hidden_sizes
