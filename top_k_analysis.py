@@ -11,6 +11,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataset import get_data_loaders
+from collections import defaultdict
 # from inference import get_repr
 matplotlib.use('Agg')
 
@@ -149,6 +150,29 @@ def analysis(cfg, max_k = -1):
 		d_repr, d_ids = get_repr(model, docs_batch_generator, device)
 		q_repr, q_ids = get_repr(model, query_batch_generator, device)
 
+
+
+		# get posting lists, without activations, and doc_id are represented by their index on the d_ids list
+		posting_lists_doc_indeces= defaultdict(set)
+
+		passed_samples_coutner = 0
+
+		for doc_batch_repr in d_repr:
+			for batch_index, doc_repr in enumerate(doc_batch_repr):
+				nonzero_indeces = (doc_repr>0).nonzero().squeeze()
+
+				for dimension in nonzero_indeces:
+					posting_lists_doc_indeces[ dimension.item() ].add(batch_index + passed_samples_coutner)
+
+
+			passed_samples_coutner += doc_batch_repr.size(0)
+
+
+
+
+
+
+
 		#  rank dims wrt frequency (ignore dims that are always zeros)
 
 		dim_frequency = torch.zeros(d_repr[0].size(1), device=device).float()
@@ -189,7 +213,7 @@ def analysis(cfg, max_k = -1):
 		# +1 so that at the end we can have results without any used dimensions and use it as "baseline"
 		# this can be set as a parameter later
 		if cfg.max_k == -1 :
-			max_k = number_of_used_dims + 1
+			max_k = number_of_used_dims
 		else:
 			max_k = cfg.max_k
 
@@ -199,28 +223,42 @@ def analysis(cfg, max_k = -1):
 		sorted_dims_by_freq_ascending_order = dim_frequency.argsort().cpu().tolist()
 
 		sorted_indeces_by_freq_ascending = sorted_dims_by_freq_ascending_order[ - number_of_used_dims:].copy()
+		freq_ascending_total_docs_affected = []
+		freq_ascending_last_dim_docs_affected = []
 
 		sorted_indeces_by_freq_decending = sorted_indeces_by_freq_ascending.copy()
 		sorted_indeces_by_freq_decending.reverse()
+		freq_decending_total_docs_affected = []
+		freq_decending_last_dim_docs_affected = []
 
 
 		sorted_dims_by_var_ascending_order = dim_var.argsort().cpu().tolist()
 
 		sorted_indeces_by_var_ascending = sorted_dims_by_var_ascending_order[ - number_of_used_dims:].copy()
+		var_ascending_total_docs_affected = []
+		var_ascending_last_dim_docs_affected = []
 
 		sorted_indeces_by_var_decending = sorted_indeces_by_var_ascending.copy()
 		sorted_indeces_by_var_decending.reverse()
+		var_decending_total_docs_affected = []
+		var_decending_last_dim_docs_affected = []
 
 		# .argsort() returns indexes of elements in ascenting order. First index will be the one that points to the min element! if you want to reverse, set descending = True
 
 		#  rank dims wrt variance (ignore dims that are always zeros)
 
 
+		total_documents = len(d_ids)
+
+
 		print("Most Frequent dimensions :")
 		print(sorted_indeces_by_freq_decending[:max_k])
 		print("Removing top k frequent, one by one")
+		total_docs_affected = set()
 		# top k frequent
 		for k in range(max_k):
+
+
 
 			tmp_ranking_file = f'{ranking_file_path}_tmp'
 
@@ -237,9 +275,19 @@ def analysis(cfg, max_k = -1):
 			print(f'{k} -  MRR@1000: {MRR}')
 
 
+			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_freq_decending[k]]
+
+			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
+
+
+			freq_decending_total_docs_affected.append(len(total_docs_affected) / float(total_documents) )
+			freq_decending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
+
+
 		print("Least Frequent dimensions :")
 		print(sorted_indeces_by_freq_ascending[:max_k])
 		print("Removing bottom k frequent, one by one")
+		total_docs_affected = set()
 		# top k frequent
 		for k in range(max_k):
 
@@ -257,9 +305,18 @@ def analysis(cfg, max_k = -1):
 			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
 			print(f'{k} -  MRR@1000: {MRR}')
 
+			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_freq_ascending[k]]
+
+			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
+
+			freq_ascending_total_docs_affected.append( len(total_docs_affected) / float(total_documents))
+			freq_ascending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
+
+
 		print("Most Variant dimensions :")
 		print(sorted_indeces_by_var_decending[:max_k])
 		print("Removing top k variant, one by one")
+		total_docs_affected = set()
 		# top k frequent
 		for k in range(max_k):
 
@@ -277,11 +334,19 @@ def analysis(cfg, max_k = -1):
 			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
 			print(f'{k} -  MRR@1000: {MRR}')
 
+			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_var_decending[k]]
+
+			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
+
+
+			var_decending_total_docs_affected.append( len(total_docs_affected) / float(total_documents))
+			var_decending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
+
 
 		print("Least Variant dimensions :")
 		print(sorted_indeces_by_var_ascending[:max_k])
-
 		print("Removing bottom k variant, one by one")
+		total_docs_affected = set()
 		# top k frequent
 		for k in range(max_k):
 
@@ -299,6 +364,13 @@ def analysis(cfg, max_k = -1):
 			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
 			print(f'{k} -  MRR@1000: {MRR}')
 
+			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_var_ascending[k]]
+
+			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
+
+			var_ascending_total_docs_affected.append( len(total_docs_affected) / float(total_documents))
+			var_ascending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
+
 
 
 	top_k_analysis_dict = {}
@@ -312,6 +384,33 @@ def analysis(cfg, max_k = -1):
 	top_k_analysis_dict["least_freq_dims"] = sorted_indeces_by_freq_ascending[:max_k]
 	top_k_analysis_dict["most_var_dims"] = sorted_indeces_by_var_decending[:max_k]
 	top_k_analysis_dict["least_var_dims"] = sorted_indeces_by_var_ascending[:max_k]
+
+
+	top_k_analysis_dict["top_k_freq_camulative_counter"] = freq_decending_total_docs_affected
+	top_k_analysis_dict["top_k_freq_step_counter"] = freq_decending_last_dim_docs_affected
+	top_k_analysis_dict["bottom_k_freq_camulative_counter"] = freq_ascending_total_docs_affected
+	top_k_analysis_dict["bottom_k_freq_step_counter"] = freq_ascending_last_dim_docs_affected
+
+	top_k_analysis_dict["top_k_var_camulative_counter"] = var_decending_total_docs_affected
+	top_k_analysis_dict["top_k_var_step_counter"] = var_decending_last_dim_docs_affected
+
+
+	top_k_analysis_dict["bottom_k_var_camulative_counter"] = var_ascending_total_docs_affected
+	top_k_analysis_dict["bottom_k_var_step_counter"] = var_ascending_last_dim_docs_affected
+
+
+	
+
+	
+	for k in top_k_analysis_dict:
+		print(k)
+		print(top_k_analysis_dict[k])
+
+
+
+
+
+
 
 
 
