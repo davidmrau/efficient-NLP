@@ -31,7 +31,6 @@ def get_repr(model, dataloader, device):
 			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			reprs.append(repr_)
 			ids += batch_ids_d
-			break
 		return reprs, ids
 
 def get_scores_excluding_dims(doc_reprs, doc_ids, q_reprs, top_results, exclude_dims = []):
@@ -123,7 +122,8 @@ def top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRa
 
 
 
-def analysis(cfg, max_k = -1):
+def analysis(cfg):
+
 
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
@@ -253,7 +253,7 @@ def analysis(cfg, max_k = -1):
 		dim_var /= number_of_docs
 
 
-		print(dim_frequency)
+		# print(dim_frequency)
 
 
 		number_of_used_dims = dim_frequency[ dim_frequency > 0].numel()
@@ -363,7 +363,7 @@ def analysis(cfg, max_k = -1):
 
 
 
-	write_pickle(top_k_analysis_dict, cfg.model_path+"/top_k_analysis_dict.pickle")
+	write_pickle(top_k_analysis_dict, cfg.model_path+"/top_k_analysis_dict_detailed.pickle")
 
 
 
