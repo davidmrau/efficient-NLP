@@ -5,11 +5,14 @@ import transformers
 from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 
 
+from bert_no_layer_norm import BertModelNoOutLayerNorm
+
+
 
 
 class BERT_based(torch.nn.Module):
-	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 10000, num_attention_heads = 4, input_length_limit = 150,
-			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False):
+	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 1000, num_attention_heads = 4, input_length_limit = 150,
+			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, last_layer_norm = True):
 		super(BERT_based, self).__init__()
 
 		if embedding_parameters is not None:
@@ -26,7 +29,11 @@ class BERT_based(torch.nn.Module):
 		config = transformers.BertConfig(vocab_size = vocab_size, hidden_size = hidden_size, num_hidden_layers = num_of_layers,
 										num_attention_heads = num_attention_heads, intermediate_size = intermediate_size, max_position_embeddings = input_length_limit)
 		# Initialize the Bert-like encoder
-		self.encoder = transformers.BertModel(config)
+		if last_layer_norm:
+			self.encoder = transformers.BertModel(config)
+		else:
+			self.encoder = BertModelNoOutLayerNorm(config)
+
 		self.relu = torch.nn.ReLU()
 
 		if embedding_parameters is not None:
@@ -37,6 +44,7 @@ class BERT_based(torch.nn.Module):
 
 		if large_out_biases:
 			self.sparse_linear.bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
+
 
 	def forward(self, input, lengths):
 
@@ -76,6 +84,7 @@ class BERT_based(torch.nn.Module):
 		output = self.sparse_linear(encoder_output)
 		output = self.relu(output)
 		return output
+
 
 	#
 	# def get_optimizer(self, n_train_batches = 1000000):

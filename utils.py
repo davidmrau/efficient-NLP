@@ -343,6 +343,9 @@ def get_model_folder_name(cfg):
 				cfg.tf.hidden_size=300
 
 			model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}"
+
+			if cfg.tf.last_layer_norm == False:
+				model_string += "_no_last_layer_norm"
 		elif cfg.model == "snrm":
 			model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
 
