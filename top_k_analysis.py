@@ -31,6 +31,7 @@ def get_repr(model, dataloader, device):
 			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			reprs.append(repr_)
 			ids += batch_ids_d
+			break
 		return reprs, ids
 
 def get_scores_excluding_dims(doc_reprs, doc_ids, q_reprs, top_results, exclude_dims = []):
@@ -79,6 +80,49 @@ def get_scores_excluding_dims(doc_reprs, doc_ids, q_reprs, top_results, exclude_
 
 
 
+def top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces):
+
+	MRR_performance_list = []
+	total_samples_affected = []
+	last_dim_docs_affected = []
+
+
+	total_documents = len(d_ids)
+
+	# print("Most Variant dimensions :")
+	# print(sorted_indeces_by_var_decending[:max_k])
+	# print("Removing top k variant, one by one")
+	total_docs_affected = set()
+	# top k frequent
+	for k in range(max_k):
+
+		tmp_ranking_file = f'{ranking_file_path}_tmp'
+
+		scores = get_scores_excluding_dims(d_repr, d_ids, q_repr, top_results, exclude_dims = sorted_indeces[:k])
+
+		write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
+
+		metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
+		MRR = metrics[f'MRR @{MaxMRRRank}']
+
+		MRR_performance_list.append(MRR)
+
+		# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
+		# print(f'{k} -  MRR@1000: {MRR}')
+
+		doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces[k]]
+
+		total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
+
+
+		total_samples_affected.append( len(total_docs_affected) / float(total_documents))
+		last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
+
+	return MRR_performance_list, total_samples_affected, last_dim_docs_affected
+
+
+
+
 def analysis(cfg, max_k = -1):
 
 	if not cfg.disable_cuda and torch.cuda.is_available():
@@ -116,13 +160,17 @@ def analysis(cfg, max_k = -1):
 
 
 
-	MRR_top_k_freq = []
+	# MRR_top_k_freq = []
 
-	MRR_bottom_k_freq = []
+	# MRR_bottom_k_freq = []
 
-	MRR_top_k_var = []
+	# MRR_top_k_var = []
 
-	MRR_bottom_k_var = []
+	# MRR_bottom_k_var = []
+
+	# MRR_top_k_mean = []
+
+	# MRR_bottom_k_mean = []
 
 	qrels = cfg.qrels_val
 
@@ -219,7 +267,7 @@ def analysis(cfg, max_k = -1):
 
 		print("Nubmer of used dimensions :", number_of_used_dims)
 
-
+		# get sorted dimensions w.r.t. frequency
 		sorted_dims_by_freq_ascending_order = dim_frequency.argsort().cpu().tolist()
 
 		sorted_indeces_by_freq_ascending = sorted_dims_by_freq_ascending_order[ - number_of_used_dims:].copy()
@@ -232,6 +280,7 @@ def analysis(cfg, max_k = -1):
 		freq_decending_last_dim_docs_affected = []
 
 
+		# get sorted dimensions w.r.t. variance
 		sorted_dims_by_var_ascending_order = dim_var.argsort().cpu().tolist()
 
 		sorted_indeces_by_var_ascending = sorted_dims_by_var_ascending_order[ - number_of_used_dims:].copy()
@@ -243,134 +292,34 @@ def analysis(cfg, max_k = -1):
 		var_decending_total_docs_affected = []
 		var_decending_last_dim_docs_affected = []
 
-		# .argsort() returns indexes of elements in ascenting order. First index will be the one that points to the min element! if you want to reverse, set descending = True
 
-		#  rank dims wrt variance (ignore dims that are always zeros)
+		# get sorted dimensions w.r.t. average activation value
 
+		sorted_dims_by_mean_ascending_order = dim_mean.argsort().cpu().tolist()
 
-		total_documents = len(d_ids)
+		sorted_indeces_by_mean_ascending = sorted_dims_by_mean_ascending_order[ - number_of_used_dims:].copy()
+		mean_ascending_total_docs_affected = []
+		mean_ascending_last_dim_docs_affected = []
 
-
-		print("Most Frequent dimensions :")
-		print(sorted_indeces_by_freq_decending[:max_k])
-		print("Removing top k frequent, one by one")
-		total_docs_affected = set()
-		# top k frequent
-		for k in range(max_k):
-
+		sorted_indeces_by_mean_decending = sorted_indeces_by_mean_ascending.copy()
+		sorted_indeces_by_mean_decending.reverse()
+		mean_decending_total_docs_affected = []
+		mean_decending_last_dim_docs_affected = []
 
 
-			tmp_ranking_file = f'{ranking_file_path}_tmp'
+		# perform top k analysis for each dimension sorting
 
-			scores = get_scores_excluding_dims(d_repr, d_ids, q_repr, top_results, exclude_dims = sorted_indeces_by_freq_decending[:k])
+		MRR_top_k_freq, freq_decending_total_docs_affected, freq_decending_last_dim_docs_affected = top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces = sorted_indeces_by_freq_decending)
 
-			write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
+		MRR_bottom_k_freq, freq_ascending_total_docs_affected, freq_ascending_last_dim_docs_affected = top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces = sorted_indeces_by_freq_ascending)
 
-			metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
-			MRR = metrics[f'MRR @{MaxMRRRank}']
+		MRR_top_k_var, var_decending_total_docs_affected, var_decending_last_dim_docs_affected = top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces = sorted_indeces_by_var_decending)
 
-			MRR_top_k_freq.append(MRR)
+		MRR_bottom_k_var, var_ascending_total_docs_affected, var_ascending_last_dim_docs_affected = top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces = sorted_indeces_by_var_ascending)
 
-			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
-			print(f'{k} -  MRR@1000: {MRR}')
+		MRR_top_k_mean, mean_decending_total_docs_affected, mean_decending_last_dim_docs_affected = top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces = sorted_indeces_by_mean_decending)
 
-
-			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_freq_decending[k]]
-
-			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
-
-
-			freq_decending_total_docs_affected.append(len(total_docs_affected) / float(total_documents) )
-			freq_decending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
-
-
-		print("Least Frequent dimensions :")
-		print(sorted_indeces_by_freq_ascending[:max_k])
-		print("Removing bottom k frequent, one by one")
-		total_docs_affected = set()
-		# top k frequent
-		for k in range(max_k):
-
-			tmp_ranking_file = f'{ranking_file_path}_tmp'
-
-			scores = get_scores_excluding_dims(d_repr, d_ids, q_repr, top_results, exclude_dims = sorted_indeces_by_freq_ascending[:k])
-
-			write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
-
-			metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
-			MRR = metrics[f'MRR @{MaxMRRRank}']
-
-			MRR_bottom_k_freq.append(MRR)
-
-			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
-			print(f'{k} -  MRR@1000: {MRR}')
-
-			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_freq_ascending[k]]
-
-			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
-
-			freq_ascending_total_docs_affected.append( len(total_docs_affected) / float(total_documents))
-			freq_ascending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
-
-
-		print("Most Variant dimensions :")
-		print(sorted_indeces_by_var_decending[:max_k])
-		print("Removing top k variant, one by one")
-		total_docs_affected = set()
-		# top k frequent
-		for k in range(max_k):
-
-			tmp_ranking_file = f'{ranking_file_path}_tmp'
-
-			scores = get_scores_excluding_dims(d_repr, d_ids, q_repr, top_results, exclude_dims = sorted_indeces_by_var_decending[:k])
-
-			write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
-
-			metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
-			MRR = metrics[f'MRR @{MaxMRRRank}']
-
-			MRR_top_k_var.append(MRR)
-
-			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
-			print(f'{k} -  MRR@1000: {MRR}')
-
-			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_var_decending[k]]
-
-			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
-
-
-			var_decending_total_docs_affected.append( len(total_docs_affected) / float(total_documents))
-			var_decending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
-
-
-		print("Least Variant dimensions :")
-		print(sorted_indeces_by_var_ascending[:max_k])
-		print("Removing bottom k variant, one by one")
-		total_docs_affected = set()
-		# top k frequent
-		for k in range(max_k):
-
-			tmp_ranking_file = f'{ranking_file_path}_tmp'
-
-			scores = get_scores_excluding_dims(d_repr, d_ids, q_repr, top_results, exclude_dims = sorted_indeces_by_var_ascending[:k])
-
-			write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
-
-			metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
-			MRR = metrics[f'MRR @{MaxMRRRank}']
-
-			MRR_bottom_k_var.append(MRR)
-
-			# writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
-			print(f'{k} -  MRR@1000: {MRR}')
-
-			doc_indeces_affected_by_this_dimension = posting_lists_doc_indeces[sorted_indeces_by_var_ascending[k]]
-
-			total_docs_affected = total_docs_affected.union(doc_indeces_affected_by_this_dimension)
-
-			var_ascending_total_docs_affected.append( len(total_docs_affected) / float(total_documents))
-			var_ascending_last_dim_docs_affected.append(len(doc_indeces_affected_by_this_dimension) / float(total_documents) )
-
+		MRR_bottom_k_mean, mean_ascending_total_docs_affected, mean_ascending_last_dim_docs_affected = top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRank, qrels, max_k, posting_lists_doc_indeces, sorted_indeces = sorted_indeces_by_mean_ascending)
 
 
 	top_k_analysis_dict = {}
@@ -378,6 +327,8 @@ def analysis(cfg, max_k = -1):
 	top_k_analysis_dict["MRR_bottom_k_freq"] = MRR_bottom_k_freq
 	top_k_analysis_dict["MRR_top_k_var"] = MRR_top_k_var
 	top_k_analysis_dict["MRR_bottom_k_var"] = MRR_bottom_k_var
+	top_k_analysis_dict["MRR_top_k_mean"] = MRR_top_k_mean
+	top_k_analysis_dict["MRR_bottom_k_mean"] = MRR_bottom_k_mean
 
 
 	top_k_analysis_dict["most_freq_dims"] = sorted_indeces_by_freq_decending[:max_k]
@@ -388,26 +339,24 @@ def analysis(cfg, max_k = -1):
 
 	top_k_analysis_dict["top_k_freq_camulative_counter"] = freq_decending_total_docs_affected
 	top_k_analysis_dict["top_k_freq_step_counter"] = freq_decending_last_dim_docs_affected
+
 	top_k_analysis_dict["bottom_k_freq_camulative_counter"] = freq_ascending_total_docs_affected
 	top_k_analysis_dict["bottom_k_freq_step_counter"] = freq_ascending_last_dim_docs_affected
 
 	top_k_analysis_dict["top_k_var_camulative_counter"] = var_decending_total_docs_affected
 	top_k_analysis_dict["top_k_var_step_counter"] = var_decending_last_dim_docs_affected
 
-
 	top_k_analysis_dict["bottom_k_var_camulative_counter"] = var_ascending_total_docs_affected
 	top_k_analysis_dict["bottom_k_var_step_counter"] = var_ascending_last_dim_docs_affected
 
+	top_k_analysis_dict["top_k_mean_camulative_counter"] = mean_decending_total_docs_affected
+	top_k_analysis_dict["top_k_mean_step_counter"] = mean_decending_last_dim_docs_affected
+
+	top_k_analysis_dict["bottom_k_mean_camulative_counter"] = mean_ascending_total_docs_affected
+	top_k_analysis_dict["bottom_k_mean_step_counter"] = mean_ascending_last_dim_docs_affected
+
 
 	
-
-	
-	for k in top_k_analysis_dict:
-		print(k)
-		print(top_k_analysis_dict[k])
-
-
-
 
 
 
