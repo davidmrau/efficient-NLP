@@ -59,24 +59,24 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		freq = num_batches // print_n_times if num_batches > print_n_times else 1
 		# update tensorboard only for training on intermediate steps
 		if training_steps % freq == 0 and mode == 'train':
-			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss.item(), l1_loss.item(), balance_loss.item()))
+			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss, l1_loss, balance_loss))
 				# update tensorboard
-			writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
-			writer.add_scalar(f'{mode}_l1_loss', l1_loss.item(), total_training_steps)
-			writer.add_scalar(f'{mode}_balance_loss', balance_loss.item(), total_training_steps)
-			writer.add_scalar(f'{mode}_total_loss', total_loss.item(), total_training_steps)
+			writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
+			writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
+			writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
+			writer.add_scalar(f'{mode}_total_loss', total_loss, total_training_steps)
 			writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
 			writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
-			writer.add_scalar(f'{mode}_acc', acc.item(), total_training_steps)
+			writer.add_scalar(f'{mode}_acc', acc, total_training_steps)
 
 
 		# sum losses
-		av_loss += total_loss.item()
-		av_l1_loss += l1_loss.item()
-		av_balance_loss += balance_loss.item()
+		av_loss += total_loss
+		av_l1_loss += l1_loss
+		av_balance_loss += balance_loss
 		av_l0_q += l0_q
 		av_l0_docs += l0_docs
-		av_task_loss += loss.item()
+		av_task_loss += loss
 
 		# calculate av_acc
 		av_acc += acc
@@ -85,12 +85,12 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 			break
 
 	# average losses and counters
-	av_loss /= training_steps
-	av_l1_loss /= training_steps
-	av_balance_loss /= training_steps
+	av_loss = av_loss / training_steps
+	av_l1_loss = av_l1_loss /training_steps
+	av_balance_loss = av_balance_loss / training_steps
 	av_l0_q /= training_steps
 	av_l0_docs /= training_steps
-	av_task_loss /= training_steps
+	av_task_loss = av_task_loss / training_steps
 	av_acc /= training_steps
 
 
@@ -98,17 +98,17 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	# for validation only send average to tensorboard
 	if mode == 'val':
-		writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
-		writer.add_scalar(f'{mode}_l1_loss', l1_loss.item(), total_training_steps)
-		writer.add_scalar(f'{mode}_balance_loss', balance_loss.item(), total_training_steps)
-		writer.add_scalar(f'{mode}_total_loss', total_loss.item(), total_training_steps)
+		writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
+		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
+		writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
+		writer.add_scalar(f'{mode}_total_loss', total_loss, total_training_steps)
 		writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
-		writer.add_scalar(f'{mode}_acc', acc.item(), total_training_steps)
+		writer.add_scalar(f'{mode}_acc', acc, total_training_steps)
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000, eval_every = 10000, debug = False):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000, eval_every = 10000, debug = False, bottleneck_run = False):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -150,51 +150,58 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# evaluation
 		with torch.no_grad():
 			model.eval()
-			# av_eval_loss, _ = run_epoch(model, dataloaders['val'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device)
-			#run ms marco eval
-			#
 
-			scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, top_results)
+			if bottleneck_run:
+				MRR = 0.001
 
-			write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
+			else:
+				# run ms marco eval
+				scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, top_results)
 
-			metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
-			MRR = metrics[f'MRR @{MaxMRRRank}']
+				write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
 
-
-			writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
-			print(f'Eval -  MRR@1000: {MRR}')
-
-		# check for early stopping
-		if MRR > best_MRR:
-			print(f'Best model at current epoch {epoch}, with MRR@1000: {MRR}')
-			temp_patience = 0
-			best_MRR = MRR
-			# save best model so far to file
-			torch.save(model, f'{model_folder}/best_model.model' )
-			# write ranking file
-			write_ranking(scores, q_ids, ranking_file_path, MaxMRRRank)
-			# plot stats
-			plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
-			plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
-			plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
-			plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
-
-		else:
-
-			temp_patience += 1
-
-			if temp_patience >= patience:
-				print("Early Stopping!")
-				break
-
-		if MRR < 0.05 and not debug:
-			print("MRR smaller than 0.05. Ending Training!")
-			break
+				metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
+				MRR = metrics[f'MRR @{MaxMRRRank}']
 
 
-		#torch.save(model, f'{model_folder}/model_epoch_{epoch}.model' )
-	# load best model
-	model = torch.load(f'{model_folder}/best_model.model')
-	os.remove(tmp_ranking_file)
+				writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
+				print(f'Eval -  MRR@1000: {MRR}')
+
+
+				# check for early stopping
+				if MRR > best_MRR:
+					print(f'Best model at current epoch {epoch}, with MRR@1000: {MRR}')
+					temp_patience = 0
+					best_MRR = MRR
+					# save best model so far to file
+					torch.save(model, f'{model_folder}/best_model.model' )
+
+					# write ranking file
+					write_ranking(scores, q_ids, ranking_file_path, MaxMRRRank)
+					# plot stats
+					plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
+					plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
+					plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
+					plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
+
+				else:
+
+					temp_patience += 1
+
+					if temp_patience >= patience:
+						print("Early Stopping!")
+						break
+
+				if MRR < 0.05 and not debug:
+					print("MRR smaller than 0.05. Ending Training!")
+					break
+
+
+	if not bottleneck_run:
+		# load best model
+		model = torch.load(f'{model_folder}/best_model.model')
+		os.remove(tmp_ranking_file)
+	
+
+
 	return model
