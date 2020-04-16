@@ -2,17 +2,18 @@ import numpy as np
 import torch
 
 import transformers
-from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
+from utils import load_glove_embeddings, get_pretrained_BERT_embeddings, Delu
 
 
 from bert_no_layer_norm import BertModelNoOutLayerNorm
+from transformers.activations import gelu, gelu_new
 
 
 
 
 class BERT_based(torch.nn.Module):
 	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 1000, num_attention_heads = 4, input_length_limit = 150,
-			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, last_layer_norm = True):
+			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, last_layer_norm = True, act_func="relu"):
 		super(BERT_based, self).__init__()
 
 		if embedding_parameters is not None:
@@ -34,7 +35,16 @@ class BERT_based(torch.nn.Module):
 		else:
 			self.encoder = BertModelNoOutLayerNorm(config)
 
-		self.relu = torch.nn.ReLU()
+		if act_func == "relu":
+			self.act_func = torch.nn.ReLU()
+		elif act_func == "gelu":
+			self.act_func = gelu
+		elif act_func == "gelu_new":
+			self.act_func = gelu_new
+		elif act_func == "delu":
+			self.act_func = Delu
+		else:
+			raise ValueError("Activation Function, was not set properly!")
 
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
@@ -82,7 +92,7 @@ class BERT_based(torch.nn.Module):
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).max(dim = 1)[0]
 
 		output = self.sparse_linear(encoder_output)
-		output = self.relu(output)
+		output = self.act_func(output)
 		return output
 
 

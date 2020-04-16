@@ -9,7 +9,7 @@ from datetime import datetime
 from omegaconf import OmegaConf
 from dataset import get_data_loaders
 import shutil
-from utils import load_glove_embeddings, get_model_folder_name, get_pretrained_BERT_embeddings
+from utils import load_glove_embeddings, get_model_folder_name, get_pretrained_BERT_embeddings, _getThreads
 
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
@@ -52,7 +52,7 @@ def exp(cfg):
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
 		vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, pooling_method = cfg.tf.pooling_method,
-		large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm)
+		large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
 
 	# move model to device
 	model = model.to(device=device)
@@ -61,16 +61,28 @@ def exp(cfg):
 		model = nn.DataParallel(model)
 
 
+	avail_threads = _getThreads()
+
+	# if not specified, all available threads will be used
+	if cfg.num_workers == -1:
+		# print("Using all avaialbe Theads")
+		cfg.num_workers = avail_threads
+	# if more than available threads are requested, then only using all available threads
+	elif cfg.num_workers > avail_threads:
+		cfg.num_workers = avail_threads
+
+	print(f"Using {cfg.num_workers} Threads.")
+
 	print(model)
 	# initialize tensorboard
 	writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
 	print('Loading data...')
 	# initialize dataloaders
-	#
+
 
 	dataloaders = get_data_loaders(cfg.triplets_file_train, cfg.docs_file_train,
-	cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size, debug=cfg.debug)
+	cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size, cfg.num_workers, debug=cfg.debug)
 	print('done')
 	# initialize loss function
 	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
@@ -81,7 +93,7 @@ def exp(cfg):
 	# train the model
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, top_results=cfg.top_results,
-	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every)
+	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every, debug = cfg.debug)
 
 if __name__ == "__main__":
 	# getting command line arguments

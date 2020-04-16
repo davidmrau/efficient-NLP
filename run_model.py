@@ -108,7 +108,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000, eval_every = 10000):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000, eval_every = 10000, debug = False):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -188,7 +188,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				print("Early Stopping!")
 				break
 
-		if MRR < 0.05:
+		if MRR < 0.05 and not debug:
 			print("MRR smaller than 0.05. Ending Training!")
 			break
 

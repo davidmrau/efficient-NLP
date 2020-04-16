@@ -12,6 +12,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 matplotlib.use('Agg')
+import math
+import sys
 
 def file_len(fname):
 	""" Get the number of lines from file
@@ -333,6 +335,16 @@ def write_ranking_trec(scores, q_ids, results_file_path, MaxMRRRank):
 			results_file.write(f'{q_id}\t0\t{doc_id}\t{j+1}\t{score}\teval\n')
 	results_file.close()
 
+def _getThreads():
+    """ Returns the number of available threads on a posix/win based system """
+    if sys.platform == 'win32':
+        return (int)(os.environ['NUMBER_OF_PROCESSORS'])
+    else:
+        return (int)(os.popen('grep -c cores /proc/cpuinfo').read())
+
+
+def Delu(x):
+	return x * 0.5 * (1 + torch.erf(x / math.sqrt(0.3)))
 
 def get_model_folder_name(cfg):
 		if cfg.model == "tf":
@@ -342,7 +354,7 @@ def get_model_folder_name(cfg):
 			elif cfg.embedding == "glove":
 				cfg.tf.hidden_size=300
 
-			model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}"
+			model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}_ACT_{cfg.tf.act_func}"
 
 			if cfg.tf.last_layer_norm == False:
 				model_string += "_no_last_layer_norm"

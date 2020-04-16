@@ -215,11 +215,11 @@ class MSMarcoSequentialDev:
 
 
 def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
- 	docs_file_val, batch_size, debug=False):
+ 	docs_file_val, batch_size, num_workers, debug=False):
 
 	dataloaders = {}
 	dataloaders['train'] = DataLoader(MSMarco('train', triplets_train_file, docs_file_train, query_file_train, debug=debug),
-	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True)
+	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = num_workers)
 
 	query_batch_generator = MSMarcoSequential(query_file_val, batch_size)
 	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size)
