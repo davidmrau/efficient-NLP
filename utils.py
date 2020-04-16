@@ -126,14 +126,16 @@ def l1_loss_fn(q_repr, d1_repr, d2_repr):
 	concat = torch.cat([q_repr, d1_repr, d2_repr], 1)
 	return torch.mean(torch.sum(concat, 1))/q_repr.size(1)
 
+def l0_loss(repr_):
+	return (repr_ > 0).float().mean(1).mean()
 
 def l0_loss_fn(q_repr, d1_repr, d2_repr):
 	""" L0 loss ( Number of non zero elements )
 	"""
 	# return mean batch l0 loss of qery, and docs
 	concat_d = torch.cat([d1_repr, d2_repr], dim=1)
-	non_zero_d = (concat_d > 0).float().mean(1).mean()
-	non_zero_q = (q_repr > 0).float().mean(1).mean()
+	non_zero_d = l0_loss(concat_d)
+	non_zero_q = l0_loss(q_repr)
 	return non_zero_d, non_zero_q
 
 def get_posting_lengths(reprs, sparse_dims):
@@ -358,6 +360,8 @@ def get_model_folder_name(cfg):
 
 			if cfg.tf.last_layer_norm == False:
 				model_string += "_no_last_layer_norm"
+			if cfg.balance_scalar != 0:
+				model_string += f'bal_{cfg.balance_scalar}'
 		elif cfg.model == "snrm":
 			model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
 
