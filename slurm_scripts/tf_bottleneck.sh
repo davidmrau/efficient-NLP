@@ -69,7 +69,7 @@ for LAST_LAYER_NORM in ${LAST_LAYER_NORM_OPTIONS}; do
 								for LARGE_OUT_BIASES in ${LARGE_OUT_BIASES_OPTIONS}; do
 
 									python3 -m torch.utils.bottleneck main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
-									tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} large_out_biases=${LARGE_OUT_BIASES} tf.last_layer_norm=${LAST_LAYER_NORM} num_workers=0 eval_every=100 num_epochs=1
+									tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} large_out_biases=${LARGE_OUT_BIASES} tf.last_layer_norm=${LAST_LAYER_NORM} num_workers=0 eval_every=100 num_epochs=1 model_folder=bottleneck_test
 
 								done
 							done
