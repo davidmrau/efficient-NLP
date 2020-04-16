@@ -4,12 +4,14 @@ import pickle
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
 import os
-from utils import write_ranking, write_ranking_trec
+from utils import write_ranking, write_ranking_trec, l0_loss, str2lst
 import numpy as np
 from ms_marco_eval import compute_metrics_from_files
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from snrm import SNRM
+from bert_based import BERT_based
 matplotlib.use('Agg')
 
 """ Run online inference (for test set) without inverted index
@@ -80,6 +82,31 @@ def evaluate(model, data_loaders, device, top_results, reset=True):
 	#restuls write and aggreate
 
 
+def load_model(cfg, device):
+	
+	model_old = torch.load(cfg.model_path + '/best_model.model', map_location=device)
+	
+	if isinstance(model_old, torch.nn.DataParallel):
+		model_old = model_old.module
+
+	state_dict = model_old.state_dict()
+
+	if cfg.model == "snrm":
+		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
+		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=None,
+		embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
+		n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)	
+		model.embedding = torch.nn.Embedding(cfg.vocab_size, cfg.snrm.embedding_dim)	
+	elif cfg.model == "tf":
+		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
+		vocab_size = cfg.vocab_size, embedding_parameters = None, pooling_method = cfg.tf.pooling_method,
+		large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
+	
+	model.load_state_dict(state_dict)
+	return model
+
+
 def inference(cfg):
 
 	if not cfg.disable_cuda and torch.cuda.is_available():
@@ -87,9 +114,11 @@ def inference(cfg):
 	else:
 		device = torch.device('cpu')
 
-	model = torch.load(cfg.model_path + '/best_model.model', map_location=device)
-
+	model = load_model(cfg, device)
 	model = model.to(device=device)
+	
+
+
 	if torch.cuda.device_count() > 1:
 		print("Using", torch.cuda.device_count(), "GPUs!")
 		if not isinstance(model, torch.nn.DataParallel):
@@ -110,20 +139,29 @@ def inference(cfg):
 	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
 	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
 
+	av_l0_query = list()
+	av_l0_doc = list()
+	
 	data_loaders = [query_batch_generator.reset(), docs_batch_generator.reset()]
 	scores, q_repr, d_repr, q_ids_q, d_ids_q = evaluate(model, data_loaders, device, cfg.top_results, reset=False)
 	q_ids = q_ids_q
+	av_l0_query.append(l0_loss(torch.cat(q_repr)))
+	av_l0_doc.append(l0_loss(torch.cat(d_repr)))
+	
 	while len(d_repr) > 0:
 		print(q_ids_q)
 		scores_q, q_repr, d_repr, q_ids_q, d_ids_q = evaluate(model, data_loaders, device, cfg.top_results, reset=False)
 		scores += scores_q
 		q_ids += q_ids_q
-
-
+		av_l0_query.append(l0_loss(torch.cat(q_repr)))
+		av_l0_doc.append(l0_loss(torch.cat(d_repr)))
+	
 	write_ranking(scores, q_ids, ranking_file_path, cfg.MaxMRRRank)
 	write_ranking_trec(scores, q_ids, ranking_file_path+'.trec', cfg.MaxMRRRank)
 
 
+	metrics_file.write(f'{qrels_base} l0 docs:\t{round(torch.stack(av_l0_query).mean().item(), 5)}\n')
+	metrics_file.write(f'{qrels_base} l0 query:\t{round(torch.stack(av_l0_doc).mean().item(), 5)}\n')
 	metric = compute_metrics_from_files(path_to_reference = cfg.qrels, path_to_candidate = ranking_file_path, MaxMRRRank=cfg.MaxMRRRank)
 
 	# returning the MRR @ 1000
@@ -141,4 +179,6 @@ if __name__ == "__main__":
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_path}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
+	cfg_default = OmegaConf.load('config.yaml')
+	cfg = OmegaConf.merge(cfg_default, cfg)
 	inference(cfg)
