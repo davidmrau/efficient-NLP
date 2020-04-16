@@ -9,6 +9,7 @@ eval_every: 5000
 sparse_dimensions: 10000
 large_out_biases: False
 num_workers: -1
+bottleneck_run: False
 tf:
   hidden_size: 256
   num_of_layers: 2

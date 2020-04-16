@@ -22,6 +22,12 @@ def exp(cfg):
 	# printing params
 	print(cfg.pretty())
 
+
+	if cfg.bottleneck_run:
+		print("!! RUNNING bottleneck CHECK !!")
+		cfg.eval_every = 100
+		cfg.num_epochs = 1
+
 	# select device depending on availability and user's setting
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
@@ -93,7 +99,7 @@ def exp(cfg):
 	# train the model
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, top_results=cfg.top_results,
-	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every, debug = cfg.debug)
+	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run)
 
 if __name__ == "__main__":
 	# getting command line arguments
@@ -109,13 +115,30 @@ if __name__ == "__main__":
 	else:
 		model_folder = cl_cfg.model_folder
 
+
+	if cfg.debug:
+		model_folder += "_DEBUG"
+
+	if cfg.bottleneck_run:
+		model_folder = "BOTTLENECK_RUN_" + model_folder
+
 	completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
 
 	temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
-	print(completed_model_folder)
+
+	print("Complete Model Path: ", completed_model_folder)
 	if os.path.isdir(completed_model_folder):
-		print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
-		exit()
+
+		if cfg.bottleneck_run:
+
+			while(os.path.isdir(completed_model_folder)):
+				model_folder +=  "."
+				completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
+				temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
+		else:
+			print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
+			exit()
+
 	elif os.path.isdir(temp_model_folder):
 		print("Incomplete experiment directory found :\n", temp_model_folder)
 		shutil.rmtree(temp_model_folder)
@@ -128,8 +151,10 @@ if __name__ == "__main__":
 	OmegaConf.save(cfg, f'{temp_model_folder}/config.yaml')
 	# set model_folder
 	cfg.model_folder = temp_model_folder
+
 	exp(cfg)
 
 	# after the training is done, we remove the temp prefix from the dir name
 	print("Training completed! Changing from temporary name to final name.")
+	print("--------------------------------------------------------------------------------------")
 	os.renames(temp_model_folder, completed_model_folder)
