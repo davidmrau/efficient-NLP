@@ -153,8 +153,9 @@ def inference(cfg):
 		scores_q, q_repr, d_repr, q_ids_q, d_ids_q = evaluate(model, data_loaders, device, cfg.top_results, reset=False)
 		scores += scores_q
 		q_ids += q_ids_q
-		av_l0_query.append(l0_loss(torch.cat(q_repr)))
-		av_l0_doc.append(l0_loss(torch.cat(d_repr)))
+		if len(d_repr) > 0:
+			av_l0_query.append(l0_loss(torch.cat(q_repr)))
+			av_l0_doc.append(l0_loss(torch.cat(d_repr)))
 	
 	write_ranking(scores, q_ids, ranking_file_path, cfg.MaxMRRRank)
 	write_ranking_trec(scores, q_ids, ranking_file_path+'.trec', cfg.MaxMRRRank)
