@@ -147,7 +147,6 @@ def inference(cfg):
 	q_ids = q_ids_q
 	av_l0_query.append(l0_loss(torch.cat(q_repr)))
 	av_l0_doc.append(l0_loss(torch.cat(d_repr)))
-	count = 0	
 	while len(d_repr) > 0:
 		print(q_ids_q)
 		scores_q, q_repr, d_repr, q_ids_q, d_ids_q = evaluate(model, data_loaders, device, cfg.top_results, reset=False)
@@ -156,9 +155,6 @@ def inference(cfg):
 		if len(d_repr) > 0:
 			av_l0_query.append(l0_loss(torch.cat(q_repr)))
 			av_l0_doc.append(l0_loss(torch.cat(d_repr)))
-		count += 1
-		if count > 5:
-			break
 	
 	write_ranking(scores, q_ids, ranking_file_path, cfg.MaxMRRRank)
 	write_ranking_trec(scores, q_ids, ranking_file_path+'.trec', cfg.MaxMRRRank)
