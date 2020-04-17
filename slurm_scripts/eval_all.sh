@@ -22,7 +22,7 @@ QRELS_PATH="data/msmarco/2019qrels-pass_ms_marco.txt"
 QUERY_DOCS_PATH="data/msmarco/msmarco-passagetest2019-top1000.tsv.sorted_43"
 
 #MODEL_PATH="experiments/l1_0_Emb_bert_Sparse_1000_bsz_512_lr_0.0001_TF_L_2_H_4_D_768_P_AVG"
-EXPERIMENTS='experiments_mostafa/'
+EXPERIMENTS='experiments'
 
 cd ..
 
