@@ -1,6 +1,6 @@
 #!/bin/bash
 # Set job requirements
-#SBATCH --job-name=2048
+#SBATCH --job-name=test
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu_short
 #SBATCH --mem=100G
