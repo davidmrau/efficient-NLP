@@ -120,6 +120,33 @@ def top_k(ranking_file_path, d_repr, d_ids, q_repr, top_results, q_ids, MaxMRRRa
 	return MRR_performance_list, total_samples_affected, last_dim_docs_affected
 
 
+def load_model(cfg, device):
+	
+	model_old = torch.load(cfg.model_path + '/best_model.model', map_location=device)
+	
+	if isinstance(model_old, torch.nn.DataParallel):
+		model_old = model_old.module
+
+	state_dict = model_old.state_dict()
+
+	if cfg.model == "snrm":
+		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
+		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=None,
+		embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
+		n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)	
+		model.embedding = torch.nn.Embedding(cfg.vocab_size, cfg.snrm.embedding_dim)	
+	elif cfg.model == "tf":
+		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
+		vocab_size = cfg.vocab_size, embedding_parameters = None, pooling_method = cfg.tf.pooling_method,
+		large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
+	
+	model.load_state_dict(state_dict)
+	return model
+
+
+
+
 
 
 def analysis(cfg):
@@ -130,7 +157,10 @@ def analysis(cfg):
 	else:
 		device = torch.device('cpu')
 
-	model = torch.load(cfg.model_path + '/best_model.model', map_location=device)
+
+	model = load_model(cfg, device)
+	model = model.to(device=device)
+	
 
 	model = model.to(device=device)
 	if torch.cuda.device_count() > 1:

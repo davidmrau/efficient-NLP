@@ -3,7 +3,7 @@
 #SBATCH --job-name=tf_act
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu_shared
-#SBATCH --time=60:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=100G
 
 
@@ -40,7 +40,7 @@ EMBEDDINGS="bert"
 
 L1_SCALARS="0 1"
 
-ACTIVATION_OPTIONS="delu gelu gelu_new relu"
+ACTIVATION_OPTIONS="delu gelu"
 
 
 SPARSE_DIMENSIONS="5000"
@@ -74,7 +74,7 @@ for ACTIVATION_FUNC in ${ACTIVATION_OPTIONS}; do
 
 
 										python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} \
-										tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} large_out_biases=${LARGE_OUT_BIASES} tf.last_layer_norm=${LAST_LAYER_NORM} tf.act_func=${ACTIVATION_FUNC}
+										tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} large_out_biases=${LARGE_OUT_BIASES} tf.last_layer_norm=${LAST_LAYER_NORM} tf.act_func=${ACTIVATION_FUNC} eval_every=1000
 
 									done
 								done
