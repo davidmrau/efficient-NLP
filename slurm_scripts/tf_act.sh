@@ -3,7 +3,7 @@
 #SBATCH --job-name=tf_act
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu_shared
-#SBATCH --time=48:00:00
+#SBATCH --time=5:00:00
 #SBATCH --mem=100G
 
 
@@ -44,7 +44,7 @@ ACTIVATION_OPTIONS="delu gelu"
 
 
 SPARSE_DIMENSIONS="5000"
-LARGE_OUT_BIASES_OPTIONS="False True"
+LARGE_OUT_BIASES_OPTIONS="False"
 
 LAST_LAYER_NORM_OPTIONS="True"
 
