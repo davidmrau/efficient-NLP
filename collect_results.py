@@ -29,6 +29,7 @@ def tf2str(cfg):
     res += f'{cfg.embedding}\t'
     res += f'{cfg.batch_size}\t'
     res += f'{cfg.sparse_dimensions}\t'
+    res += f'{cfg.l1_scalar}\t'
 
     return res
 
@@ -42,6 +43,7 @@ def snrm2str(cfg):
     res += f'{cfg.embedding}\t'
     res += f'{cfg.batch_size}\t'
     res += f'{cfg.sparse_dimensions}\t'
+    res += f'{cfg.l1_scalar}\t'
     return res
 
 def ranking_results2str(ranking_result_lines):
