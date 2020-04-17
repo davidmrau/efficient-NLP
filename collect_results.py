@@ -20,7 +20,7 @@ def special(cfg):
 
     return special + '\t'
 
-def snrm2str(cfg):
+def tf2str(cfg):
     res = ''
     res += f'{cfg.model}\t'
     res += f'{cfg.tf.num_attention_heads}\t'
@@ -35,7 +35,7 @@ def snrm2str(cfg):
     return res
 
 
-def tf2str(cfg):
+def snrm2str(cfg):
     res = ''
     res += f'{cfg.model}\t'
     res += f'{cfg.tf.hidden_sizes}\t'
