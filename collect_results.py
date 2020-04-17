@@ -14,8 +14,9 @@ def special(cfg):
             special += f'bal{cfg.balance_scalar}' + ' '
     if cfg.model == 'tf':
         special += f'{cfg.tf.pooling_method}' + ' '
-    if 'act_func' in cfg:
-        special += f'{cfg.act_func}' + ' '
+    if 'tf' in cfg:
+         if cfg.tf.act_func != None:
+            special += f'{cfg.tf.act_func}' + ' '
 
     return special + '\t'
 
