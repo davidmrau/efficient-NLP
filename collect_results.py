@@ -39,7 +39,7 @@ def snrm2str(cfg):
     res += f'{cfg.model}\t'
     res += f'{cfg.snrm.hidden_sizes}\t'
     # special
-    #res += special(cfg)
+    res += special(cfg)
     res += f'{cfg.embedding}\t'
     res += f'{cfg.batch_size}\t'
     res += f'{cfg.sparse_dimensions}\t'
