@@ -85,13 +85,14 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 			break
 
 	# average losses and counters
-	av_loss = av_loss / training_steps
-	av_l1_loss = av_l1_loss /training_steps
-	av_balance_loss = av_balance_loss / training_steps
+	av_loss = av_loss.item() / training_steps
+	av_l1_loss = av_l1_loss.item() /training_steps
+	av_balance_loss = av_balance_loss.item() / training_steps
 	av_l0_q /= training_steps
 	av_l0_docs /= training_steps
-	av_task_loss = av_task_loss / training_steps
+	av_task_loss = av_task_loss.item() / training_steps
 	av_acc /= training_steps
+	av_acc = av_acc.item()
 
 
 	print("{} - Epoch [{}]: Total loss: {:.6f}, Task loss: {:.6f}, L1 loss: {:.6f}, Balance Loss: {:.6f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}, acc: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_l1_loss, av_balance_loss, av_l0_q, av_l0_docs, av_acc))
