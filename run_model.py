@@ -99,13 +99,13 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	# for validation only send average to tensorboard
 	if mode == 'val':
-		writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
-		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
-		writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
-		writer.add_scalar(f'{mode}_total_loss', total_loss, total_training_steps)
+		writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
+		writer.add_scalar(f'{mode}_l1_loss', l1_loss.item(), total_training_steps)
+		writer.add_scalar(f'{mode}_balance_loss', balance_loss.item(), total_training_steps)
+		writer.add_scalar(f'{mode}_total_loss', total_loss.item(), total_training_steps)
 		writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
-		writer.add_scalar(f'{mode}_acc', acc, total_training_steps)
+		writer.add_scalar(f'{mode}_acc', acc.item(), total_training_steps)
 
 	return av_loss, total_training_steps
 
