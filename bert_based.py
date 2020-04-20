@@ -92,7 +92,15 @@ class BERT_based(torch.nn.Module):
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).max(dim = 1)[0]
 
 		output = self.sparse_linear(encoder_output)
-		output = self.act_func(output)
+
+		# Always using the ReLU activation function while evaluating
+		if self.training:
+			print("Training mode, using :", self.act_func)
+			output = self.act_func(output)
+		else:
+			print("Eval mode, using : Relu")
+			output = torch.nn.functional.relu(output)
+
 		return output
 
 

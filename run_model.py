@@ -1,5 +1,5 @@
 import torch
-from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, write_ranking
+from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, write_ranking, l0_loss
 import numpy as np
 import os
 from inference import evaluate
@@ -39,7 +39,10 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 		# calculating loss
 		loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
-		l1_loss = l1_loss_fn(q_repr, d1_repr, d2_repr)
+
+
+		l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+
 		balance_loss = balance_loss_fn(logits, device) * balance_scalar
 		# calculating L0 loss
 		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
@@ -62,6 +65,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		if training_steps % freq == 0 and mode == 'train':
 			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss, l1_loss, balance_loss))
 				# update tensorboard
+			print("Train :loss", loss)
 			writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
 			writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
 			writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
@@ -160,6 +164,41 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				# run ms marco eval
 				scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, top_results)
 
+				q_l0_loss = 0
+				q_l0_coutner = 0
+				l1_loss = 0
+				l1_counter = 0
+				# calculate average l1 and l0 losses from queries
+				for i in range(len(q_repr)):
+					number_of_samples = q_repr[i].size(0)
+					l1_loss += l1_loss_fn(q_repr[i])
+					q_l0_loss += l0_loss(q_repr[i])
+					q_l0_coutner += number_of_samples
+					l1_counter += number_of_samples
+
+				d_l0_loss = 0
+				d_l0_coutner = 0
+				# calculate average l1 and l0 losses from documents
+				for i in range(len(d_repr)):
+					number_of_samples = d_repr[i].size(0)
+					l1_loss += l1_loss_fn(d_repr[i])
+					d_l0_loss += l0_loss(d_repr[i])
+					d_l0_coutner += number_of_samples
+					l1_counter += number_of_samples
+
+				l1_loss /= l1_counter
+				q_l0_loss /= q_l0_coutner
+				d_l0_loss /= d_l0_coutner
+
+
+				writer.add_scalar(f'Eval_l1_loss', l1_loss, total_training_steps)
+
+				writer.add_scalar(f'Eval_L0_query', q_l0_loss, total_training_steps)
+				writer.add_scalar(f'Eval_L0_docs', d_l0_loss, total_training_steps)
+
+
+
+				
 				write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
 
 				metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
