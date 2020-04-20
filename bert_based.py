@@ -95,10 +95,8 @@ class BERT_based(torch.nn.Module):
 
 		# Always using the ReLU activation function while evaluating
 		if self.training:
-			print("Training mode, using :", self.act_func)
 			output = self.act_func(output)
 		else:
-			print("Eval mode, using : Relu")
 			output = torch.nn.functional.relu(output)
 
 		return output
