@@ -43,6 +43,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		balance_loss = balance_loss_fn(logits, device) * balance_scalar
 		# calculating L0 loss
 		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+
 		# calculating classification accuracy (whether the correct document was classified as more relevant)
 		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float()+ ((dot_q_d2 > dot_q_d1).float() == targets*-1).float()).mean()
 
@@ -85,27 +86,27 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 			break
 
 	# average losses and counters
-	av_loss = av_loss.item() / training_steps
-	av_l1_loss = av_l1_loss.item() /training_steps
-	av_balance_loss = av_balance_loss.item() / training_steps
+	av_loss = av_loss / training_steps
+	av_l1_loss = av_l1_loss /training_steps
+	av_balance_loss = av_balance_loss / training_steps
 	av_l0_q /= training_steps
 	av_l0_docs /= training_steps
-	av_task_loss = av_task_loss.item() / training_steps
+	av_task_loss = av_task_loss / training_steps
 	av_acc /= training_steps
-	av_acc = av_acc.item()
+	av_acc = av_acc
 
 
 	print("{} - Epoch [{}]: Total loss: {:.6f}, Task loss: {:.6f}, L1 loss: {:.6f}, Balance Loss: {:.6f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}, acc: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_l1_loss, av_balance_loss, av_l0_q, av_l0_docs, av_acc))
 
 	# for validation only send average to tensorboard
 	if mode == 'val':
-		writer.add_scalar(f'{mode}_task_loss', loss.item(), total_training_steps  )
-		writer.add_scalar(f'{mode}_l1_loss', l1_loss.item(), total_training_steps)
-		writer.add_scalar(f'{mode}_balance_loss', balance_loss.item(), total_training_steps)
-		writer.add_scalar(f'{mode}_total_loss', total_loss.item(), total_training_steps)
+		writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
+		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
+		writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
+		writer.add_scalar(f'{mode}_total_loss', total_loss, total_training_steps)
 		writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
-		writer.add_scalar(f'{mode}_acc', acc.item(), total_training_steps)
+		writer.add_scalar(f'{mode}_acc', acc, total_training_steps)
 
 	return av_loss, total_training_steps
 
