@@ -42,7 +42,10 @@ class BERT_based(torch.nn.Module):
 		elif act_func == "gelu_new":
 			self.act_func = gelu_new
 		elif act_func == "delu":
-			self.act_func = Delu
+			self.act_func = Delu(2)
+		elif act_func == 'sigmoid':
+			self.act_func = torch.nn.Sigmoid()
+			self.gate = torch.nn.Linear(hidden_size, sparse_dimensions)
 		else:
 			raise ValueError("Activation Function, was not set properly!")
 
@@ -55,6 +58,9 @@ class BERT_based(torch.nn.Module):
 		if large_out_biases:
 			self.sparse_linear.bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
 
+	def scheduler_step(self):
+		self.act_func.lower /= 2
+		print('Delu scheduler low step: ', self.act_func.lower)
 
 	def forward(self, input, lengths):
 
@@ -92,15 +98,20 @@ class BERT_based(torch.nn.Module):
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).max(dim = 1)[0]
 
 		output = self.sparse_linear(encoder_output)
+		if not isinstance(self.act_func, torch.nn.Hardtanh):
 
-		# Always using the ReLU activation function while evaluating
-		if self.training:
-			output = self.act_func(output)
+			# Always using the ReLU activation function while evaluating
+			if self.training:
+				output = self.act_func(output)
+			else:
+				output = torch.nn.functional.relu(output)
+			return output
+
 		else:
-			output = torch.nn.functional.relu(output)
-
-		return output
-
+			gating_scalars = self.gate(encoder_output)
+			hard_gating_scalars = self.act_func(5*gating_scalars)
+			gated_output = output * hard_gating_scalars
+			return gated_output, hard_gating_scalars
 
 	#
 	# def get_optimizer(self, n_train_batches = 1000000):

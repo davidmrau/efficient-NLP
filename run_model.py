@@ -20,7 +20,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 	mode = 'train' if optim != None else 'val'
 	# initialize counters and sum variables
 	av_loss, av_l1_loss, av_balance_loss, av_l0_q, av_l0_docs, av_task_loss, av_acc = 0, 0, 0, 0, 0, 0, 0
-
+	
 	num_batches = len(dataloader)
 	training_steps = 0
 	for data, targets, lengths in dataloader:
@@ -28,7 +28,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		training_steps += 1
 		targets = targets.to(device)
 		# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
-		logits = model(data.to(device), lengths.to(device))
+		logits, gates = model(data.to(device), lengths.to(device))
 		split_size = logits.size(0)//3
 		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 		q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
@@ -41,7 +41,7 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
 
 
-		l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+		l1_loss = l1_loss_fn(gates)
 
 		balance_loss = balance_loss_fn(logits, device) * balance_scalar
 		# calculating L0 loss
@@ -162,7 +162,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 			else:
 				# run ms marco eval
-				scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, top_results)
+				scores, q_repr, d_repr, q_ids, _ , d_gates, q_gates= evaluate(model, dataloaders['val'], device, top_results)
 
 				q_l0_loss = 0
 				q_l0_coutner = 0
@@ -171,7 +171,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				# calculate average l1 and l0 losses from queries
 				for i in range(len(q_repr)):
 					number_of_samples = q_repr[i].size(0)
-					l1_loss += l1_loss_fn(q_repr[i])
+					l1_loss += l1_loss_fn(q_gates[i])
 					q_l0_loss += l0_loss(q_repr[i])
 					q_l0_coutner += number_of_samples
 					l1_counter += number_of_samples
@@ -181,7 +181,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				# calculate average l1 and l0 losses from documents
 				for i in range(len(d_repr)):
 					number_of_samples = d_repr[i].size(0)
-					l1_loss += l1_loss_fn(d_repr[i])
+					l1_loss += l1_loss_fn(d_gates[i])
 					d_l0_loss += l0_loss(d_repr[i])
 					d_l0_coutner += number_of_samples
 					l1_counter += number_of_samples
@@ -236,7 +236,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				if MRR < 0.05 and not debug:
 					print("MRR smaller than 0.05. Ending Training!")
 					break
-
+				#model.scheduler_step()
 
 	if not bottleneck_run:
 		# load best model

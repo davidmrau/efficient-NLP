@@ -25,12 +25,14 @@ def get_repr(model, dataloader, device):
 	with torch.no_grad():
 		model.eval()
 		reprs = list()
+		gates = list()
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
+			repr_, gate = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			reprs.append(repr_)
+			gates.append(gate)
 			ids += batch_ids_d
-		return reprs, ids
+		return reprs, gates, ids
 
 def get_scores(doc_reprs, doc_ids, q_reprs, top_results):
 	scores = list()
@@ -64,11 +66,11 @@ def evaluate(model, data_loaders, device, top_results, reset=True):
 		docs_batch_generator.reset()
 		query_batch_generator.reset()
 
-	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
-	q_repr, q_ids = get_repr(model, query_batch_generator, device)
+	d_repr, d_gates, d_ids = get_repr(model, docs_batch_generator, device)
+	q_repr, q_gates, q_ids = get_repr(model, query_batch_generator, device)
 	scores = get_scores(d_repr, d_ids, q_repr, top_results)
 	# returning the MRR @ 1000
-	return scores, q_repr, d_repr, q_ids, d_ids
+	return scores, q_repr, d_repr, q_ids, d_ids, d_gates, q_gates
 
 
 #def evaluate_dev():
