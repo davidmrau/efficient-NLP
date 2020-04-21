@@ -124,7 +124,7 @@ def l1_loss_fn(repr_):
 	return torch.mean(repr_)
 
 def l0_loss(repr_):
-	return (repr_ > 0).float().mean()
+	return (repr_ != 0).float().mean()
 
 def l0_loss_fn(q_repr, d1_repr, d2_repr):
 	""" L0 loss ( Number of non zero elements )
