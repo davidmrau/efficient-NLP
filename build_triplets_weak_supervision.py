@@ -1,6 +1,5 @@
 
 def write_to_triplets(q_id, scores_list, triplets_file):
-	print(scores_list)
 	for doc_id_1, score_1 in scores_list:
 		for doc_id_2, score_2 in scores_list:
 			triplets_file.write("{}\t{}\t{}\t{:.4f}\n".format(q_id, doc_id_1, doc_id_2, score_1 / (score_2 + score_1)))
