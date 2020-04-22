@@ -138,13 +138,13 @@ def l0_loss_fn(q_repr, d1_repr, d2_repr):
 def get_posting_lengths(reprs, sparse_dims):
 	lengths = np.zeros(sparse_dims)
 	for repr_ in  reprs:
-		lengths += (repr_ > 0).sum(0).detach().cpu().numpy()
+		lengths += (repr_ != 0).sum(0).detach().cpu().numpy()
 	return lengths
 
 def get_latent_terms_per_doc(reprs):
 	terms = list()
 	for repr_ in reprs:
-		terms += list((repr_ > 0).sum(1).detach().cpu().numpy())
+		terms += list((repr_ != 0).sum(1).detach().cpu().numpy())
 	return terms
 
 
@@ -259,13 +259,13 @@ def cv_squared(x, device):
 
 def activations_to_load(activations):
     """Compute the true load per latent term, given the activations.
-    The load is the number of examples for which the corresponding latent term is >0.
+    The load is the number of examples for which the corresponding latent term is != 0.
     Args:
     gates: a `Tensor` of shape [batch_size, hidden_dim]
     Returns:
     a float32 `Tensor` of shape [hidden_dim]
     """
-    load = (activations > 0).sum(0)
+    load = (activations != 0).sum(0)
     return load
 
 
