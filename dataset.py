@@ -14,6 +14,7 @@ from utils import collate_fn_padd, add_before_ending
 from transformers import BertTokenizer
 from nltk import word_tokenize
 import pickle
+import random
 
 
 class MSMarco(data.Dataset):
@@ -213,6 +214,106 @@ class MSMarcoSequentialDev:
 			yield batch_ids, batch_data, batch_lengths
 
 
+class WeakSupervisonTrain(data.Dataset):
+	def __init__(self, weak_results_filename = "data/AOL_BM25.results", batch_size=3, top_k_per_query=3, sampler = 'random', target='binary'):
+
+		# open weak supervision
+		self.weak_results_file = open(weak_results_filename)
+
+		self.batch_size = batch_size
+		self.top_k_per_query = top_k_per_query
+
+
+		if sampler == 'random':
+			self.sample_function = self.random_sampler
+
+		if target == 'binary':
+			self.target_function = self.binary_target
+
+
+		self.sampler = sampler
+		self.target = target
+
+
+		self.prev_q_id = None
+
+
+	def random_sampler(self, scores_list):
+		return random.sample(population = scores_list, k=2)
+
+	def binary_target(self, result1, result2):
+		# 1 if result1 is better and -1 if result2 is better
+		target = 1 if result1[1] > result2[1] else -1
+		return  target
+
+	def get_sample_from_query_scores(self, q_id, scores_list):
+
+		result1, result2 = self.sample_function(scores_list)
+
+		target = self.target_function(result1, result2)
+
+		return q_id, result1[0], result2[0], target
+
+
+	def batch_generator(self):
+
+
+		batch = []
+
+		while True:
+
+			line = self.weak_results_file.readline()
+			# initialize with first query
+			prev_q_id = line.split()[0]
+			q_id = prev_q_id
+
+			scores_list = []
+
+			# if we have read the complete file
+			while line:
+
+				# for line in fp:
+				split_line = line.split()
+
+				q_id = split_line[0]
+				doc_id = split_line[2]
+				# rank = split_line[3]
+				score = float(split_line[4])
+
+				if q_id != prev_q_id:
+
+					# if len(scores_list) == 0: Remember to make sure that it works if the results provided are less than the results requested
+
+					batch.append( self.get_sample_from_query_scores(prev_q_id, scores_list) )
+					scores_list = []
+
+					if len(batch) == self.batch_size:
+						yield batch
+						batch = []
+
+				# only using the keep_top_k relevant docs for each query
+				if len(scores_list) != self.top_k_per_query:
+					# add this relevant document with its score to the list of relevant documents for this query
+					scores_list.append((doc_id, score))
+
+
+				prev_q_id = q_id
+
+				line = self.weak_results_file.readline()
+
+			# continue reading the file from the beginning
+			self.weak_results_file.seek(0)
+
+			# using the last query on the file
+			batch.append( self.get_sample_from_query_scores(prev_q_id, scores_list) )
+			scores_list = []
+
+			if len(batch) == self.batch_size:
+				yield batch
+				batch = []
+
+
+
 
 def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
  	docs_file_val, batch_size, num_workers, debug=False):
@@ -254,3 +355,5 @@ class MSMarcoLM(data.Dataset):
 		doc = self.documents.get_tokenized_element(d1_id)
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
+
+
