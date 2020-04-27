@@ -24,18 +24,17 @@ args = parser.parse_args()
 
 
 tokenizer = Tokenizer(tokenizer = args.tokenizer, max_len = args.max_len, stopwords=args.stopwords, remove_unk = args.remove_unk,
-						word2index_path = args.word2index_path, lower_case = True, stemmer = None)
+						word2index_path = args.word2index_path)
 
 
 
 in_fname = args.input_file
 
 print(in_fname)
-base = os.path.splitext(in_fname)[0]
 
 
 # add = 'glove' if args.whitespace else 'bert'
-out_fname = f'{base}.{args.tokenizer}.stop_{args.stopwords}{".remove_unk" if args.remove_unk else ""}.len_{args.max_len}.tsv'
+out_fname = f'{in_fname}.{args.tokenizer}.stop_{args.stopwords}{".remove_unk" if args.remove_unk else ""}.len_{args.max_len}.tsv'
 
 print(out_fname)
 word2idx = pickle.load(open(args.word2index_path, 'rb')) 

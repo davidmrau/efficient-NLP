@@ -21,7 +21,7 @@ class Tokenizer():
 
 
 
-		# self.tokenizer = tokenizer
+		self.tokenizer = tokenizer
 
 		if self.tokenizer == "bert":
 			self.bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
