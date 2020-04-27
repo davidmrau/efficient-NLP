@@ -7,7 +7,7 @@ import pickle
 
 class Tokenizer():
 
-	def __init__(self, tokenizer="bert", max_len=-1, stopwords="none", remove_unk = False, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p", lower_case = True, stemmer = None):
+	def __init__(self, tokenizer="bert", max_len=-1, stopwords="none", remove_unk = False, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p"):
 		"""
 		Stopwords:
 			"none": Not removing any stopwords
@@ -18,12 +18,10 @@ class Tokenizer():
 
 		if tokenizer != "bert" and tokenizer != "glove":
 			raise ValueError("'tokenizer' param not among {bert/glove} !")
-		if stemmer is not None:
-			raise ValueError("'stemmer' not being None, has not been implemented yet!")
 
 
 
-		self.tokenizer = tokenizer
+		# self.tokenizer = tokenizer
 
 		if self.tokenizer == "bert":
 			self.bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -35,7 +33,7 @@ class Tokenizer():
 
 		self.remove_unk = remove_unk
 
-		self.set_stopword_ids_list(stopwords = stopwords, remove_unk = remove_unk)
+		self.set_stopword_ids_list(stopwords = stopwords)
 
 		if self.remove_unk:
 			self.add_unknown_to_stopword_list_ids()
@@ -53,7 +51,7 @@ class Tokenizer():
 		self.stopword_ids_list.append(unk_word_id)
 
 
-	def set_stopword_ids_list(self, stopwords, remove_unk):
+	def set_stopword_ids_list(self, stopwords):
 		if stopwords == "none":
 			self.stopword_ids_list = []
 
@@ -91,7 +89,7 @@ class Tokenizer():
 
 
 	def encode(self, text):
-		""" Remove stopwords, tokenize, apply stemmer and translate to word ids for a given text
+		""" Remove stopwords, tokenize and translate to word ids for a given text
 		"""
 
 		if self.tokenizer == "bert":

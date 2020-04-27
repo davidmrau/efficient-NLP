@@ -33,7 +33,6 @@ in_fname = args.input_file
 print(in_fname)
 base = os.path.splitext(in_fname)[0]
 
-# print(base)
 
 # add = 'glove' if args.whitespace else 'bert'
 out_fname = f'{base}.{args.tokenizer}.stop_{args.stopwords}{".remove_unk" if args.remove_unk else ""}.len_{args.max_len}.tsv'
@@ -50,7 +49,7 @@ with open(out_fname, 'w') as out_f:
 		line = in_f.readline()
 		while line:
 
-			if count % 1000 == 0 and count != 0:
+			if count % 100000 == 0 and count != 0:
 				print(f'lines read: {count}')
 
 
