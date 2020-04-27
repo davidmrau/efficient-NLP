@@ -42,7 +42,7 @@ class BERT_based(torch.nn.Module):
 		elif act_func == "gelu_new":
 			self.act_func = gelu_new
 		elif act_func == "delu":
-			self.act_func = Delu
+			self.act_func = Delu(mult=0.1, low=0.1)
 		else:
 			raise ValueError("Activation Function, was not set properly!")
 

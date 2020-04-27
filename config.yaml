@@ -4,7 +4,7 @@ vocab_size: 30522
 batch_size: 64
 lr: 0.0001
 MaxMRRRank: 1000
-patience: 2
+patience: 5
 eval_every: 5000
 sparse_dimensions: 1000
 large_out_biases: False

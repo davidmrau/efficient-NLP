@@ -3,12 +3,10 @@
 #SBATCH --job-name=tf_act
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu_shared
-#SBATCH --time=5:00:00
+#SBATCH --time=10:00:00
 #SBATCH --mem=100G
 
 
-#SBATCH --mail-type=BEGIN,END
-#SBATCH --mail-user=kondilidisn9@gmail.com
 
 #Loading modules
 module purge
@@ -18,7 +16,7 @@ module load Python/3.6.3-foss-2017b
 module load cuDNN/7.0.5-CUDA-9.0.176
 module load NCCL/2.0.5-CUDA-9.0.176
 
-BATCH_SIZES="128"
+BATCH_SIZES="64"
 
 
 
@@ -38,9 +36,9 @@ TF_HEADS="4"
 TF_POOLS="AVG"
 EMBEDDINGS="bert"
 
-L1_SCALARS="0 1"
+L1_SCALARS="0.1"
 
-ACTIVATION_OPTIONS="delu gelu"
+ACTIVATION_OPTIONS="gelu"
 
 
 SPARSE_DIMENSIONS="5000"

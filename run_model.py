@@ -59,8 +59,8 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 		torch.cuda.empty_cache()
 		# calculate tensorboard update dynamically
-		print_n_times = eval_every
-		freq = num_batches // print_n_times if num_batches > print_n_times else 1
+		#freq = num_batches // eval_every if num_batches > eval_every else 1
+		freq = eval_every
 		# update tensorboard only for training on intermediate steps
 		if training_steps % freq == 0 and mode == 'train':
 			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss, l1_loss, balance_loss))
@@ -233,8 +233,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 						print("Early Stopping!")
 						break
 
-				if MRR < 0.05 and not debug:
-					print("MRR smaller than 0.05. Ending Training!")
+				if MRR < 0.02 and not debug:
+					print("MRR smaller than 0.02. Ending Training!")
 					break
 
 

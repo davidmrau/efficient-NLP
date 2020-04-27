@@ -121,10 +121,10 @@ def generate_word2idx_dict_from_glove(path):
 
 
 def l1_loss_fn(repr_):
-	return torch.mean(repr_)
+	return torch.mean(torch.abs(repr_))
 
 def l0_loss(repr_):
-	return (repr_ > 0).float().mean()
+	return (repr_ == 0).float().mean()
 
 def l0_loss_fn(q_repr, d1_repr, d2_repr):
 	""" L0 loss ( Number of non zero elements )
@@ -342,8 +342,13 @@ def _getThreads():
         return (int)(os.popen('grep -c cores /proc/cpuinfo').read())
 
 
-def Delu(x):
-	return x * 0.5 * (1 + torch.erf(x / math.sqrt(0.3)))
+class Delu(torch.nn.Module):
+	def __init__(self, mult=0.5, low=2):
+		super(Delu, self).__init__()
+		self.mult = mult
+		self.low = low
+	def forward(self):
+		return x * self.mult * (1 + torch.erf(x / math.sqrt(self.low)))
 
 def get_model_folder_name(cfg):
 		if cfg.model == "tf":
