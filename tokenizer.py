@@ -187,10 +187,10 @@ def tokenize(args):
 	out_fname = f'{in_fname}_{args.tokenizer}_stop_{args.stopwords}{"_remove_unk" if args.remove_unk else ""}{"_max_len_" + str(args.max_len) if args.max_len != -1 else "" }.tsv'
 	print(out_fname)
 
-	if args.log_unk:
-		unk_words_filename = out_fname + "_unk_words"
-	else:
+	if args.dont_log_unk:
 		unk_words_filename = None
+	else:
+		unk_words_filename = out_fname + "_unk_words"
 
 	tokenizer = Tokenizer(tokenizer = args.tokenizer, max_len = args.max_len, stopwords=args.stopwords, remove_unk = args.remove_unk,
 							word2index_path = args.word2index_path, unk_words_filename = unk_words_filename)
@@ -240,7 +240,7 @@ if __name__ == "__main__":
 	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove'}")
 	parser.add_argument('--stopwords', type=str, default="none", help = "{'none','lucene', 'some/path/file'}")
 	parser.add_argument('--remove_unk', action='store_true')
-	parser.add_argument('--log_unk', action='store_true')
+	parser.add_argument('--dont_log_unk', action='store_true')
 	args = parser.parse_args()
 
 
