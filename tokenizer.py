@@ -11,7 +11,7 @@ from transformers import BertTokenizer, BertTokenizerFast
 
 class Tokenizer():
 
-	def __init__(self, tokenizer="bert", max_len=-1, stopwords="none", remove_unk = False, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p",
+	def __init__(self, tokenizer="bert", max_len=-1, stopwords="lucene", remove_unk = True, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p",
 					lower_case=True, unk_words_filename = None):
 		"""
 		Stopwords:

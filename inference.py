@@ -131,13 +131,16 @@ def inference(cfg):
 
 	ranking_file_path = f'{cfg.model_path}/{qrels_base}_re_ranking'
 
-	# load data
-	#
-	# query_batch_generator = MSMarcoSequential(cfg.query_file_val, cfg.batch_size)
-	# docs_batch_generator = MSMarcoSequential(cfg.docs_file_val, cfg.batch_size)
+	# set minimum length in case of snrm
+	min_len = 0
+	if cfg.model == "snrm":
+		min_len = cfg.snrm.n
 
-	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True)
-	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False)
+	# load data
+	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True,
+									min_len = min_len, max_len=cfg.max_input_len, stopwords = cfg.stopwords, remove_unk = cfg.remove_unk)
+	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False,
+									min_len = min_len, max_len=cfg.max_input_len, stopwords = cfg.stopwords, remove_unk = cfg.remove_unk)
 
 	av_l0_query = list()
 	av_l0_doc = list()

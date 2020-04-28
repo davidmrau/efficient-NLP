@@ -11,10 +11,9 @@ from torch.utils.data import DataLoader
 from os import path
 from utils import collate_fn_padd, add_before_ending
 
-from transformers import BertTokenizer
-from nltk import word_tokenize
 import pickle
 import random
+from tokenizer import Tokenizer
 
 
 class MSMarco(data.Dataset):
@@ -115,18 +114,17 @@ class MSMarcoSequential:
 
 
 class MSMarcoSequentialDev:
-	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, max_len=150):
+	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, min_len=5, max_len=150, stopwords = "lucene", remove_unk = True):
 
 		# open file
 		self.batch_size = batch_size
 		self.fname = fname
 		self.is_query = is_query
-		if embedding == 'glove':
-			self.word2idx = pickle.load(open(word2index_path, 'rb'))
-		elif embedding == 'bert':
-			self.tokenizer_bert = BertTokenizer.from_pretrained('bert-base-uncased')
-		self.max_len = max_len
-		self.embedding = embedding
+		self.min_len = min_len
+
+		self.tokenizer = 	tokenizer = Tokenizer(tokenizer = embedding, max_len = max_len, stopwords=stopwords, remove_unk = remove_unk,
+							word2index_path = word2index_path, unk_words_filename = None)
+
 		self.file = None
 		self.stop = False
 
@@ -135,20 +133,10 @@ class MSMarcoSequentialDev:
 		return self
 		
 	def tokenize(self, text):
-		if self.embedding == 'bert':
-			tokenized_ids = self.tokenizer_bert.encode(text, max_length = self.max_len)
-		elif self.embedding == 'glove':
-			tokenized_ids = list()
-			for word in word_tokenize(line)[:self.max_len]:
-				try:
-					tokenized_ids.append(self.word2idx[word.lower()])
-				except:
-					pass
-		else:
-			raise ValueError(f" Embedding {selfembedding} not valid!")
-		if len(tokenized_ids) < 5:
-			tokenized_ids += [0]*(5-len(tokenized_ids))
+		tokenized_ids = self.tokenizer.encode(text)
 
+		if len(tokenized_ids) < self.min_len:
+			tokenized_ids += [0]*(self.min_len - len(tokenized_ids))
 
 		return torch.IntTensor(tokenized_ids)
 
@@ -190,7 +178,7 @@ class MSMarcoSequentialDev:
 					prev_q_id = curr_q_id
 					self.stop = True
 					break
-# extracting the token_ids and creating a numpy array
+				# extracting the token_ids and creating a numpy array
 				text = self.get_text(line)
 
 				tokens_list = self.tokenize(text)
