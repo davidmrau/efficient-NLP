@@ -16,53 +16,29 @@ import random
 from tokenizer import Tokenizer
 
 
-class MSMarco(data.Dataset):
+class MSMarcoTrain(data.Dataset):
 
-	def __init__(self, split, triplets_path, documents_path, queries_path, debug=False):
+	def __init__(self, triplets_path, documents_path, queries_path, debug=False):
 
-		self.split = split
 		self.debug = debug
 
 		triplets_path = add_before_ending(triplets_path, '.debug' if debug else '')
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
 
-
 		# "open" documents file
 		self.documents = FileInterface(documents_path)
 		# "open" queries file
 		self.queries = FileInterface(queries_path)
-		# read qrels
-		# self.qrels = read_qrels(f'{dataset_path}/qrels.{split}.tsv')
 
 		self.max_doc_id = len(self.documents) - 1
 
 	def __len__(self):
-		if self.split == 'train':
-			return len(self.triplets)
-
-		elif self.split == 'dev':
-			return len(self.qrels)
-
+		return len(self.triplets)
 
 	def __getitem__(self, index):
 
-		if self.split == 'train':
-
-			q_id, d1_id, d2_id = self.triplets.get_triplet(index)
-
-		elif self.split == 'dev':
-			pass
-			# q_id, d1_id = self.qrels[index]
-			#
-			# d2_id = randint(0, self.max_doc_id)
-			# # making sure that the sampled d1_id is diferent from relevant d2_id
-			# while int(d1_id) == d2_id:
-			# 	d2_id = randint(0, self.max_doc_id)
-			# # type cast the id into a string
-			# d2_id = str(d2_id)
-		else:
-			raise ValueError(f'Unknown split: {split}')
+		q_id, d1_id, d2_id = self.triplets.get_triplet(index)
 
 		query = self.queries.get_tokenized_element(q_id)
 		doc1 = self.documents.get_tokenized_element(d1_id)
@@ -203,12 +179,17 @@ class MSMarcoSequentialDev:
 
 
 class WeakSupervisonTrain(data.Dataset):
-	def __init__(self, weak_results_filename = "data/AOL_BM25.results", batch_size=3, top_k_per_query=3, sampler = 'random', target='binary'):
+	def __init__(self, weak_results_filename, documents_path, queries_path, top_k_per_query=-1, sampler = 'random', target='binary'):
 
-		# open weak supervision
-		self.weak_results_file = open(weak_results_filename)
 
-		self.batch_size = batch_size
+		# "open" triplets file
+		self.weak_results_file = FileInterface(weak_results_filename)
+
+		# "open" documents file
+		self.documents = FileInterface(documents_path)
+		# "open" queries file
+		self.queries = FileInterface(queries_path)
+
 		self.top_k_per_query = top_k_per_query
 
 
@@ -218,12 +199,29 @@ class WeakSupervisonTrain(data.Dataset):
 		if target == 'binary':
 			self.target_function = self.binary_target
 
-
 		self.sampler = sampler
 		self.target = target
 
 
-		self.prev_q_id = None
+	def __len__(self):
+		return len(self.weak_results_file)
+
+
+	def __getitem__(self, index):
+		q_id, query_results = self.weak_results_file.read_all_results_of_query_index(index, self.top_k_per_query)
+
+		d1_id, d2_id, target = self.get_sample_from_query_scores(query_results)
+
+		# retrieve tokenized content, given id
+		query = self.queries.get_tokenized_element(q_id)
+		doc1 = self.documents.get_tokenized_element(d1_id)
+		doc2 = self.documents.get_tokenized_element(d2_id)
+
+		# shuffle order
+		if np.random.random() > 0.5:
+			return [query, doc1, doc2], 1
+		else:
+			return [query, doc2, doc1], -1
 
 
 	def random_sampler(self, scores_list):
@@ -234,72 +232,13 @@ class WeakSupervisonTrain(data.Dataset):
 		target = 1 if result1[1] > result2[1] else -1
 		return  target
 
-	def get_sample_from_query_scores(self, q_id, scores_list):
+	def get_sample_from_query_scores(self, scores_list):
 
 		result1, result2 = self.sample_function(scores_list)
 
 		target = self.target_function(result1, result2)
 
-		return q_id, result1[0], result2[0], target
-
-
-	def batch_generator(self):
-
-
-		batch = []
-
-		while True:
-
-			line = self.weak_results_file.readline()
-			# initialize with first query
-			prev_q_id = line.split()[0]
-			q_id = prev_q_id
-
-			scores_list = []
-
-			# if we have read the complete file
-			while line:
-
-				# for line in fp:
-				split_line = line.split()
-
-				q_id = split_line[0]
-				doc_id = split_line[2]
-				# rank = split_line[3]
-				score = float(split_line[4])
-
-				if q_id != prev_q_id:
-
-					# if len(scores_list) == 0: Remember to make sure that it works if the results provided are less than the results requested
-
-					batch.append( self.get_sample_from_query_scores(prev_q_id, scores_list) )
-					scores_list = []
-
-					if len(batch) == self.batch_size:
-						yield batch
-						batch = []
-
-				# only using the keep_top_k relevant docs for each query
-				if len(scores_list) != self.top_k_per_query:
-					# add this relevant document with its score to the list of relevant documents for this query
-					scores_list.append((doc_id, score))
-
-
-				prev_q_id = q_id
-
-				line = self.weak_results_file.readline()
-
-			# continue reading the file from the beginning
-			self.weak_results_file.seek(0)
-
-			# using the last query on the file
-			batch.append( self.get_sample_from_query_scores(prev_q_id, scores_list) )
-			scores_list = []
-
-			if len(batch) == self.batch_size:
-				yield batch
-				batch = []
-
+		return result1[0], result2[0], target
 
 
 
@@ -307,15 +246,23 @@ def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, que
  	docs_file_val, batch_size, num_workers, debug=False):
 
 	dataloaders = {}
-	dataloaders['train'] = DataLoader(MSMarco('train', triplets_train_file, docs_file_train, query_file_train, debug=debug),
+	dataloaders['train'] = DataLoader(MSMarcoTrain(triplets_train_file, docs_file_train, query_file_train, debug=debug),
 	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = num_workers)
+
+	# weak supervision example for datalaoder :
+		# weak_results_filename="data/robust04/run.robust04.bm25.topics.robust04.301-450.601-700.txt"
+		# documents_path="data/robust04/robust04_raw_docs.num_query_glove_stop_none_remove_unk.tsv"
+		# queries_path="data/robust04/04.testset_num_query_lower_glove_stop_none_remove_unk.tsv"
+
+		# dataset = WeakSupervisonTrain(weak_results_filename, documents_path, queries_path, top_k_per_query=3, sampler = 'random', target='binary')
+
+		# dataload = DataLoader(dataset, batch_size=32, collate_fn=collate_fn_padd, shuffle=True, num_workers = 4)
+
 
 	query_batch_generator = MSMarcoSequential(query_file_val, batch_size)
 	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size)
 
 	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
-
-	#dataloaders['test'] =  DataLoader(MSMarco('eval'), batch_size=batch_size, collate_fn=collate_fn_padd)
 
 	return dataloaders
 

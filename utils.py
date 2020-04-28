@@ -225,6 +225,43 @@ def create_seek_dictionary_per_index(filename, delimiter=' ', line_index_is_id =
 
 	return index_to_seek
 
+
+def create_seek_dictionary_per_1000_queries(filename, delimiter=' '):
+	""" Creating a dictionary, for accessing directly a anserini results content for a specific query index
+			from the large anserini results file. Query index is the number of queries that preceed this query on
+			on the anserini results file
+			returns:
+			dictionary [doc_id] -> Seek value of a large file, so that we can start reading the results file 
+									from the seek value that this query's result start
+	"""
+	index_to_seek = {}
+	sample_counter = 0
+
+	with open(filename) as file:
+
+		prev_q_id = ""
+
+		seek_value = file.tell()
+		line = file.readline()
+		while line:
+			split_line = line.strip().split(delimiter)
+
+			q_id = split_line[0]
+
+			if q_id != prev_q_id:
+				index_to_seek[sample_counter] = seek_value
+				prev_q_id = q_id
+				sample_counter += 1
+
+				if sample_counter % 1000 == 0:
+					print(sample_counter)
+
+			seek_value = file.tell()
+			line = file.readline()
+
+	return index_to_seek
+
+
 def get_index_line_from_file(file, index_seek_dict, index):
 	""" Given a seek value and a file, read the line that follows that seek value
 	"""

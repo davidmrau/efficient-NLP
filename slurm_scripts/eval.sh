@@ -6,7 +6,7 @@
 #SBATCH --time=01:00:00
 #SBATCH --mem=100G
 
-BATCH_SIZE="256"
+BATCH_SIZE="50"
 
 #Loading modules
 module purge
