@@ -51,7 +51,10 @@ with open(out_fname, 'w') as out_f:
 			if count % 100000 == 0 and count != 0:
 				print(f'lines read: {count}')
 
-
+			spl = line.strip().split(args.delimiter, 1)
+			if len(spl) < 2:
+				continue
+			
 			id_, text = line.strip().split(args.delimiter, 1)
 
 			tokenized_ids = tokenizer.encode(text)

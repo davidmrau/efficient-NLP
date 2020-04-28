@@ -7,7 +7,7 @@ import pickle
 
 class Tokenizer():
 
-	def __init__(self, tokenizer="bert", max_len=-1, stopwords="none", remove_unk = False, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p"):
+	def __init__(self, tokenizer="bert", max_len=-1, stopwords="none", remove_unk = False, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p", lower_case=True):
 		"""
 		Stopwords:
 			"none": Not removing any stopwords
@@ -20,7 +20,7 @@ class Tokenizer():
 			raise ValueError("'tokenizer' param not among {bert/glove} !")
 
 
-
+		self.lower = lower_case
 		self.tokenizer = tokenizer
 
 		if self.tokenizer == "bert":
@@ -79,11 +79,12 @@ class Tokenizer():
 
 
 	def get_word_id(self, word):
+		
 		if self.tokenizer == "bert":
 			return self.bert_tokenizer.encode(word)[1]
 		if self.tokenizer == "glove":
-			if word.lower() in self.glove_word2idx:
-				return self.glove_word2idx[word.lower()]
+			if word in self.glove_word2idx:
+				return self.glove_word2idx[word]
 			else:
 				return self.glove_word2idx["unk"]
 
@@ -91,7 +92,8 @@ class Tokenizer():
 	def encode(self, text):
 		""" Remove stopwords, tokenize and translate to word ids for a given text
 		"""
-
+		if self.lower:
+			text = text.lower()
 		if self.tokenizer == "bert":
 			# removing CLS and SEP token which are added to the beginning and the end of input respectively
 			temp_encoded = self.bert_tokenizer.encode(text)[1:-1]
