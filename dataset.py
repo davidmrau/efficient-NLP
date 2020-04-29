@@ -55,11 +55,10 @@ class MSMarcoSequential:
 
 		# open file
 		self.batch_size = batch_size
-		self.fname = fname
-		self.file_ = None
+		self.file_ = open(fname, 'r')
 
 	def reset(self):
-		self.file_ = open(self.fname, 'r')
+		self.file_.seek(0)
 
 	def batch_generator(self):
 
@@ -94,18 +93,17 @@ class MSMarcoSequentialDev:
 
 		# open file
 		self.batch_size = batch_size
-		self.fname = fname
+		self.file_ = open(fname, 'r')
 		self.is_query = is_query
 		self.min_len = min_len
 
-		self.tokenizer = 	tokenizer = Tokenizer(tokenizer = embedding, max_len = max_len, stopwords=stopwords, remove_unk = remove_unk,
+		self.tokenizer = Tokenizer(tokenizer = embedding, max_len = max_len, stopwords=stopwords, remove_unk = remove_unk,
 							word2index_path = word2index_path, unk_words_filename = None)
 
-		self.file = None
 		self.stop = False
 
 	def reset(self):
-		self.file_ = open(self.fname, 'r')
+		self.file_.seek(0)
 		return self
 		
 	def tokenize(self, text):
@@ -177,6 +175,74 @@ class MSMarcoSequentialDev:
 
 			yield batch_ids, batch_data, batch_lengths
 
+
+
+
+class WeakSupervisionEval:
+	def __init__(self, ranking_results_path, id2text_path, batch_size, is_query):
+
+		# open file
+		self.batch_size = batch_size
+		self.ranking_results = open(ranking_results_path, 'r')
+		self.id2text = FileInterface(id2text_path)
+		self.is_query = is_query
+
+		self.stop = False
+
+	def reset(self):
+		self.ranking_results.seek(0)
+		return self
+
+
+	def get_id(self, line, is_query):
+		spl = line.split('\t')
+
+		if is_query:
+			return spl[0]
+		else:
+			return spl[2]
+
+	def get_text(self, id_):
+		return self.id2text.get_tokenized_element(id_)
+
+	def batch_generator(self):
+
+		line = self.ranking_results.readline()
+
+		prev_q_id = self.get_id(line, is_query=True)
+		curr_q_id = prev_q_id
+		self.stop = False
+
+		while line and not self.stop:
+			# read a number of lines equal to batch_size
+			batch_ids = []
+			batch_data = []
+			while (line and ( len(batch_ids) <= self.batch_size) ):
+
+				id_ = self.get_id(line, self.is_query)
+				curr_q_id = self.get_id(line, is_query=True)
+				if curr_q_id != prev_q_id:
+					prev_q_id = curr_q_id
+					self.stop = True
+					break
+				# extracting the token_ids and creating a numpy array
+				tokens_list = self.get_text(id_)
+
+				if id_ not in batch_ids:
+
+					batch_ids.append(id_)
+
+					batch_data.append(tokens_list)
+
+				prev_q_id = curr_q_id
+
+				line = self.ranking_results.readline()
+
+			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
+			#padd data along axis 1
+			batch_data = pad_sequence(batch_data,1).long()
+
+			yield batch_ids, batch_data, batch_lengths
 
 class WeakSupervisonTrain(data.Dataset):
 	def __init__(self, weak_results_filename, documents_path, queries_path, top_k_per_query=-1, sampler = 'random', target='binary'):
