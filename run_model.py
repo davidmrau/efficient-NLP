@@ -23,7 +23,13 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	num_batches = len(dataloader)
 	training_steps = 0
-	for data, targets, lengths in dataloader:
+	for batch in dataloader:
+
+		if batch is None:
+			continue
+
+		data, targets, lengths = batch
+
 		total_training_steps += 1
 		training_steps += 1
 		targets = targets.to(device)

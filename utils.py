@@ -40,17 +40,28 @@ def collate_fn_padd(batch):
 	batch_lengths = list()
 	batch_targets = list()
 	batch_q, batch_doc1, batch_doc2 = list(), list(), list()
+
 	for item in batch:
+		# for weak supervision datasets, some queries/documents have empty text.
+		# In that case the sample is None, and we skip this samples
+		if item is None:
+			continue
+
 		q, doc1, doc2 = item[0]
 		batch_q.append(torch.IntTensor(q))
 		batch_doc1.append(torch.IntTensor(doc1))
 		batch_doc2.append(torch.IntTensor(doc2))
 		batch_targets.append(item[1])
+
 	batch_data = batch_q + batch_doc1 + batch_doc2
+	# in case this batch does not contain any samples, then we return None
+	if len(batch_data) == 0:
+		return None
+
 	batch_targets = torch.Tensor(batch_targets)
 
 	batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
-	#padd data along axis 1
+	#pad data along axis 1
 	batch_data = pad_sequence(batch_data,1).long()
 	return batch_data, batch_targets, batch_lengths
 

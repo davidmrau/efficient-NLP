@@ -212,10 +212,20 @@ class WeakSupervisonTrain(data.Dataset):
 
 		d1_id, d2_id, target = self.get_sample_from_query_scores(query_results)
 
+		# after tokenizing / preprocessing, some queries/documents have empty content.
+		# If any of these are among 3 the selected ones, then we do not create this triplet sample
+		# In that case, we return None, as soon as possible, so that other file reading operations can be avoided
+
 		# retrieve tokenized content, given id
 		query = self.queries.get_tokenized_element(q_id)
+		if query is None:
+			return None
 		doc1 = self.documents.get_tokenized_element(d1_id)
+		if doc1 is None:
+			return None
 		doc2 = self.documents.get_tokenized_element(d2_id)
+		if doc2 is None:
+			return None
 
 		# shuffle order
 		if np.random.random() > 0.5:
@@ -290,5 +300,3 @@ class MSMarcoLM(data.Dataset):
 		doc = self.documents.get_tokenized_element(d1_id)
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
-
-
