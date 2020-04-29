@@ -21,6 +21,21 @@ class BERT_based(torch.nn.Module):
 			hidden_size = embedding_parameters.size(1)
 			vocab_size = embedding_parameters.size(0)
 
+		# in case we are agregating the hidden representation by using the hidden representation of the CLS token,
+		# we need to add this token at the beginning of each input, and adjust the input lenght limit
+		if pooling_method == "CLS":
+			input_length_limit += 1
+			# in case we are using the pretrained BERT embeddings, its best if we use the coresponding CLS token ID
+			if embedding_parameters is not None and hidden_size == 768 and vocab_size == 30522:
+				self.cls_token_id = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased').encode("[CLS]")[1]
+				print("Using pretrained BERT embeddigns")
+				# otherwise, we add the CLS token to the vocabulary
+			else:
+				print("Not using pretrained BERT embeddings")
+				self.cls_token_id = vocab_size
+				vocab_size += 1
+
+
 
 		# traditionally the intermediate_size is set to be 4 times the size of the hidden size
 		intermediate_size = hidden_size*4
@@ -48,7 +63,7 @@ class BERT_based(torch.nn.Module):
 
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
-			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
+			self.encoder.embeddings.word_embeddings.weight.data[ : embedding_parameters.size(0), : embedding_parameters.size(1) ] = torch.nn.Parameter(embedding_parameters)
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
@@ -56,7 +71,19 @@ class BERT_based(torch.nn.Module):
 			self.sparse_linear.bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
 
 
+	def get_cls_token_id(self, ):
+		bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+
+
 	def forward(self, input, lengths):
+
+		# in case we are aggregating using the CLS token, we add the "[CLS]" token id at the beginning of each input, and adjust the lengths
+		if self.pooling_method == "CLS":
+			# add CLS_token_id column at the beginning of the input
+			cls_column = torch.ones_like(input[:,0]).unsqueeze(-1) * self.cls_token_id
+			input = torch.cat([cls_column, input], dim = 1)
+			# increase lengths by 1, accordingly
+			lengths += 1
 
 		attention_masks = torch.zeros_like(input)
 
@@ -75,18 +102,14 @@ class BERT_based(torch.nn.Module):
 			encoder_output = last_hidden_state[:,0,:]
 
 		elif self.pooling_method == "AVG":
-			# exclude CLS from average hidden representation (always the first token of input)
-			last_hidden_state = last_hidden_state[:,1:,:]
-			attention_masks = attention_masks[:,1:].float()
+			attention_masks = attention_masks.float()
 			# not taking into account outputs of padded input tokens
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).sum(dim = 1)
 			# dividing each sample with its actual lenght for proper averaging
 			encoder_output = encoder_output / attention_masks.sum(dim = -1).unsqueeze(1)
 
 		elif self.pooling_method == "MAX":
-			# exclude CLS from average hidden representation (always the first token of input)
-			last_hidden_state = last_hidden_state[:,1:,:]
-			attention_masks = attention_masks[:,1:].float()
+			attention_masks = attention_masks.float()
 			# not taking into account outputs of padded input tokens
 			# taking the maximum activation for each hidden dimension over all sequence steps
 			encoder_output = (last_hidden_state * attention_masks.unsqueeze(-1).repeat(1,1,self.encoder.config.hidden_size)).max(dim = 1)[0]
