@@ -71,8 +71,8 @@ class MSMarcoSequential:
 			batch_data = []
 			while(line and ( len(batch_ids) < self.batch_size) ):
 
-				# getting position of first ' ' that separates the doc_id and the begining of the token ids
-				delim_pos = line.find(' ')
+				# getting position of '\t' that separates the doc_id and the begining of the token ids
+				delim_pos = line.find('\t')
 				# extracting the id
 				id_ = line[:delim_pos]
 				# extracting the token_ids and creating a numpy array

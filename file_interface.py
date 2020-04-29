@@ -67,8 +67,8 @@ class FileInterface:
 		"""
 		# return (str) element_id, and numpy array of token ids
 		line = self.get(id)
-		# getting position of first ' ' that separates the doc_id and the begining of the token ids
-		delim_pos = line.find(' ')
+		# getting position of '\t' that separates the doc_id and the begining of the token ids
+		delim_pos = line.find('\t')
 		# in case the tokenized of the line is empy, and the line only contains the id, then we return None
 		# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
 		if len(line[delim_pos+1:]) < 2:

@@ -223,7 +223,7 @@ def tokenize(args):
 						empty_ids_f.write(id_ + "\n")
 						continue
 
-					out_f.write(id_ + ' ' + ' '.join(str(t) for t in tokenized_ids) + '\n')
+					out_f.write(id_ + '\t' + ' '.join(str(t) for t in tokenized_ids) + '\n')
 
 
 
