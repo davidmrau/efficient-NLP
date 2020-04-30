@@ -29,6 +29,21 @@ def file_len(fname):
 
 
 def instantiate_model(cfg):
+
+	print('Initializing model...')
+
+	if cfg.embedding == 'glove':
+		embedding_parameters =  load_glove_embeddings(cfg.glove_embedding_path)
+
+	elif cfg.embedding == 'bert':
+		embedding_parameters = get_pretrained_BERT_embeddings()
+	else:
+		if cfg.embedding != "random":
+			raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
+		cfg.embedding = 'bert'
+		embedding_parameters = None
+
+
 	if cfg.model == "snrm":
 		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
 					 sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=embedding_parameters,
@@ -395,7 +410,7 @@ def add_before_ending(filename, add_before_ending):
 
 
 
-def write_ranking(scores, q_ids, results_file_path, MaxMRRRank):
+def write_ranking(scores, q_ids, results_file_path):
 
 	results_file = open(results_file_path, 'w')
 	for i, q_id in enumerate(q_ids):
@@ -406,7 +421,7 @@ def write_ranking(scores, q_ids, results_file_path, MaxMRRRank):
 
 
 
-def write_ranking_trec(scores, q_ids, results_file_path, MaxMRRRank):
+def write_ranking_trec(scores, q_ids, results_file_path):
 
 	results_file = open(results_file_path, 'w')
 	for i, q_id in enumerate(q_ids):
@@ -421,9 +436,6 @@ def _getThreads():
     else:
         return (int)(os.popen('grep -c cores /proc/cpuinfo').read())
 
-
-def Delu(x):
-	return x * 0.5 * (1 + torch.erf(x / math.sqrt(0.3)))
 
 def get_model_folder_name(cfg):
 		if cfg.model == "tf":

@@ -8,14 +8,15 @@ from datetime import datetime
 from omegaconf import OmegaConf
 from dataset import get_data_loaders_robust, get_data_loaders_msmarco
 import shutil
-from utils import load_glove_embeddings, get_model_folder_name, get_pretrained_BERT_embeddings, _getThreads, instantiate_model
-
+from utils import get_model_folder_name, _getThreads, instantiate_model
+from metrics import MRR, MAPTrec
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
 from utils import str2lst
 import transformers
 from torch.utils.tensorboard import SummaryWriter
 from transformers import BertTokenizer
+
 
 def exp(cfg):
 	# printing params
@@ -27,18 +28,6 @@ def exp(cfg):
 		cfg.eval_every = 100
 		cfg.num_epochs = 1
 
-	# define which embeddings to load, depending on params
-	if cfg.embedding == 'glove':
-		embedding_parameters =  load_glove_embeddings(cfg.glove_embedding_path)
-
-	elif cfg.embedding == 'bert':
-		embedding_parameters = get_pretrained_BERT_embeddings()
-	else:
-		if cfg.embedding != "random":
-			raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
-		cfg.embedding = 'bert'
-		embedding_parameters = None
-	print('Initializing model...')
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
@@ -75,8 +64,12 @@ def exp(cfg):
 
 
 
-
-	metric =
+	if cfg.metric == 'map':
+		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
+	elif cfg.metric == 'mrr':
+		metric = MRR(cfg.qrels_val, cfg.max_rank)
+	else:
+		raise NotImplementedError(f'Metric {cfg.metric} not implemented')
 
 
 	# initialize optimizer
@@ -84,8 +77,8 @@ def exp(cfg):
 	print('Start training...')
 	# train the model
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
-	cfg.model_folder, cfg.qrels_val, cfg.sparse_dimensions, top_results=cfg.top_results,
-	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run)
+	cfg.model_folder, cfg.sparse_dimensions, metric, max_rank=cfg.max_rank,
+	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, eval_every = cfg.eval_every, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run)
 
 if __name__ == "__main__":
 	# getting command line arguments

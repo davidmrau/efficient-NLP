@@ -3,7 +3,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from utils import load_glove_embeddings, get_pretrained_BERT_embeddings
 import gensim
 import transformers
 

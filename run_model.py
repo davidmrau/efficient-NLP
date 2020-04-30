@@ -68,7 +68,6 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		if training_steps % freq == 0 and mode == 'train':
 			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss, l1_loss, balance_loss))
 				# update tensorboard
-			print("Train :loss", loss)
 			writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
 			writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
 			writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
@@ -164,11 +163,10 @@ def evaluate(model, data_loaders, device, max_rank, reset=True):
 	d_repr, d_ids = get_all_reprs(model, docs_batch_generator, device)
 	q_repr, q_ids = get_all_reprs(model, query_batch_generator, device)
 	scores = get_scores(d_repr, d_ids, q_repr, max_rank)
-	# returning the MRR @ 1000
 	return scores, q_repr, d_repr, q_ids, d_ids
 
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, sparse_dimensions, metric, max_rank=1000, l1_scalar = 1, balance_scalar= 1, patience = 2, eval_every = 10000, debug = False, bottleneck_run = False):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000, l1_scalar = 1, balance_scalar= 1, patience = 2, eval_every = 10000, debug = False, bottleneck_run = False):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -194,12 +192,9 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 	"""
 
 	# best_eval_loss = 1e20
-	best_MRR = -1
+	best_metric_score = -1
 	temp_patience = 0
 	total_training_steps = 0
-	qrels_base = qrels.split('/')[-1]
-	ranking_file_path = f'{model_folder}/{qrels_base}_full_ranking'
-	tmp_ranking_file = f'{ranking_file_path}_tmp'
 
 	for epoch in range(1, epochs+1):
 		print('Epoch', epoch)
@@ -250,9 +245,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				writer.add_scalar(f'Eval_L0_query', q_l0_loss, total_training_steps)
 				writer.add_scalar(f'Eval_L0_docs', d_l0_loss, total_training_steps)
 
-				write_ranking(scores, q_ids, tmp_ranking_file, max_rank)
 
-				metric_score = metric.score(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, max_rank=max_rank)
+				metric_score = metric.score(scores, q_ids)
 
 				writer.add_scalar(f'{metric.name}', metric_score, total_training_steps  )
 				print(f'Eval -  {metric.name}: {metric_score}')
@@ -266,8 +260,6 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 					# save best model so far to file
 					torch.save(model, f'{model_folder}/best_model.model' )
 
-					# write ranking file
-					write_ranking(scores, q_ids, ranking_file_path, max_rank)
 					# plot stats
 					plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 					plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
@@ -290,7 +282,6 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 	if not bottleneck_run:
 		# load best model
 		model = torch.load(f'{model_folder}/best_model.model')
-		os.remove(tmp_ranking_file)
 	
 
 

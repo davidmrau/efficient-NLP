@@ -2,14 +2,13 @@ import numpy as np
 import torch
 
 import transformers
-from utils import load_glove_embeddings, get_pretrained_BERT_embeddings, Delu
 
 
 from bert_no_layer_norm import BertModelNoOutLayerNorm
 from transformers.activations import gelu, gelu_new
 
-
-
+def Delu(x):
+	return x * 0.5 * (1 + torch.erf(x / math.sqrt(0.3)))
 
 class BERT_based(torch.nn.Module):
 	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 1000, num_attention_heads = 4, input_length_limit = 150,
