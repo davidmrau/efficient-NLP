@@ -5,8 +5,8 @@ batch_size: 64
 lr: 0.0001
 MaxMRRRank: 1000
 max_input_len: 150
-stopwords: "lucene"
-remove_unk: True
+stopwords: "none"
+remove_unk: False
 patience: 2
 eval_every: 5000
 sparse_dimensions: 1000
@@ -46,13 +46,16 @@ glove_word2idx_path: '${data_path}/embeddings/glove.6B.300d_word2idx_dict.p'
 query_file_val: '${data_path}/msmarco/msmarco-test2019-queries_43.${embedding}.tsv'
 docs_file_val: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43.${embedding}.tsv'
 qrels_val: '${data_path}/msmarco/2019qrels-pass_filtered_ms_marco.txt'
-q_docs_file_val: '${data_path}/msmarco/msmarco-passagetest2019-top1000.tsv.sorted_cut'
-qrels_dev: '${data_path}/msmarco/qrels.dev.small.tsv'
-q_docs_file_dev: '${data_path}/msmarco/top1000.dev.sorted'
 docs_file_train: '${data_path}/msmarco/collection.${embedding}.tsv'
 query_file_train: '${data_path}/msmarco/queries.train.${embedding}.tsv'
 triplets_file_train: '${data_path}/msmarco/qidpidtriples.train.full.tsv'
-
+robust_ranking_results_file: '${data_path}/robust04/run.robust04.bm25.topics.robust04.301-450.601-700.txt'
+robust_docs_file: '${data_path}/robust04/robust04_raw_docs.num_query_glove_stop_none_remove_unk.tsv'
+robust_query_file: '${data_path}/robust04/04.testset_num_query_lower_glove_stop_none_remove_unk.tsv'
+sampler: 'random'
+target: 'binary'
+top_k_per_query: -1
+dataset: 'msmarco'
 # debug_str = '' if not debug else '.debug'
 # triplets_fname = f'{dataset_path}/msmarco/qidpidtriples.train.full{debug_str}.tsv'
 # documents_path = f'{dataset_path}/msmarco/collection.tokenized.tsv'

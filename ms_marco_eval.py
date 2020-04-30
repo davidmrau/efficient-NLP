@@ -131,9 +131,7 @@ def compute_metrics(qids_to_relevant_passageids, qids_to_ranked_candidate_passag
         raise IOError("No matching QIDs found. Are you sure you are scoring the evaluation set?")
 
     MRR = MRR/len(qids_to_relevant_passageids)
-    all_scores[f'MRR @{MaxMRRRank}'] = MRR
-    all_scores['QueriesRanked'] = len(qids_to_ranked_candidate_passages)
-    return all_scores
+    return MRR
 
 def compute_metrics_from_files(path_to_reference, path_to_candidate, perform_checks=True, MaxMRRRank=100):
     """Compute MRR metric

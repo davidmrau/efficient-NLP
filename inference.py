@@ -4,9 +4,11 @@ import pickle
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
 import os
-from utils import write_ranking, write_ranking_trec, l0_loss, str2lst
+from utils import write_ranking, write_ranking_trec, l0_loss, instantiate_model
 import numpy as np
 from ms_marco_eval import compute_metrics_from_files
+
+from run_model import evaluate
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -16,70 +18,7 @@ matplotlib.use('Agg')
 
 """ Run online inference (for test set) without inverted index
 """
-# usage: online_inference.py model_path=model_path query_file=QUERY_FILE qrels=QRELS
-# the script is loading FOLDER_TO_MODEL/best_model.model
-#
 
-
-def get_repr(model, dataloader, device):
-	with torch.no_grad():
-		model.eval()
-		reprs = list()
-		ids = list()
-		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
-			reprs.append(repr_)
-			ids += batch_ids_d
-		return reprs, ids
-
-def get_scores(doc_reprs, doc_ids, q_reprs, top_results):
-	scores = list()
-	for batch_q_repr in q_reprs:
-		batch_len = len(batch_q_repr)
-		# q_score_lists = [ []]*batch_len
-		q_score_lists = [[] for i in range(batch_len) ]
-		for batch_doc_repr in doc_reprs:
-			dots_q_d = batch_q_repr @ batch_doc_repr.T
-			# appending scores of batch_documents for this batch of queries
-			for i in range(batch_len):
-				q_score_lists[i] += dots_q_d[i].detach().cpu().tolist()
-
-
-		# now we will sort the documents by relevance, for each query
-		for i in range(batch_len):
-			tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
-			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
-			if top_results != -1:
-				sorted_by_relevance = sorted_by_relevance[:top_results]
-			scores.append(sorted_by_relevance)
-	#print(scores[0])
-	return scores
-
-
-def evaluate(model, data_loaders, device, top_results, reset=True):
-
-	query_batch_generator, docs_batch_generator = data_loaders
-
-	if reset:
-		docs_batch_generator.reset()
-		query_batch_generator.reset()
-
-	d_repr, d_ids = get_repr(model, docs_batch_generator, device)
-	q_repr, q_ids = get_repr(model, query_batch_generator, device)
-	scores = get_scores(d_repr, d_ids, q_repr, top_results)
-	# returning the MRR @ 1000
-	return scores, q_repr, d_repr, q_ids, d_ids
-
-
-#def evaluate_dev():
-	#while True:
-#		dataloder(dev=True):
-#		repr_d, ids = get_repr(model, dataloader)
-#		plot(repr_d)
-#		repr_q, ids = get_repr(model, dataloader)
-#		plot(repr_d)
-#		scores = score(repr_d, d_ids, repr_q)
-	#restuls write and aggreate
 
 
 def load_model(cfg, device):
@@ -91,19 +30,10 @@ def load_model(cfg, device):
 
 	state_dict = model_old.state_dict()
 
-	if cfg.model == "snrm":
-		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
-		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=None,
-		embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
-		n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)	
-		model.embedding = torch.nn.Embedding(cfg.vocab_size, cfg.snrm.embedding_dim)	
-	elif cfg.model == "tf":
-		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
-		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = 150,
-		vocab_size = cfg.vocab_size, embedding_parameters = None, pooling_method = cfg.tf.pooling_method,
-		large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
+	model, _ = instantiate_model(cfg)
 	
 	model.load_state_dict(state_dict)
+
 	return model
 
 
@@ -115,14 +45,6 @@ def inference(cfg):
 		device = torch.device('cpu')
 
 	model = load_model(cfg, device)
-	model = model.to(device=device)
-	
-
-
-	if torch.cuda.device_count() > 1:
-		print("Using", torch.cuda.device_count(), "GPUs!")
-		if not isinstance(model, torch.nn.DataParallel):
-			model = torch.nn.DataParallel(model)
 
 	metrics_file_path = cfg.model_path + f'/ranking_results.txt'
 	metrics_file = open(metrics_file_path, 'w')
@@ -138,9 +60,9 @@ def inference(cfg):
 
 	# load data
 	query_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path, embedding=cfg.embedding, is_query=True,
-									min_len = min_len, max_len=cfg.max_input_len, stopwords = cfg.stopwords, remove_unk = cfg.remove_unk)
+									min_len = min_len, max_len=cfg.max_input_len)
 	docs_batch_generator = MSMarcoSequentialDev(cfg.q_docs, cfg.batch_size, cfg.glove_word2idx_path,embedding=cfg.embedding, is_query=False,
-									min_len = min_len, max_len=cfg.max_input_len, stopwords = cfg.stopwords, remove_unk = cfg.remove_unk)
+									min_len = min_len, max_len=cfg.max_input_len)
 
 	av_l0_query = list()
 	av_l0_doc = list()
@@ -167,13 +89,13 @@ def inference(cfg):
 
 	metrics_file.write(f'{qrels_base} l0 docs:\t{round(torch.stack(av_l0_query).mean().item(), 5)}\n')
 	metrics_file.write(f'{qrels_base} l0 query:\t{round(torch.stack(av_l0_doc).mean().item(), 5)}\n')
-	metric = compute_metrics_from_files(path_to_reference = cfg.qrels, path_to_candidate = ranking_file_path, MaxMRRRank=cfg.MaxMRRRank)
+	metric_score = compute_metrics_from_files(path_to_reference = cfg.qrels, path_to_candidate = ranking_file_path, MaxMRRRank=cfg.MaxMRRRank)
 
 	# returning the MRR @ 1000
-	metrics_file.write(f'{qrels_base} MRR@{cfg.MaxMRRRank}:\t{metric}\n')
+	metrics_file.write(f'{qrels_base} MRR@{cfg.MaxMRRRank}:\t{metric_score}\n')
 	metrics_file.close()
 
-	print(f'{qrels_base} MRR@{cfg.MaxMRRRank}:\t{metric}\n')
+	print(f'{qrels_base} MRR@{cfg.MaxMRRRank}:\t{metric_score}\n')
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()

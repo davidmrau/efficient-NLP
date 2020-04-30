@@ -1,5 +1,6 @@
 
 import torch
+from torch import nn
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 import os
@@ -14,6 +15,8 @@ import seaborn as sns
 matplotlib.use('Agg')
 import math
 import sys
+from bert_based import BERT_based
+from snrm import SNRM
 
 def file_len(fname):
 	""" Get the number of lines from file
@@ -23,6 +26,35 @@ def file_len(fname):
 	if p.returncode != 0:
 		raise IOError(err)
 	return int(result.strip().split()[0])
+
+
+def instantiate_model(cfg):
+	if cfg.model == "snrm":
+		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
+					 sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=embedding_parameters,
+					 embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
+					 n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)
+
+	elif cfg.model == "tf":
+		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+							sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
+							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, pooling_method = cfg.tf.pooling_method,
+							large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
+
+	# select device depending on availability and user's setting
+	if not cfg.disable_cuda and torch.cuda.is_available():
+		device = torch.device('cuda')
+	else:
+		device = torch.device('cpu')
+
+	# move model to device
+	model = model.to(device=device)
+	if torch.cuda.device_count() > 1:
+		print("Using", torch.cuda.device_count(), "GPUs!")
+		model = nn.DataParallel(model)
+
+	return model, device
+
 
 
 

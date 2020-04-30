@@ -1,9 +1,6 @@
 import torch
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, write_ranking, l0_loss
-import numpy as np
 import os
-from inference import evaluate
-from ms_marco_eval import compute_metrics_from_files
 from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 
 def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device, optim=None, eval_every = 10000):
@@ -120,7 +117,58 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 
 	return av_loss, total_training_steps
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, dataset_path, sparse_dimensions, top_results, l1_scalar = 1, balance_scalar= 1, patience = 2, MaxMRRRank=1000, eval_every = 10000, debug = False, bottleneck_run = False):
+
+
+def get_all_reprs(model, dataloader, device):
+	with torch.no_grad():
+		model.eval()
+		reprs = list()
+		ids = list()
+		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
+			reprs.append(repr_)
+			ids += batch_ids_d
+		return reprs, ids
+
+def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
+	scores = list()
+	for batch_q_repr in q_reprs:
+		batch_len = len(batch_q_repr)
+		# q_score_lists = [ []]*batch_len
+		q_score_lists = [[] for i in range(batch_len) ]
+		for batch_doc_repr in doc_reprs:
+			dots_q_d = batch_q_repr @ batch_doc_repr.T
+			# appending scores of batch_documents for this batch of queries
+			for i in range(batch_len):
+				q_score_lists[i] += dots_q_d[i].detach().cpu().tolist()
+
+
+		# now we will sort the documents by relevance, for each query
+		for i in range(batch_len):
+			tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
+			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
+			if max_rank != -1:
+				sorted_by_relevance = sorted_by_relevance[:max_rank]
+			scores.append(sorted_by_relevance)
+	return scores
+
+
+def evaluate(model, data_loaders, device, max_rank, reset=True):
+
+	query_batch_generator, docs_batch_generator = data_loaders
+
+	if reset:
+		docs_batch_generator.reset()
+		query_batch_generator.reset()
+
+	d_repr, d_ids = get_all_reprs(model, docs_batch_generator, device)
+	q_repr, q_ids = get_all_reprs(model, query_batch_generator, device)
+	scores = get_scores(d_repr, d_ids, q_repr, max_rank)
+	# returning the MRR @ 1000
+	return scores, q_repr, d_repr, q_ids, d_ids
+
+
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, qrels, sparse_dimensions, metric, max_rank=1000, l1_scalar = 1, balance_scalar= 1, patience = 2, eval_every = 10000, debug = False, bottleneck_run = False):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -164,11 +212,11 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			model.eval()
 
 			if bottleneck_run:
-				MRR = 0.001
+				metric_score = 0.001
 
 			else:
 				# run ms marco eval
-				scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, top_results)
+				scores, q_repr, d_repr, q_ids, _ = evaluate(model, dataloaders['val'], device, max_rank=max_rank)
 
 				q_l0_loss = 0
 				q_l0_coutner = 0
@@ -202,29 +250,24 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				writer.add_scalar(f'Eval_L0_query', q_l0_loss, total_training_steps)
 				writer.add_scalar(f'Eval_L0_docs', d_l0_loss, total_training_steps)
 
+				write_ranking(scores, q_ids, tmp_ranking_file, max_rank)
 
+				metric_score = metric.score(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, max_rank=max_rank)
 
-				
-				write_ranking(scores, q_ids, tmp_ranking_file, MaxMRRRank)
-
-				metrics = compute_metrics_from_files(path_to_reference = qrels, path_to_candidate = tmp_ranking_file, MaxMRRRank=MaxMRRRank)
-				MRR = metrics[f'MRR @{MaxMRRRank}']
-
-
-				writer.add_scalar(f'Eval_MRR@1000', MRR, total_training_steps  )
-				print(f'Eval -  MRR@1000: {MRR}')
+				writer.add_scalar(f'{metric.name}', metric_score, total_training_steps  )
+				print(f'Eval -  {metric.name}: {metric_score}')
 
 
 				# check for early stopping
-				if MRR > best_MRR:
-					print(f'Best model at current epoch {epoch}, with MRR@1000: {MRR}')
+				if metric_score > best_metric_score:
+					print(f'Best model at current epoch {epoch}, {metric.name}: {metric_score}')
 					temp_patience = 0
-					best_MRR = MRR
+					best_metric_score = metric_score
 					# save best model so far to file
 					torch.save(model, f'{model_folder}/best_model.model' )
 
 					# write ranking file
-					write_ranking(scores, q_ids, ranking_file_path, MaxMRRRank)
+					write_ranking(scores, q_ids, ranking_file_path, max_rank)
 					# plot stats
 					plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 					plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
@@ -239,8 +282,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 						print("Early Stopping!")
 						break
 
-				if MRR < 0.05 and not debug:
-					print("MRR smaller than 0.05. Ending Training!")
+				if metric_score < 0.03 and not debug:
+					print(f"{metric.name} smaller than 0.03. Ending Training!")
 					break
 
 

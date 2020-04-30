@@ -89,7 +89,7 @@ class MSMarcoSequential:
 
 
 class MSMarcoSequentialDev:
-	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, min_len=5, max_len=150, stopwords = "lucene", remove_unk = True):
+	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, min_len=5, max_len=150):
 
 		# open file
 		self.batch_size = batch_size
@@ -97,7 +97,7 @@ class MSMarcoSequentialDev:
 		self.is_query = is_query
 		self.min_len = min_len
 
-		self.tokenizer = Tokenizer(tokenizer = embedding, max_len = max_len, stopwords=stopwords, remove_unk = remove_unk,
+		self.tokenizer = Tokenizer(tokenizer = embedding, max_len = max_len, stopwords='none', remove_unk = False,
 							word2index_path = word2index_path, unk_words_filename = None)
 
 		self.stop = False
@@ -318,22 +318,12 @@ class WeakSupervisonTrain(data.Dataset):
 
 
 
-def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, query_file_val,
+def get_data_loaders_msmarco(triplets_train_file, docs_file_train, query_file_train, query_file_val,
  	docs_file_val, batch_size, num_workers, debug=False):
 
 	dataloaders = {}
 	dataloaders['train'] = DataLoader(MSMarcoTrain(triplets_train_file, docs_file_train, query_file_train, debug=debug),
 	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = num_workers)
-
-	# weak supervision example for datalaoder :
-		# weak_results_filename="data/robust04/run.robust04.bm25.topics.robust04.301-450.601-700.txt"
-		# documents_path="data/robust04/robust04_raw_docs.num_query_glove_stop_none_remove_unk.tsv"
-		# queries_path="data/robust04/04.testset_num_query_lower_glove_stop_none_remove_unk.tsv"
-
-		# dataset = WeakSupervisonTrain(weak_results_filename, documents_path, queries_path, top_k_per_query=3, sampler = 'random', target='binary')
-
-		# dataload = DataLoader(dataset, batch_size=32, collate_fn=collate_fn_padd, shuffle=True, num_workers = 4)
-
 
 	query_batch_generator = MSMarcoSequential(query_file_val, batch_size)
 	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size)
@@ -342,6 +332,16 @@ def get_data_loaders(triplets_train_file, docs_file_train, query_file_train, que
 
 	return dataloaders
 
+def get_data_loaders_robust(robust_ranking_results_file, robust_docs_file, robust_query_file, batch_size, num_workers,sampler, target, debug=False):
+	dataloaders = {}
+	dataset = WeakSupervisonTrain(robust_ranking_results_file, robust_docs_file, robust_query_file, sampler = sampler, target=target)
+	dataloaders['train'] = DataLoader(dataset, batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = num_workers, debug=debug)
+
+	query_batch_generator = WeakSupervisionEval(robust_ranking_results_file, robust_query_file, batch_size, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(robust_ranking_results_file, robust_docs_file, batch_size, is_query=False)
+
+	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
+	return dataloaders
 
 
 class MSMarcoLM(data.Dataset):

@@ -1,15 +1,14 @@
 import torch
-from snrm import SNRM
+
 from torch import nn
 from run_model import train
 from torch.optim import Adam
-from bert_based import BERT_based
 import os
 from datetime import datetime
 from omegaconf import OmegaConf
-from dataset import get_data_loaders
+from dataset import get_data_loaders_robust, get_data_loaders_msmarco
 import shutil
-from utils import load_glove_embeddings, get_model_folder_name, get_pretrained_BERT_embeddings, _getThreads
+from utils import load_glove_embeddings, get_model_folder_name, get_pretrained_BERT_embeddings, _getThreads, instantiate_model
 
 
 # from transformers import BertConfig, BertForPreTraining, BertTokenizer
@@ -28,12 +27,6 @@ def exp(cfg):
 		cfg.eval_every = 100
 		cfg.num_epochs = 1
 
-	# select device depending on availability and user's setting
-	if not cfg.disable_cuda and torch.cuda.is_available():
-		device = torch.device('cuda')
-	else:
-		device = torch.device('cpu')
-
 	# define which embeddings to load, depending on params
 	if cfg.embedding == 'glove':
 		embedding_parameters =  load_glove_embeddings(cfg.glove_embedding_path)
@@ -48,24 +41,8 @@ def exp(cfg):
 	print('Initializing model...')
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
-	if cfg.model == "snrm":
-		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
-		sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=embedding_parameters,
-		embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
-		n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)
 
-	elif cfg.model == "tf":
-		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
-		sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
-		vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, pooling_method = cfg.tf.pooling_method,
-		large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
-
-	# move model to device
-	model = model.to(device=device)
-	if torch.cuda.device_count() > 1:
-		print("Using", torch.cuda.device_count(), "GPUs!")
-		model = nn.DataParallel(model)
-
+	model, device = instantiate_model(cfg)
 
 	avail_threads = _getThreads()
 
@@ -81,24 +58,33 @@ def exp(cfg):
 
 	print(model)
 	# initialize tensorboard
+
 	writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
 	print('Loading data...')
 	# initialize dataloaders
-
-
-	dataloaders = get_data_loaders(cfg.triplets_file_train, cfg.docs_file_train,
-	cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size, cfg.num_workers, debug=cfg.debug)
+	if cfg.dataset == 'msmarco':
+		dataloaders = get_data_loaders_msmarco(cfg.triplets_file_train, cfg.docs_file_train,
+		cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size, cfg.num_workers, debug=cfg.debug)
+	elif cfg.dataset == 'robust':
+		dataloaders = get_data_loaders_robust(cfg.robust_ranking_results_file, cfg.robust_docs_file,
+		cfg.robust_query_file, cfg.batch_size, cfg.num_workers, cfg.sampler, cfg.target, debug=cfg.debug)
 	print('done')
 	# initialize loss function
 	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
+
+
+
+
+	metric =
+
 
 	# initialize optimizer
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
-	cfg.model_folder, cfg.qrels_val, cfg.dataset_path, cfg.sparse_dimensions, top_results=cfg.top_results,
+	cfg.model_folder, cfg.qrels_val, cfg.sparse_dimensions, top_results=cfg.top_results,
 	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, MaxMRRRank=cfg.MaxMRRRank, eval_every = cfg.eval_every, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run)
 
 if __name__ == "__main__":
