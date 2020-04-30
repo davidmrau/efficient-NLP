@@ -26,7 +26,7 @@ def run_epoch(model, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scal
 	type
 		Description of returned object.
 	"""
-
+	log_every_ratio = max(dataloader.batch_size/samples_per_epoch,   log_every_ratio)
 	prev_trained_samples = total_trained_samples
 
 	current_trained_samples = prev_trained_samples - total_trained_samples

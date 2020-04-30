@@ -29,8 +29,9 @@ class MRR(Metric):
 
 	def score(self, scores, qids):
 		self.write_scores(scores, qids)
-		return compute_metrics_from_files(path_to_reference=self.qrel_file, path_to_candidate=self.tmp_ranking_file,
+		metric = compute_metrics_from_files(path_to_reference=self.qrel_file, path_to_candidate=self.tmp_ranking_file,
 										  MaxMRRRank=self.max_rank)
+		return round(metric, 6)
 	
 class MAPTrec(Metric):
 	def __init__(self, trec_eval_path, qrel_file, max_rank):
@@ -42,4 +43,5 @@ class MAPTrec(Metric):
 
 	def score(self, scores, qids):
 		self.write_scores(scores, qids)
-		return self.trec_eval.score(self.qrel_file, self.tmp_ranking_file, self.max_rank)
+		metric = self.trec_eval.score(self.qrel_file, self.tmp_ranking_file, self.max_rank)
+		return round(metric, 6)

@@ -53,23 +53,16 @@ def exp(cfg):
 	print('Loading data...')
 	# initialize dataloaders
 	if cfg.dataset == 'msmarco':
-		dataloaders = get_data_loaders_msmarco(cfg.triplets_file_train, cfg.docs_file_train,
-		cfg.query_file_train, cfg.query_file_val, cfg.docs_file_val, cfg.batch_size, cfg.num_workers, debug=cfg.debug)
-	elif cfg.dataset == 'robust':
-		dataloaders = get_data_loaders_robust(cfg.robust_ranking_results_file, cfg.robust_docs_file,
-		cfg.robust_query_file, cfg.batch_size, cfg.num_workers, cfg.sampler, cfg.target, debug=cfg.debug)
+		dataloaders = get_data_loaders_msmarco(cfg)
+		metric = MRR(cfg.msmarco_qrels_val, cfg.max_rank)
+	elif cfg.dataset == 'robust04':
+		dataloaders = get_data_loaders_robust(cfg)
+		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
+	else:
+		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
 	# initialize loss function
 	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
-
-
-
-	if cfg.metric == 'map':
-		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
-	elif cfg.metric == 'mrr':
-		metric = MRR(cfg.qrels_val, cfg.max_rank)
-	else:
-		raise NotImplementedError(f'Metric {cfg.metric} not implemented')
 
 
 	# initialize optimizer

@@ -18,11 +18,8 @@ from tokenizer import Tokenizer
 
 class MSMarcoTrain(data.Dataset):
 
-	def __init__(self, triplets_path, documents_path, queries_path, debug=False):
+	def __init__(self, triplets_path, documents_path, queries_path):
 
-		self.debug = debug
-
-		triplets_path = add_before_ending(triplets_path, '.debug' if debug else '')
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
 
@@ -31,7 +28,6 @@ class MSMarcoTrain(data.Dataset):
 		# "open" queries file
 		self.queries = FileInterface(queries_path)
 
-		self.max_doc_id = len(self.documents) - 1
 
 	def __len__(self):
 		return len(self.triplets)
@@ -179,14 +175,16 @@ class MSMarcoSequentialDev:
 
 
 class WeakSupervisionEval:
-	def __init__(self, ranking_results_path, id2text_path, batch_size, is_query):
-
+	def __init__(self, ranking_results_path, id2text, batch_size, is_query, min_len=5):
 		# open file
 		self.batch_size = batch_size
 		self.ranking_results = open(ranking_results_path, 'r')
-		self.id2text = FileInterface(id2text_path)
 		self.is_query = is_query
-
+		self.min_len = min_len
+		if isinstance(id2text, FileInterface):
+			self.id2text = id2text
+		else:
+			self.id2text = FileInterface(id2text)
 		self.stop = False
 
 	def reset(self):
@@ -195,15 +193,17 @@ class WeakSupervisionEval:
 
 
 	def get_id(self, line, is_query):
-		spl = line.split('\t')
-
+		spl = line.split(' ')
 		if is_query:
-			return spl[0]
+			return str(spl[0])
 		else:
-			return spl[2]
+			return str(spl[2])
 
 	def get_text(self, id_):
-		return self.id2text.get_tokenized_element(id_)
+		tokenized_ids = self.id2text.get_tokenized_element(id_)
+		if len(tokenized_ids) < self.min_len:
+			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
+		return tokenized_ids
 
 	def batch_generator(self):
 
@@ -226,7 +226,7 @@ class WeakSupervisionEval:
 					self.stop = True
 					break
 				# extracting the token_ids and creating a numpy array
-				tokens_list = self.get_text(id_)
+				tokens_list = torch.IntTensor(self.get_text(id_))
 
 				if id_ not in batch_ids:
 
@@ -237,7 +237,6 @@ class WeakSupervisionEval:
 				prev_q_id = curr_q_id
 
 				line = self.ranking_results.readline()
-
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
 			#padd data along axis 1
 			batch_data = pad_sequence(batch_data,1).long()
@@ -245,14 +244,14 @@ class WeakSupervisionEval:
 			yield batch_ids, batch_data, batch_lengths
 
 class WeakSupervisonTrain(data.Dataset):
-	def __init__(self, weak_results_filename, documents_path, queries_path, top_k_per_query=-1, sampler = 'random', target='binary'):
+	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'random', target='binary'):
 
 
 		# "open" triplets file
 		self.weak_results_file = FileInterface(weak_results_filename)
 
 		# "open" documents file
-		self.documents = FileInterface(documents_path)
+		self.documents = documents_fi
 		# "open" queries file
 		self.queries = FileInterface(queries_path)
 
@@ -292,7 +291,6 @@ class WeakSupervisonTrain(data.Dataset):
 		doc2 = self.documents.get_tokenized_element(d2_id)
 		if doc2 is None:
 			return None
-
 		# shuffle order
 		if np.random.random() > 0.5:
 			return [query, doc1, doc2], 1
@@ -318,27 +316,30 @@ class WeakSupervisonTrain(data.Dataset):
 
 
 
-def get_data_loaders_msmarco(triplets_train_file, docs_file_train, query_file_train, query_file_val,
- 	docs_file_val, batch_size, num_workers, debug=False):
+def get_data_loaders_msmarco(cfg):
 
+	cfg.msmarco_triplets_train = add_before_ending(cfg.msmarco_triplets_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
-	dataloaders['train'] = DataLoader(MSMarcoTrain(triplets_train_file, docs_file_train, query_file_train, debug=debug),
-	batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = num_workers)
+	dataloaders['train'] = DataLoader(MSMarcoTrain(cfg.msmarco_triplets_train, cfg.msmarco_docs_train, cfg.msmarco_query_train),
+	batch_size=cfg.batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = cfg.num_workers)
 
-	query_batch_generator = MSMarcoSequential(query_file_val, batch_size)
-	docs_batch_generator = MSMarcoSequential(docs_file_val, batch_size)
+	query_batch_generator = MSMarcoSequential(cfg.msmarco_query_val, cfg.batch_size)
+	docs_batch_generator = MSMarcoSequential(cfg.msmarco_docs_val, cfg.batch_size)
 
 	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
 
-def get_data_loaders_robust(robust_ranking_results_file, robust_docs_file, robust_query_file, batch_size, num_workers,sampler, target, debug=False):
+def get_data_loaders_robust(cfg):
+		
+	docs_fi = FileInterface(cfg.robust_docs)
+	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
-	dataset = WeakSupervisonTrain(robust_ranking_results_file, robust_docs_file, robust_query_file, sampler = sampler, target=target)
-	dataloaders['train'] = DataLoader(dataset, batch_size=batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = num_workers, debug=debug)
-
-	query_batch_generator = WeakSupervisionEval(robust_ranking_results_file, robust_query_file, batch_size, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(robust_ranking_results_file, robust_docs_file, batch_size, is_query=False)
+	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
+	dataloaders['train'] = DataLoader(dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = cfg.num_workers)
+	
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False)
 
 	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
 	return dataloaders

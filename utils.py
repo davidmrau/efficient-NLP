@@ -460,7 +460,7 @@ def get_model_folder_name(cfg):
 		if cfg.large_out_biases:
 			model_string += "_large_out_biases"
 		# create experiment directory name
-		return f"l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
+		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
 
 
 def plot_top_k_analysis(analysis_dict):
