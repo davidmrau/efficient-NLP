@@ -8,7 +8,8 @@ max_input_len: 150
 stopwords: "none"
 remove_unk: False
 patience: 2
-eval_every: 5000
+samples_per_epoch: 5000
+log_every_ratio: 0.01
 sparse_dimensions: 1000
 large_out_biases: False
 num_workers: 0

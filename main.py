@@ -25,7 +25,7 @@ def exp(cfg):
 
 	if cfg.bottleneck_run:
 		print("!! RUNNING bottleneck CHECK !!")
-		cfg.eval_every = 100
+		cfg.samples_per_epoch = 100
 		cfg.num_epochs = 1
 
 
@@ -78,7 +78,9 @@ def exp(cfg):
 	# train the model
 	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, cfg.sparse_dimensions, metric, max_rank=cfg.max_rank,
-	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience, eval_every = cfg.eval_every, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run)
+	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
+	samples_per_epoch = cfg.samples_per_epoch, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run,
+	log_every_ratio = cfg.log_every_ratio)
 
 if __name__ == "__main__":
 	# getting command line arguments

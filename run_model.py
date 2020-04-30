@@ -3,37 +3,71 @@ from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, write_ranking, l0_los
 import os
 from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 
-def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device, optim=None, eval_every = 10000):
+
+def log_progress(writer, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss, total_loss, l0_q, l0_docs, acc):
+	print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(currently_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss))
+		# update tensorboard
+	writer.add_scalar(f'Train_task_loss', loss, total_trained_samples  )
+	writer.add_scalar(f'Train_l1_loss', l1_loss, total_trained_samples)
+	writer.add_scalar(f'Train_balance_loss', balance_loss, total_trained_samples)
+	writer.add_scalar(f'Train_total_loss', total_loss, total_trained_samples)
+	writer.add_scalar(f'Train_L0_query', l0_q, total_trained_samples)
+	writer.add_scalar(f'Train_L0_docs', l0_docs, total_trained_samples)
+	writer.add_scalar(f'Train_acc', acc, total_trained_samples)
+
+
+def run_epoch(model, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device, optim=None, samples_per_epoch = 10000, log_every_ratio = 0.01):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
 	-------
 	av_loss                 : (float) average loss
-	total_training_steps    : (int) the total number of training steps performed over all epochs
+	total_trained_samples    : (int) the total number of training steps performed over all epochs
 	type
 		Description of returned object.
 	"""
 
-	mode = 'train' if optim != None else 'val'
-	# initialize counters and sum variables
-	av_loss, av_l1_loss, av_balance_loss, av_l0_q, av_l0_docs, av_task_loss, av_acc = 0, 0, 0, 0, 0, 0, 0
+	prev_trained_samples = total_trained_samples
 
-	num_batches = len(dataloader)
-	training_steps = 0
-	for batch in dataloader:
+	current_trained_samples = prev_trained_samples - total_trained_samples
 
+	current_log_threshold = log_every_ratio
+
+	cur_trained_samples = 0
+
+
+	while cur_trained_samples < samples_per_epoch:
+		try:
+			batch = next(batch_iterator)
+		except StopIteration:
+			# StopIteration is thrown if dataset ends
+			# reinitialize data loader
+			batch_iterator = iter(dataloader)
+			batch = next(batch_iterator)
+
+		# For the weak supervision setting, some doc/queries are empty, rsulting to that sample being None
+		# If all samples are None within a batch, then the batch is None
 		if batch is None:
 			continue
 
+		# decompose batch
 		data, targets, lengths = batch
 
-		total_training_steps += 1
-		training_steps += 1
-		targets = targets.to(device)
+		# get number of samples within the batch
+		batch_samples_number = targets.size(0)
+
+		# update the number of trained samples in this epoch
+		cur_trained_samples += batch_samples_number
+		# update the total number of trained samples
+		total_trained_samples += batch_samples_number
+
 		# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
 		logits = model(data.to(device), lengths.to(device))
-		split_size = logits.size(0)//3
+		# moving targets also to the appropriate device
+		targets = targets.to(device)
+
 		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+		split_size = logits.size(0)//3
 		q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
 		# performing inner products
@@ -41,12 +75,12 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
 
 		# calculating loss
-		loss = loss_fn(dot_q_d1, dot_q_d2, targets.to(device))
+		loss = loss_fn(dot_q_d1, dot_q_d2, targets)
 
-
+		# calculate l1 loss
 		l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
-
-		balance_loss = balance_loss_fn(logits, device) * balance_scalar
+		# calculate balance loss
+		balance_loss = balance_loss_fn(logits, device)
 		# calculating L0 loss
 		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
@@ -54,68 +88,32 @@ def run_epoch(model, dataloader, loss_fn, epoch, writer, l1_scalar, balance_scal
 		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float()+ ((dot_q_d2 > dot_q_d1).float() == targets*-1).float()).mean()
 
 		# aggregating losses and running backward pass and update step
-		total_loss = loss +  l1_loss * l1_scalar + balance_loss
+		total_loss = loss +  l1_loss * l1_scalar + balance_loss * balance_scalar
+		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.zero_grad()
 			total_loss.backward()
 			optim.step()
 
 		torch.cuda.empty_cache()
-		# calculate tensorboard update dynamically
-		print_n_times = eval_every
-		freq = num_batches // print_n_times if num_batches > print_n_times else 1
-		# update tensorboard only for training on intermediate steps
-		if training_steps % freq == 0 and mode == 'train':
-			print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(training_steps, num_batches, loss, l1_loss, balance_loss))
-				# update tensorboard
-			writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
-			writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
-			writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
-			writer.add_scalar(f'{mode}_total_loss', total_loss, total_training_steps)
-			writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
-			writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
-			writer.add_scalar(f'{mode}_acc', acc, total_training_steps)
 
 
-		# sum losses
-		av_loss += total_loss
-		av_l1_loss += l1_loss
-		av_balance_loss += balance_loss
-		av_l0_q += l0_q
-		av_l0_docs += l0_docs
-		av_task_loss += loss
+		# get pogress ratio
+		samples_trained_ratio = cur_trained_samples / samples_per_epoch
 
-		# calculate av_acc
-		av_acc += acc
+		# check whether we should log
+		if samples_trained_ratio > current_log_threshold:
+			# log
+			log_progress(writer, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss, total_loss, l0_q, l0_docs, acc)
+			# update log threshold
+			current_log_threshold += log_every_ratio
 
-		if training_steps > eval_every:
-			break
-
-	# average losses and counters
-	av_loss = av_loss / training_steps
-	av_l1_loss = av_l1_loss /training_steps
-	av_balance_loss = av_balance_loss / training_steps
-	av_l0_q /= training_steps
-	av_l0_docs /= training_steps
-	av_task_loss = av_task_loss / training_steps
-	av_acc /= training_steps
-	av_acc = av_acc
+	# log the values of the final training step
+	log_progress(writer, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss, total_loss, l0_q, l0_docs, acc)
 
 
-	print("{} - Epoch [{}]: Total loss: {:.6f}, Task loss: {:.6f}, L1 loss: {:.6f}, Balance Loss: {:.6f}, Query l_0 : {:.4f}, Doc l_0: {:.4f}, acc: {:.4f}".format(mode, epoch, av_loss ,av_task_loss, av_l1_loss, av_balance_loss, av_l0_q, av_l0_docs, av_acc))
 
-	# for validation only send average to tensorboard
-	if mode == 'val':
-		writer.add_scalar(f'{mode}_task_loss', loss, total_training_steps  )
-		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_training_steps)
-		writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_training_steps)
-		writer.add_scalar(f'{mode}_total_loss', total_loss, total_training_steps)
-		writer.add_scalar(f'{mode}_L0_query', l0_q, total_training_steps)
-		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_training_steps)
-		writer.add_scalar(f'{mode}_acc', acc, total_training_steps)
-
-	return av_loss, total_training_steps
-
+	return total_trained_samples
 
 
 def get_all_reprs(model, dataloader, device):
@@ -166,7 +164,8 @@ def evaluate(model, data_loaders, device, max_rank, reset=True):
 	return scores, q_repr, d_repr, q_ids, d_ids
 
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000, l1_scalar = 1, balance_scalar= 1, patience = 2, eval_every = 10000, debug = False, bottleneck_run = False):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000,
+			l1_scalar = 1, balance_scalar= 1, patience = 2, samples_per_epoch = 10000, debug = False, bottleneck_run = False, log_every_ratio = 0.01):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -194,14 +193,20 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 	# best_eval_loss = 1e20
 	best_metric_score = -1
 	temp_patience = 0
-	total_training_steps = 0
+	total_trained_samples = 0
+
+
+	# initialize data loader for the first epoch
+	if total_trained_samples == 0:
+		batch_iterator = iter(dataloaders['train'])
 
 	for epoch in range(1, epochs+1):
 		print('Epoch', epoch)
 		# training
 		with torch.enable_grad():
 			model.train()
-			av_train_loss, total_training_steps = run_epoch(model, dataloaders['train'], loss_fn, epoch, writer, l1_scalar, balance_scalar, total_training_steps, device,  optim=optim, eval_every = eval_every)
+			total_trained_samples = run_epoch(model, dataloaders['train'], batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device, 
+							optim=optim, samples_per_epoch = samples_per_epoch)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
@@ -240,15 +245,15 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				d_l0_loss /= d_l0_coutner
 
 
-				writer.add_scalar(f'Eval_l1_loss', l1_loss, total_training_steps)
+				writer.add_scalar(f'Eval_l1_loss', l1_loss, total_trained_samples)
 
-				writer.add_scalar(f'Eval_L0_query', q_l0_loss, total_training_steps)
-				writer.add_scalar(f'Eval_L0_docs', d_l0_loss, total_training_steps)
+				writer.add_scalar(f'Eval_L0_query', q_l0_loss, total_trained_samples)
+				writer.add_scalar(f'Eval_L0_docs', d_l0_loss, total_trained_samples)
 
 
 				metric_score = metric.score(scores, q_ids)
 
-				writer.add_scalar(f'{metric.name}', metric_score, total_training_steps  )
+				writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples  )
 				print(f'Eval -  {metric.name}: {metric_score}')
 
 
