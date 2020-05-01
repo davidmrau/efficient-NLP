@@ -59,7 +59,7 @@ class Tokenizer():
 		if self.tokenizer == "glove":
 			self.unk_word = "unk"
 
-		self.unk_word_id = self.get_word_id(self.unk_word)
+		self.unk_word_id = self.get_word_ids(self.unk_word)
 
 		if remove_unk:
 			self.stopword_ids_list.append(self.unk_word_id)
@@ -68,6 +68,7 @@ class Tokenizer():
 	def set_stopword_ids_list(self, stopwords):
 		if stopwords == "none":
 			self.stopword_ids_list = []
+			self.stopwords_list = []
 
 		elif stopwords == "lucene":
 			# If not specified, using standard Lucene stopwords list
@@ -82,31 +83,33 @@ class Tokenizer():
 			"no", "not", "of", "on", "or", "such",
 			"that", "the", "their", "then", "there", "these",
 			"they", "this", "to", "was", "will", "with"]
-			stopwords_list = lucene_stopwords_list
 
 
-			self.stopword_ids_list = [self.get_word_id(word.lower()) for word in stopwords_list]
+			self.stopwords_list = lucene_stopwords_list
+
+
+			self.stopword_ids_list = [self.get_word_ids(word.lower()) for word in self.stopwords_list]
 
 
 		else:
 			raise ValueError("Implement function to read stopwords from provided 'stopwords' argument!")
 
 
-	def get_word_id(self, word):
+	def get_word_ids(self, word):
 		
 		if self.tokenizer == "bert":
-			return self.bert_tokenizer.encode(word)[1]
+			return self.bert_tokenizer.encode(word)[1:-1]
 
 		if self.tokenizer == "glove":
 			if word in self.glove_word2idx:
-				return self.glove_word2idx[word]
+				return [self.glove_word2idx[word]]
 			else:
 				# if selected, the unknown words that are found, are being written to the specified file, line by line
 				if self.unk_words_filename is not None:
 					with open(self.unk_words_filename, "a") as myfile:
 						myfile.write(word + "\n")
 
-				return self.glove_word2idx["unk"]
+				return [self.glove_word2idx["unk"]]
 
 
 	def encode(self, text):
@@ -114,31 +117,33 @@ class Tokenizer():
 		"""
 		if self.lower:
 			text = text.lower()
-		if self.tokenizer == "bert":
-			# removing CLS and SEP token which are added to the beginning and the end of input respectively
-			temp_encoded = self.bert_tokenizer.encode(text)[1:-1]
-		elif self.tokenizer == "glove":
-			# tokenize
-			tokens = word_tokenize(text)
 
-			# translate to word ids
-			temp_encoded = [self.get_word_id(word) for word in tokens]
+		tokens = word_tokenize(text)
 
-		# remove stopwords
-		if len(self.stopword_ids_list) != 0:
-			encoded = []
-			for word_id in temp_encoded:
-				if word_id not in self.stopword_ids_list:
-					encoded.append(word_id)
-		else:
-			encoded = temp_encoded
-
-		# enforce maximum length
+		# if there is a specified max len of input to be considered, we enforce it on the token level
+		# as the token level is percieved by nltk.word_tokenize()
 		if self.max_len != -1:
-			encoded = encoded[:self.max_len]
+			tokens = tokens[:self.max_len]
 
-		return encoded
+		token_ids = []
 
+		for i, token in enumerate(tokens):
+			# if the token is not among the stopwords
+			if token not in self.stopwords_list:
+				# we added on the resulting token ids list
+				token_ids += self.get_word_ids(token)
+
+		return token_ids
+
+
+
+
+
+	def have_glove_word2idx(self, idx2word_path = "data/embeddings/glove.6B.300d_idx2word_dict.p"):
+		# make sure that we have constracted a id2word mapping
+		if not hasattr(self, "glove_idx2word"):
+			# If not, then we build it once 
+			self.glove_idx2word = pickle.load(open(idx2word_path, 'rb'))
 
 
 	def decode(self, word_ids):
@@ -148,13 +153,7 @@ class Tokenizer():
 
 		if self.tokenizer == "glove":
 
-			# make sure that we have constracted a id2word mapping
-			if not hasattr(self, "glove_idx2word"):
-				# If not, then we build it once 
-				self.glove_idx2word = {}
-				for word in self.glove_word2idx:
-					word_id = self.glove_word2idx[word]
-					self.glove_idx2word[ word_id ] = word
+			self.have_glove_word2idx()
 
 			# translate into words in a string split by ' ' and return it
 			return ' '.join(self.glove_idx2word[word_id] for word_id in word_ids)
@@ -162,17 +161,11 @@ class Tokenizer():
 
 
 	def get_word_from_id(self,word_id):
-		pass
-
-
-
-
-
-
-
-
-
-
+		if self.tokenizer == "bert":
+			return self.bert_tokenizer.decode(word_id)
+		if self.tokenizer == "glove":
+			self.have_glove_word2idx()
+			return self.glove_idx2word[word_id]
 
 
 
@@ -182,18 +175,18 @@ def tokenize(args):
 
 	in_fname = args.input_file
 
-	print(in_fname)
+	print("Tokenizing :", in_fname)
 	# add = 'glove' if args.whitespace else 'bert'
 	out_fname = f'{in_fname}_{args.tokenizer}_stop_{args.stopwords}{"_remove_unk" if args.remove_unk else ""}{"_max_len_" + str(args.max_len) if args.max_len != -1 else "" }.tsv'
-	print(out_fname)
+	print("To file    :", out_fname)
 
 	if args.dont_log_unk:
 		unk_words_filename = None
 	else:
 		unk_words_filename = out_fname + "_unk_words"
 
-	tokenizer = Tokenizer(tokenizer = args.tokenizer, max_len = args.max_len, stopwords=args.stopwords, remove_unk = args.remove_unk,
-							word2index_path = args.word2index_path, unk_words_filename = unk_words_filename)
+	tokenizer = Tokenizer(tokenizer = args.tokenizer, max_len = args.max_len, stopwords=args.stopwords,
+							remove_unk = args.remove_unk, word2index_path = args.word2index_path, unk_words_filename = unk_words_filename)
 
 	empty_ids_filename = out_fname + "_empty_ids"
 
@@ -211,7 +204,9 @@ def tokenize(args):
 					if len(spl) < 2:
 						id_ = spl[0]
 						# writing ids of text that is empty before tokenization
-						empty_ids_f.write(id_ + "\n")
+						empty_ids_f.write(id_ + "\t\n")
+
+						out_f.write(id_ + '\t\n')
 						continue
 					
 					id_, text = line.strip().split(args.delimiter, 1)
@@ -220,10 +215,13 @@ def tokenize(args):
 
 					if len(tokenized_ids) == 0:
 						# writing ids of text that is empty after tokenization
-						empty_ids_f.write(id_ + "\n")
+						empty_ids_f.write(id_ + "\t\n")
+						out_f.write(id_ + '\t\n')
 						continue
 
 					out_f.write(id_ + '\t' + ' '.join(str(t) for t in tokenized_ids) + '\n')
+
+
 
 
 

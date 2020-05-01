@@ -112,25 +112,28 @@ def collate_fn_padd(batch):
 	batch_data = pad_sequence(batch_data,1).long()
 	return batch_data, batch_targets, batch_lengths
 
-# def padd_sentences()
-
-
 
 def get_pretrained_BERT_embeddings():
 	bert = transformers.BertModel.from_pretrained('bert-base-uncased')
 	return bert.embeddings.word_embeddings.weight
 
 
-def save_glove_embeddings_to_pickle(path = "data/embeddings/glove.6B.300d.txt"):
+def prepro_glove_embeddings(path = "data/embeddings/glove.6B.300d.txt"):
 	""" Load Glove embeddings from file
 	"""
 	embeddings = []
+	word2idx = {}
+	idx2word = {}
+
 	with open(path) as f:
 		index = 0
 		line = f.readline()
 		while(line):
 			line = line.split()
 			word = line[0]
+
+			word2idx[word] = index
+			idx2word[index] = word
 
 			embeddings.append( line[-300:] )
 
@@ -141,42 +144,34 @@ def save_glove_embeddings_to_pickle(path = "data/embeddings/glove.6B.300d.txt"):
 
 			line = f.readline()
 			index += 1
+
+	# replace id == 0 with token [PAD], and put that token at the end
+
+	# add embedding of index 0, to the end
+	embeddings.append( embeddings[0][:] )
+	# also updating the word2idx and idx2word dictionaries
+	word = idx2word[0]
+	idx2word[ len(idx2word) ] = idx2word[0]
+	word2idx[ idx2word[0] ] = len(word2idx)
+
+	# set "[PAD]" token to be the token with id 0
+	idx2word[ 0 ] = "[PAD]"
+	word2idx[ "[PAD]" ] = 0
+	embeddings[0] = [0] * 300
+
+	# add "[CLS]" token at the end of the embeddings
+	idx2word[ len(idx2word) ] = "[CLS]"
+	word2idx[ "[CLS]" ] = len(word2idx)
+	embeddings.append( [0] * 300 )
+
 	embeddings = np.array(embeddings, dtype='float32')
 	embeddings = torch.from_numpy(embeddings).float()
 	pickle.dump( embeddings, open(os.path.join( "data/embeddings/glove.6B.300d.p"), 'wb'))
+	pickle.dump( word2idx, open(os.path.join( "data/embeddings/glove.6B.300d_word2idx_dict.p"), 'wb'))
+	pickle.dump( idx2word, open(os.path.join( "data/embeddings/glove.6B.300d_idx2word_dict.p"), 'wb'))
 
 def load_glove_embeddings(path = "data/embeddings/glove.6B.300d.p"):
 	return read_pickle(path)
-
-
-
-
-	# return embeddings
-
-	# with open(path) as f:
-	# 	embeddings = np.zeros((len(word2idx), embedding_dim))
-	# 	for index, line in enumerate(f.readlines()):
-	# 		values = line.split()
-	# 		word = values[0]
-	# 		index = word2idx.get(word)
-	# 		if index:
-	# 			vector = np.array(values[1:], dtype='float32')
-	# 			embeddings[index] = vector
-	# 	return torch.from_numpy(embeddings).float().to(device)
-
-def generate_word2idx_dict_from_glove(path):
-	word2idx = {}
-	with open(path) as f:
-		line_counter = 0
-		line = f.readline()
-		while(line):
-			word = line.split()[0]
-			word_id = line_counter
-			word2idx[word] = word_id
-			line = f.readline()
-			line_counter += 1
-	pickle.dump( word2idx, open(os.path.join( path +  'word2idx_dict.p'), 'wb'))
-
 
 def l1_loss_fn(repr_):
 	return torch.mean(repr_)
