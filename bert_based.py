@@ -27,12 +27,11 @@ class BERT_based(torch.nn.Module):
 			# in case we are using the pretrained BERT embeddings, its best if we use the coresponding CLS token ID
 			if embedding_parameters is not None and hidden_size == 768 and vocab_size == 30522:
 				self.cls_token_id = transformers.BertTokenizerFast.from_pretrained('bert-base-uncased').encode("[CLS]")[1]
-				print("Using pretrained BERT embeddigns")
+				print("Using pretrained BERT embeddigns, retrieving [CLS] token id.")
 				# otherwise, we add the CLS token to the vocabulary
 			else:
-				print("Not using pretrained BERT embeddings")
-				self.cls_token_id = vocab_size
-				vocab_size += 1
+				print("Not using pretrained BERT embeddings, [CLS] token is the last word of vocab")
+				self.cls_token_id = vocab_size - 1
 
 
 
@@ -62,7 +61,7 @@ class BERT_based(torch.nn.Module):
 
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
-			self.encoder.embeddings.word_embeddings.weight.data[ : embedding_parameters.size(0), : embedding_parameters.size(1) ] = torch.nn.Parameter(embedding_parameters)
+			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
