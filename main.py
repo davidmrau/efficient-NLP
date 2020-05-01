@@ -69,7 +69,7 @@ def exp(cfg):
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
-	model = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
+	model, metric_score = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, cfg.sparse_dimensions, metric, max_rank=cfg.max_rank,
 	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 	samples_per_epoch = cfg.samples_per_epoch, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run,

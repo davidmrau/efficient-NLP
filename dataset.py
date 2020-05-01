@@ -174,6 +174,9 @@ class MSMarcoSequentialDev:
 
 
 
+
+
+
 class WeakSupervisionEval:
 	def __init__(self, ranking_results_path, id2text, batch_size, is_query, min_len=5):
 		# open file
