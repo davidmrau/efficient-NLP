@@ -150,7 +150,7 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	return scores
 
 
-def evaluate(model, data_loaders, device, max_rank, writer,  total_trained_samples, reset=True):
+def evaluate(model, mode,data_loaders, device, max_rank, writer,  total_trained_samples, metric, reset=True):
 
 	query_batch_generator, docs_batch_generator = data_loaders
 
@@ -190,13 +190,17 @@ def evaluate(model, data_loaders, device, max_rank, writer,  total_trained_sampl
 	d_l0_loss /= d_l0_coutner
 
 
-	writer.add_scalar(f'Eval_l1_loss', l1_loss, total_trained_samples)
+	writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
 
-	writer.add_scalar(f'Eval_L0_query', q_l0_loss, total_trained_samples)
-	writer.add_scalar(f'Eval_L0_docs', d_l0_loss, total_trained_samples)
+	writer.add_scalar(f'{mode}_L0_query', q_l0_loss, total_trained_samples)
+	writer.add_scalar(f'{mode}_L0_docs', d_l0_loss, total_trained_samples)
 
+	metric_score = metric.score(scores, q_ids)
 
-	return scores, q_repr, d_repr, q_ids, d_ids
+	writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
+	print(f'{mode} -  {metric.name}: {metric_score}')
+
+	return scores, q_repr, d_repr, q_ids, d_ids, metric_score
 
 
 def train(model, mode, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000,
@@ -251,13 +255,7 @@ def train(model, mode, dataloaders, optim, loss_fn, epochs, writer, device, mode
 
 			else:
 				# run ms marco eval
-				scores, q_repr, d_repr, q_ids, _ = evaluate(model,'val', dataloaders, device, writer,total_trained_samples, max_rank=max_rank)
-
-				metric_score = metric.score(scores, q_ids)
-
-				writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
-				print(f'Eval -  {metric.name}: {metric_score}')
-
+				scores, q_repr, d_repr, q_ids, _, metric_score = evaluate(model,'val', dataloaders, device, writer,total_trained_samples,metric,  max_rank=max_rank)
 
 				# check for early stopping
 				if metric_score > best_metric_score:
