@@ -82,7 +82,8 @@ if __name__ == "__main__":
 	cfg_load = OmegaConf.load(f'config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
-
+	if not cfg.dataset:
+		raise ValueError('No Dataset chosen!')
 	# create model string, depending on the model
 	if not cl_cfg.model_folder:
 		model_folder = get_model_folder_name(cfg)
