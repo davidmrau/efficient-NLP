@@ -7,12 +7,44 @@
 #####
 
 import sys
-from utils import create_seek_dictionary_per_index
 import pickle as p
 import argparse
 
+
+
+def create_seek_dictionary_per_index(filename, delimiter='\t', line_index_is_id = True):
+	""" Creating a dictionary, for accessing directly a documents content, given document's id
+			from a large file containing all documents
+			returns:
+			dictionary [doc_id] -> Seek value of a large file, so that you only have to read the exact document (doc_id)
+	"""
+	index_to_seek = {}
+	sample_counter = 0
+
+	with open(filename) as file:
+
+		seek_value = file.tell()
+		line = file.readline()
+		while line:
+			split_line = line.strip().split(delimiter)
+			# triplets so use counter as id
+			if line_index_is_id:
+				id_ = sample_counter
+			else:
+				id_ = split_line[0].st
+			sample_counter += 1
+			index_to_seek[id_] = seek_value
+			if sample_counter % 100000 == 0:
+				print(sample_counter)
+			seek_value = file.tell()
+			line = file.readline()
+
+	return index_to_seek
+
+
+
 parser = argparse.ArgumentParser()
-parser.add_argument('--delimiter', type=str, default=' ')
+parser.add_argument('--delimiter', type=str, default='\t')
 parser.add_argument('--fname', type=str)
 parser.add_argument('--line_index_is_id', action='store_true')
 args = parser.parse_args()
