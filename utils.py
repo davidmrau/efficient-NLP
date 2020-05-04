@@ -70,10 +70,39 @@ def instantiate_model(cfg):
 
 	return model, device
 
+def collate_fn_padd_single(batch):
+	""" Collate function for aggregating samples into batch size.
+		returns:
+		batch_data = Torch([ id_1, tokens_2, ..., id_2, tokens_2, ... ])
+		batch_lengths = length of each query/document,
+			that is used for proper averaging ignoring 0 padded inputs
+	"""
+	#batch * [id, tokens]
+
+	batch_lengths = list()
+	batch_ids, batch_data = list(), list()
+
+	for item in batch:
+		# for weak supervision datasets, some queries/documents have empty text.
+		# In that case the sample is None, and we skip this samples
+		if item is None:
+			continue
+
+		id_, tokens = item
+		batch_data.append(torch.IntTensor(tokens))
+		batch_ids.append(id_)
+
+	# in case this batch does not contain any samples, then we return None
+	if len(batch_data) == 0:
+		return None
+
+	batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
+	#pad data along axis 1
+	batch_data = pad_sequence(batch_data,1).long()
+	return batch_ids, batch_data, batch_lengths
 
 
-
-def collate_fn_padd(batch):
+def collate_fn_padd_triples(batch):
 	""" Collate function for aggregating samples into batch size.
 		returns:
 		batch_data = Torch([ q_1, q_2, ..., q1_d1, q2_d1, ..., q2_d1, q2_d2, ... ])

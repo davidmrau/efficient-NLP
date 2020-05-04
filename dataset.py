@@ -7,9 +7,9 @@ from os import path
 from fake_data import *
 from random import randint
 from file_interface import FileInterface
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 from os import path
-from utils import collate_fn_padd, add_before_ending
+from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single
 
 import pickle
 import random
@@ -46,42 +46,27 @@ class MSMarcoTrain(data.Dataset):
 			return [query, doc2, doc1], -1
 
 
-class MSMarcoSequential:
-	def __init__(self, fname, batch_size):
+class MSMarcoSequential(IterableDataset):
+	def __init__(self, fname):
 
 		# open file
-		self.batch_size = batch_size
 		self.file_ = open(fname, 'r')
 
-	def reset(self):
+	def __iter__(self):
 		self.file_.seek(0)
+		return self
 
-	def batch_generator(self):
+	def __next__(self):
+		for line in self.file_:
+			# getting position of '\t' that separates the doc_id and the begining of the token ids
+			delim_pos = line.find('\t')
+			# extracting the id
+			id_ = line[:delim_pos]
+			# extracting the token_ids and creating a numpy array
+			tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 
-		line = self.file_.readline()
-		# line = self.file.readline()
-		while line:
-			# read a number of lines equal to batch_size
-			batch_ids = []
-			batch_data = []
-			while(line and ( len(batch_ids) < self.batch_size) ):
-
-				# getting position of '\t' that separates the doc_id and the begining of the token ids
-				delim_pos = line.find('\t')
-				# extracting the id
-				id_ = line[:delim_pos]
-				# extracting the token_ids and creating a numpy array
-				tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
-				batch_ids.append(id_)
-				batch_data.append(torch.IntTensor(tokens_list))
-				line = self.file_.readline()
-
-			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
-			#padd data along axis 1
-			batch_data = pad_sequence(batch_data,1).long()
-
-			yield batch_ids, batch_data, batch_lengths
-
+			return [id_, tokens_list]
+		raise StopIteration
 
 
 class MSMarcoSequentialDev:
@@ -317,37 +302,6 @@ class WeakSupervisonTrain(data.Dataset):
 
 		return result1[0], result2[0], target
 
-
-
-def get_data_loaders_msmarco(cfg):
-
-	cfg.msmarco_triplets_train = add_before_ending(cfg.msmarco_triplets_train,  '.debug' if cfg.debug else '')
-	dataloaders = {}
-	dataloaders['train'] = DataLoader(MSMarcoTrain(cfg.msmarco_triplets_train, cfg.msmarco_docs_train, cfg.msmarco_query_train),
-	batch_size=cfg.batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = cfg.num_workers)
-
-	query_batch_generator = MSMarcoSequential(cfg.msmarco_query_val, cfg.batch_size)
-	docs_batch_generator = MSMarcoSequential(cfg.msmarco_docs_val, cfg.batch_size)
-
-	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
-
-	return dataloaders
-
-def get_data_loaders_robust(cfg):
-		
-	docs_fi = FileInterface(cfg.robust_docs)
-	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
-	dataloaders = {}
-	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
-	dataloaders['train'] = DataLoader(dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd, shuffle=True, num_workers = cfg.num_workers)
-	
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False)
-
-	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
-	return dataloaders
-
-
 class MSMarcoLM(data.Dataset):
 
 	def __init__(self, data_path, documents_path, queries_path):
@@ -370,3 +324,39 @@ class MSMarcoLM(data.Dataset):
 		doc = self.documents.get_tokenized_element(d1_id)
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
+
+
+
+def get_data_loaders_msmarco(cfg):
+
+	cfg.msmarco_triplets_train = add_before_ending(cfg.msmarco_triplets_train,  '.debug' if cfg.debug else '')
+	dataloaders = {}
+	dataloaders['train'] = DataLoader(MSMarcoTrain(cfg.msmarco_triplets_train, cfg.msmarco_docs_train, cfg.msmarco_query_train),
+	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
+
+	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
+	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
+
+	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
+
+	return dataloaders
+
+def get_data_loaders_robust(cfg):
+	train_validation_ratio = 0.8
+	docs_fi = FileInterface(cfg.robust_docs)
+	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
+	dataloaders = {}
+	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
+	# calculate train and validation size according to train_validation_ratio
+	lengths = [int(len(dataset)*train_validation_ratio), int(len(dataset)*(1-train_validation_ratio))]
+	# split dataset into train and test
+	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
+
+	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
+	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
+
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False)
+	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
+
+	return dataloaders
