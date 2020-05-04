@@ -1,13 +1,14 @@
 import torch
-from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, write_ranking, l0_loss
-import os
-from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
+from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss
 
 
-def log_progress(writer, mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss, total_loss, l0_q, l0_docs, acc):
-	print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(currently_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss))
-		# update tensorboard
-	writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples  )
+def log_progress(writer, mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
+                 balance_loss, total_loss, l0_q, l0_docs, acc):
+	print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(currently_trained_samples,
+	                                                                                samples_per_epoch, loss, l1_loss,
+	                                                                                balance_loss))
+	# update tensorboard
+	writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
 	writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
 	writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_trained_samples)
 	writer.add_scalar(f'{mode}_total_loss', total_loss, total_trained_samples)
@@ -16,7 +17,8 @@ def log_progress(writer, mode, total_trained_samples, currently_trained_samples,
 	writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
 
 
-def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device, optim=None, samples_per_epoch = 10000, log_every_ratio = 0.01):
+def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
+              total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
@@ -26,7 +28,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	type
 		Description of returned object.
 	"""
-	log_every_ratio = max(dataloader[mode].batch_size/samples_per_epoch,   log_every_ratio)
+	log_every_ratio = max(dataloader[mode].batch_size / samples_per_epoch, log_every_ratio)
 	prev_trained_samples = total_trained_samples
 
 	current_trained_samples = prev_trained_samples - total_trained_samples
@@ -35,6 +37,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 	cur_trained_samples = 0
 
+	av_total_loss = 0
 
 	while cur_trained_samples < samples_per_epoch:
 		try:
@@ -67,7 +70,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		targets = targets.to(device)
 
 		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-		split_size = logits.size(0)//3
+		split_size = logits.size(0) // 3
 		q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
 		# performing inner products
@@ -85,10 +88,12 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
 		# calculating classification accuracy (whether the correct document was classified as more relevant)
-		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float()+ ((dot_q_d2 > dot_q_d1).float() == targets*-1).float()).mean()
+		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float() + (
+				(dot_q_d2 > dot_q_d1).float() == targets * -1).float()).mean()
 
 		# aggregating losses and running backward pass and update step
-		total_loss = loss +  l1_loss * l1_scalar + balance_loss * balance_scalar
+		total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
+		av_total_loss += total_loss
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.zero_grad()
@@ -97,23 +102,22 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		torch.cuda.empty_cache()
 
-
 		# get pogress ratio
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
 
-		# check whether we should log
-		if samples_trained_ratio > current_log_threshold:
+		# check whether we should log (only when in train mode)
+		if samples_trained_ratio > current_log_threshold and optim != None:
 			# log
-			log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss, total_loss, l0_q, l0_docs, acc)
+			log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
+			             balance_loss, total_loss, l0_q, l0_docs, acc)
 			# update log threshold
 			current_log_threshold += log_every_ratio
 
 	# log the values of the final training step
-	log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss, balance_loss, total_loss, l0_q, l0_docs, acc)
+	log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
+	             balance_loss, total_loss, l0_q, l0_docs, acc)
 
-
-
-	return total_trained_samples
+	return total_trained_samples, av_total_loss/cur_trained_samples
 
 
 def get_all_reprs(model, dataloader, device):
@@ -127,31 +131,30 @@ def get_all_reprs(model, dataloader, device):
 			ids += batch_ids_d
 		return reprs, ids
 
+
 def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	scores = list()
 	for batch_q_repr in q_reprs:
 		batch_len = len(batch_q_repr)
 		# q_score_lists = [ []]*batch_len
-		q_score_lists = [[] for i in range(batch_len) ]
+		q_score_lists = [[] for i in range(batch_len)]
 		for batch_doc_repr in doc_reprs:
 			dots_q_d = batch_q_repr @ batch_doc_repr.T
 			# appending scores of batch_documents for this batch of queries
 			for i in range(batch_len):
 				q_score_lists[i] += dots_q_d[i].detach().cpu().tolist()
 
-
 		# now we will sort the documents by relevance, for each query
 		for i in range(batch_len):
 			tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
-			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse = True)
+			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
 			if max_rank != -1:
 				sorted_by_relevance = sorted_by_relevance[:max_rank]
 			scores.append(sorted_by_relevance)
 	return scores
 
 
-def evaluate(model, mode,data_loaders, device, max_rank, writer,  total_trained_samples, metric, reset=True):
-
+def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_samples, metric, reset=True):
 	query_batch_generator, docs_batch_generator = data_loaders
 
 	if reset:
@@ -161,7 +164,6 @@ def evaluate(model, mode,data_loaders, device, max_rank, writer,  total_trained_
 	d_repr, d_ids = get_all_reprs(model, docs_batch_generator, device)
 	q_repr, q_ids = get_all_reprs(model, query_batch_generator, device)
 	scores = get_scores(d_repr, d_ids, q_repr, max_rank)
-
 
 	q_l0_loss = 0
 	q_l0_coutner = 0
@@ -189,7 +191,6 @@ def evaluate(model, mode,data_loaders, device, max_rank, writer,  total_trained_
 	q_l0_loss /= q_l0_coutner
 	d_l0_loss /= d_l0_coutner
 
-
 	writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
 
 	writer.add_scalar(f'{mode}_L0_query', q_l0_loss, total_trained_samples)
@@ -203,8 +204,9 @@ def evaluate(model, mode,data_loaders, device, max_rank, writer,  total_trained_
 	return scores, q_repr, d_repr, q_ids, d_ids, metric_score
 
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000,
-			l1_scalar = 1, balance_scalar= 1, patience = 2, samples_per_epoch = 10000, debug = False, bottleneck_run = False, log_every_ratio = 0.01):
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
+          l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
+          debug=False, bottleneck_run=False, log_every_ratio=0.01):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -230,64 +232,57 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 	"""
 
 	# best_eval_loss = 1e20
-	best_metric_score = -1
-	temp_patience = 0
+	best_av_total_loss = -1
+	curr_patience = 0
 	total_trained_samples = 0
-
 
 	# initialize data loader for the first epoch
 	if total_trained_samples == 0:
-		batch_iterator = iter(dataloaders['train'])
+		batch_iterator_train = iter(dataloaders['train'])
+		batch_iterator_val = iter(dataloaders['val'])
 
-	for epoch in range(1, epochs+1):
+	for epoch in range(1, epochs + 1):
 		print('Epoch', epoch)
 		# training
 		with torch.enable_grad():
 			model.train()
-			total_trained_samples = run_epoch(model, 'train', dataloaders, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
-							optim=optim, samples_per_epoch = samples_per_epoch)
+			total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch, writer,
+			                                  l1_scalar, balance_scalar, total_trained_samples, device,
+			                                  optim=optim, samples_per_epoch=samples_per_epoch_train)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
 
 			if bottleneck_run:
-				metric_score = 0.001
+				av_total_loss = 0.001
 
 			else:
-				# run ms marco eval
-				scores, q_repr, d_repr, q_ids, _, metric_score = evaluate(model,'val', dataloaders, device, writer,total_trained_samples,metric,  max_rank=max_rank)
-
+				# validate
+				total_trained_samples, av_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer,
+				                                  l1_scalar, balance_scalar, total_trained_samples, device,
+				                                  optim=None, samples_per_epoch=samples_per_epoch_val)
 				# check for early stopping
-				if metric_score > best_metric_score:
-					print(f'Best model at current epoch {epoch}, {metric.name}: {metric_score}')
-					temp_patience = 0
-					best_metric_score = metric_score
+				if av_total_loss > best_av_total_loss:
+					print(f'Best model at current epoch {epoch}, av total loss: {av_total_loss}')
+					curr_patience = 0
+					best_av_total_loss = av_total_loss
 					# save best model so far to file
-					torch.save(model, f'{model_folder}/best_model.model' )
-
-					# plot stats
-					plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
-					plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
-					plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
-					plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
+					torch.save(model, f'{model_folder}/best_model.model')
 
 				else:
 
-					temp_patience += 1
+					curr_patience += 1
 
-					if temp_patience >= patience:
+					if curr_patience >= patience:
 						print("Early Stopping!")
 						break
 
-				if metric_score < 0.03 and not debug:
-					print(f"{metric.name} smaller than 0.03. Ending Training!")
+				if av_total_loss > 0.95 and not debug:
+					print(f"Av total loss smaller than 0.95. Ending Training!")
 					break
-
 
 	if not bottleneck_run:
 		# load best model
 		model = torch.load(f'{model_folder}/best_model.model')
-	
 
-
-	return model, metric_score
+	return model, av_total_loss, total_trained_samples

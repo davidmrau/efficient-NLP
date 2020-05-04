@@ -1,7 +1,6 @@
-import torch
 
 from torch import nn
-from run_model import train
+from run_model import train, evaluate
 from torch.optim import Adam
 import os
 from datetime import datetime
@@ -10,18 +9,13 @@ from dataset import get_data_loaders_robust, get_data_loaders_msmarco
 import shutil
 from utils import get_model_folder_name, _getThreads, instantiate_model
 from metrics import MRR, MAPTrec
-
-# from transformers import BertConfig, BertForPreTraining, BertTokenizer
-from utils import str2lst
-import transformers
+from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 from torch.utils.tensorboard import SummaryWriter
-from transformers import BertTokenizer
 
 
 def exp(cfg):
 	# printing params
 	print(cfg.pretty())
-
 
 	if cfg.bottleneck_run:
 		print("!! RUNNING bottleneck CHECK !!")
@@ -69,11 +63,20 @@ def exp(cfg):
 	optim = Adam(model.parameters(), lr=cfg.lr)
 	print('Start training...')
 	# train the model
-	model, metric_score = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
-	cfg.model_folder, cfg.sparse_dimensions, metric, max_rank=cfg.max_rank,
-	l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
-	samples_per_epoch = cfg.samples_per_epoch, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run,
+	model, metric_score, total_trained_samples = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
+	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
+	samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run,
 	log_every_ratio = cfg.log_every_ratio)
+
+	_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, cfg.max_rank, writer, total_trained_samples, metric)
+
+
+	# plot stats
+	plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
+	plot_histogram_of_latent_terms(model_folder, q_repr, cfg.sparse_dimensions, 'query')
+	plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
+	plot_histogram_of_latent_terms(model_folder, d_repr, cfg.sparse_dimensions, 'docs')
+
 
 if __name__ == "__main__":
 	# getting command line arguments
