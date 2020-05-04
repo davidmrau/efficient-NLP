@@ -202,14 +202,17 @@ def tokenize(args):
 
 					spl = line.strip().split(args.delimiter, 1)
 					if len(spl) < 2:
-						id_ = spl[0]
+						id_ = spl[0].strip()
+
 						# writing ids of text that is empty before tokenization
 						empty_ids_f.write(id_ + "\t\n")
 
 						out_f.write(id_ + '\t\n')
 						continue
 					
-					id_, text = line.strip().split(args.delimiter, 1)
+					id_, text = spl
+
+					id_ = id_.strip()
 
 					tokenized_ids = tokenizer.encode(text)
 

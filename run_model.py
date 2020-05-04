@@ -203,7 +203,7 @@ def evaluate(model, mode,data_loaders, device, max_rank, writer,  total_trained_
 	return scores, q_repr, d_repr, q_ids, d_ids, metric_score
 
 
-def train(model, mode, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000,
+def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder, sparse_dimensions, metric, max_rank=1000,
 			l1_scalar = 1, balance_scalar= 1, patience = 2, samples_per_epoch = 10000, debug = False, bottleneck_run = False, log_every_ratio = 0.01):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
