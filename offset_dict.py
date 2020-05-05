@@ -31,7 +31,7 @@ def create_seek_dictionary_per_index(filename, delimiter='\t', line_index_is_id 
 			if line_index_is_id:
 				id_ = sample_counter
 			else:
-				id_ = split_line[0].st
+				id_ = split_line[0].strip()
 			sample_counter += 1
 			index_to_seek[id_] = seek_value
 			if sample_counter % 100000 == 0:
