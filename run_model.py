@@ -262,7 +262,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				                                  l1_scalar, balance_scalar, total_trained_samples, device,
 				                                  optim=None, samples_per_epoch=samples_per_epoch_val)
 				# check for early stopping
-				if av_total_loss > best_av_total_loss:
+				if av_total_loss < best_av_total_loss:
 					print(f'Best model at current epoch {epoch}, av total loss: {av_total_loss}')
 					curr_patience = 0
 					best_av_total_loss = av_total_loss
@@ -277,9 +277,6 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 						print("Early Stopping!")
 						break
 
-				if av_total_loss > 0.95 and not debug:
-					print(f"Av total loss smaller than 0.95. Ending Training!")
-					break
 
 	if not bottleneck_run:
 		# load best model
