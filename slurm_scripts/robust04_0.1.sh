@@ -1,9 +1,9 @@
 #!/bin/bash
 # Set job requirements
-#SBATCH --job-name=test
+#SBATCH --job-name=r_0.1
 #SBATCH --ntasks=1
-#SBATCH --partition=gpu_short
-#SBATCH --time=00:05:00
+#SBATCH --partition=gpu_shared
+#SBATCH --time=120:00:00
 #SBATCH --mem=100G
 
 
@@ -18,19 +18,25 @@ module load Python/3.6.3-foss-2017b
 module load cuDNN/7.0.5-CUDA-9.0.176
 module load NCCL/2.0.5-CUDA-9.0.176
 
-BATCH_SIZE="256"
+BATCH_SIZE="64"
 
 cd ..
 DATASET='robust04'
 STOPWORDS='lucene'
 
 MODEL=snrm
-
 EMBEDDINGS="glove"
-L1_SCALARS="0"
+
+TRAIN_SAMPLES="10000"
+VAL_SAMPLES="10000"
+NUM_EPOCHS="10000"
+
+L1_SCALARS="0.1"
 SPARSE_DIMENSIONS="5000"
+
+
 N_GRAM_MODELS="cnn"
-LARGE_OUT_BIASES_OPTIONS="False"
+
 
 # Dense EMB-500-100-500
 SNRM_HIDDEN="100-300"
@@ -41,7 +47,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 		for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
 			for N_GRAM_MODEL in ${N_GRAM_MODELS}; do
 				for LARGE_OUT_BIASES in ${LARGE_OUT_BIASES_OPTIONS}; do
-					python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} n_gram_model=${N_GRAM_MODEL} dataset=${DATASET} samples_per_epoch_train=5000 samples_per_epoch_val=128 stopwords=${STOPWORDS} num_epochs=1
+					python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} n_gram_model=${N_GRAM_MODEL} dataset=${DATASET} samples_per_epoch_train=${TRAIN_SAMPLES} samples_per_epoch_val=${VAL_SAMPLES} stopwords=${STOPWORDS} num_epochs=${NUM_EPOCHS}
 				done
 			done
 		done

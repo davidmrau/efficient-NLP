@@ -1,11 +1,11 @@
 import torch
-from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss
+from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 
 
 def log_progress(writer, mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
                  balance_loss, total_loss, l0_q, l0_docs, acc):
-	print("  {}/{} task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(currently_trained_samples,
-	                                                                                samples_per_epoch, loss, l1_loss,
+	print("  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(currently_trained_samples,
+	                                                                                samples_per_epoch, total_loss, loss, l1_loss,
 	                                                                                balance_loss))
 	# update tensorboard
 	writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
@@ -93,7 +93,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		# aggregating losses and running backward pass and update step
 		total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
-		av_total_loss += total_loss
+		av_total_loss += total_loss*batch_samples_number 
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.zero_grad()
@@ -106,7 +106,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
 
 		# check whether we should log (only when in train mode)
-		if samples_trained_ratio > current_log_threshold and optim != None:
+		if samples_trained_ratio > current_log_threshold:
 			# log
 			log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
 			             balance_loss, total_loss, l0_q, l0_docs, acc)
@@ -191,10 +191,10 @@ def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_
 	q_l0_loss /= q_l0_coutner
 	d_l0_loss /= d_l0_coutner
 
-	writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
+	writer.add_scalar(f'Evaluate_fn_{mode}_l1_loss', l1_loss, total_trained_samples)
 
-	writer.add_scalar(f'{mode}_L0_query', q_l0_loss, total_trained_samples)
-	writer.add_scalar(f'{mode}_L0_docs', d_l0_loss, total_trained_samples)
+	writer.add_scalar(f'Evaluate_fn_{mode}_L0_query', q_l0_loss, total_trained_samples)
+	writer.add_scalar(f'Evaluate_fn_{mode}_L0_docs', d_l0_loss, total_trained_samples)
 
 	metric_score = metric.score(scores, q_ids)
 
@@ -206,7 +206,8 @@ def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_
 
 def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
           l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
-          debug=False, bottleneck_run=False, log_every_ratio=0.01):
+          debug=False, bottleneck_run=False, log_every_ratio=0.01, max_rank = 1000, metric = None, 
+          sparse_dimensions = 1000):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -259,6 +260,17 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer,
 				                                  l1_scalar, balance_scalar, total_trained_samples, device,
 				                                  optim=None, samples_per_epoch=samples_per_epoch_val)
+
+				# Run also proper evaluation script
+				_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, max_rank, writer, total_trained_samples, metric)
+
+				# plot stats
+				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
+				plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
+				plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
+				plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
+
+
 				# check for early stopping
 				if val_total_loss < best_val_total_loss:
 					print(f'Best model at current epoch {epoch}, av total loss: {val_total_loss}')

@@ -66,9 +66,11 @@ def exp(cfg):
 	model, metric_score, total_trained_samples = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 	samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, debug = cfg.debug, bottleneck_run = cfg.bottleneck_run,
-	log_every_ratio = cfg.log_every_ratio)
+	log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions)
 
 	_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, cfg.max_rank, writer, total_trained_samples, metric)
+
+
 
 
 	# plot stats
