@@ -2,10 +2,10 @@
 # Set job requirements
 #SBATCH --job-name=r_0.5
 #SBATCH --ntasks=1
-#SBATCH --partition=gpu_shared
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:4
 #SBATCH --time=120:00:00
 #SBATCH --mem=100G
-
 
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=kondilidisn9@gmail.com
