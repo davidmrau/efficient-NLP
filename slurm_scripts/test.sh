@@ -41,7 +41,7 @@ for EMBEDDING in ${EMBEDDINGS}; do
 		for SPARSE_DIMENSION in ${SPARSE_DIMENSIONS}; do
 			for N_GRAM_MODEL in ${N_GRAM_MODELS}; do
 				for LARGE_OUT_BIASES in ${LARGE_OUT_BIASES_OPTIONS}; do
-					python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} n_gram_model=${N_GRAM_MODEL} dataset=${DATASET} samples_per_epoch_train=5000 samples_per_epoch_val=128 stopwords=${STOPWORDS} num_epochs=1
+					python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} l1_scalar=${L1_SCALAR} snrm.hidden_sizes=${SNRM_HIDDEN} n_gram_model=${N_GRAM_MODEL} dataset=${DATASET} samples_per_epoch_train=5000 samples_per_epoch_val=128 stopwords=${STOPWORDS} num_epochs=1 num_workers=2
 				done
 			done
 		done
