@@ -155,7 +155,7 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 
 
 def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_samples, metric, reset=True):
-	query_batch_generator, docs_batch_generator = data_loaders
+	query_batch_generator, docs_batch_generator = data_loaders[mode]
 
 	if reset:
 		docs_batch_generator.reset()
