@@ -1,7 +1,7 @@
 nltk
 omegaconf
 tensorboard
-numpy<1.17
+numpy
 torch
 tensorflow
 transformers

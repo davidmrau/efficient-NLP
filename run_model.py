@@ -111,11 +111,11 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
 			             balance_loss, total_loss, l0_q, l0_docs, acc)
 			# update log threshold
-			current_log_threshold += log_every_ratio
+			current_log_threshold = samples_trained_ratio + log_every_ratio
 
 	# log the values of the final training step
-	log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
-	             balance_loss, total_loss, l0_q, l0_docs, acc)
+	# log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
+	             # balance_loss, total_loss, l0_q, l0_docs, acc)
 
 	return total_trained_samples, av_total_loss/cur_trained_samples
 
@@ -231,7 +231,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 	"""
 
-	best_val_loss = 1e20
+	best_val_total_loss = 1e20
 	curr_patience = 0
 	total_trained_samples = 0
 
@@ -261,7 +261,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				                                  optim=None, samples_per_epoch=samples_per_epoch_val)
 				# check for early stopping
 				if val_total_loss < best_val_total_loss:
-					print(f'Best model at current epoch {epoch}, av total loss: {av_total_loss}')
+					print(f'Best model at current epoch {epoch}, av total loss: {val_total_loss}')
 					curr_patience = 0
 					best_val_total_loss = val_total_loss
 					# save best model so far to file

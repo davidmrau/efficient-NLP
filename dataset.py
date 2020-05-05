@@ -232,7 +232,7 @@ class WeakSupervisionEval:
 			yield batch_ids, batch_data, batch_lengths
 
 class WeakSupervisonTrain(data.Dataset):
-	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'both', target='binary'):
+	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'uniform', target='binary'):
 
 
 		# "open" triplets file
@@ -250,12 +250,13 @@ class WeakSupervisonTrain(data.Dataset):
 		self.top_k_per_query = top_k_per_query
 
 
-		if sampler == 'both':
-			self.sample_function = self.random_both
-		elif sampler == "relevant":
-			self.sample_function = self.random_relevants
-		else:
-			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'both', 'relevant'}, but :" + str( sampler))
+		# if sampler == 'uniform':
+		# 	pass
+		# 	# self.sample_function = self.random_both
+		# # elif sampler == "relevant":
+		# # 	self.sample_function = self.random_relevants
+		# else:
+		# 	raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'uniform'}, but :" + str( sampler))
 
 
 		if target == 'binary':
@@ -297,7 +298,10 @@ class WeakSupervisonTrain(data.Dataset):
 			return [query, doc2, doc1], -1
 
 
-	def random_relevants(self, scores_list):
+	# def sample_from_relevants, depends on 'sampler' parameter
+
+
+	def random_with_positive(self, scores_list):
 
 		index_A = random.randint(0, len(scores_list) - 1)
 
@@ -311,7 +315,7 @@ class WeakSupervisonTrain(data.Dataset):
 
 		return sample_A, sample_B
 
-	def random_both(self, scores_list):
+	def random_with_negative(self, scores_list):
 		# randomly sample a document id and its result from the scores_list
 		relevant_sample_index = random.randint(0, len(scores_list) - 1)
 
@@ -342,14 +346,18 @@ class WeakSupervisonTrain(data.Dataset):
 
 	def get_sample_from_query_scores(self, scores_list):
 
-		result1, result2 = self.sample_function(scores_list)
+		if np.random.random() > 0.5:
+			# sample from relevant ones
+			result1, result2 = self.random_with_positive(scores_list)
+		else:
+			# sample one rel and one negative
+			result1, result2 = self.random_with_negative(scores_list)
 
 		# randomly swap positions
 		if np.random.random() > 0.5:
 			temp = result1
 			result1 = result2
 			result2 = temp
-
 
 		target = self.target_function(result1, result2)
 
