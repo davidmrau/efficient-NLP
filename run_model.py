@@ -231,8 +231,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 	"""
 
-	# best_eval_loss = 1e20
-	best_av_total_loss = -1
+	best_val_loss = 1e20
 	curr_patience = 0
 	total_trained_samples = 0
 
@@ -254,18 +253,17 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			model.eval()
 
 			if bottleneck_run:
-				av_total_loss = 0.001
-
+				break
 			else:
 				# validate
-				total_trained_samples, av_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer,
+				total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer,
 				                                  l1_scalar, balance_scalar, total_trained_samples, device,
 				                                  optim=None, samples_per_epoch=samples_per_epoch_val)
 				# check for early stopping
-				if av_total_loss < best_av_total_loss:
+				if val_total_loss < best_val_total_loss:
 					print(f'Best model at current epoch {epoch}, av total loss: {av_total_loss}')
 					curr_patience = 0
-					best_av_total_loss = av_total_loss
+					best_val_total_loss = val_total_loss
 					# save best model so far to file
 					torch.save(model, f'{model_folder}/best_model.model')
 
@@ -282,4 +280,4 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# load best model
 		model = torch.load(f'{model_folder}/best_model.model')
 
-	return model, av_total_loss, total_trained_samples
+	return model, best_val_total_loss, total_trained_samples
