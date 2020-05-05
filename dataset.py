@@ -10,7 +10,7 @@ from file_interface import FileInterface
 from torch.utils.data import DataLoader, IterableDataset
 from os import path
 from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single
-
+import math
 import pickle
 import random
 from tokenizer import Tokenizer
@@ -401,7 +401,7 @@ def get_data_loaders_robust(cfg):
 	dataloaders = {}
 	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
 	# calculate train and validation size according to train_validation_ratio
-	lengths = [int(len(dataset)*train_validation_ratio), int(len(dataset)*(1-train_validation_ratio))]
+	lengths = [math.floor(len(dataset)*train_validation_ratio), math.ceil(len(dataset)*(1-train_validation_ratio))]
 	# split dataset into train and test
 	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
 
