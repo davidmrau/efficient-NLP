@@ -232,7 +232,7 @@ class WeakSupervisionEval:
 			yield batch_ids, batch_data, batch_lengths
 
 class WeakSupervisonTrain(data.Dataset):
-	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'random', target='binary'):
+	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'both', target='binary'):
 
 
 		# "open" triplets file
@@ -240,17 +240,28 @@ class WeakSupervisonTrain(data.Dataset):
 
 		# "open" documents file
 		self.documents = documents_fi
+
+		# create a list of docment ids
+		self.doc_ids_list = list(self.documents.seek_dict)
+
 		# "open" queries file
 		self.queries = FileInterface(queries_path)
 
 		self.top_k_per_query = top_k_per_query
 
 
-		if sampler == 'random':
-			self.sample_function = self.random_sampler
+		if sampler == 'both':
+			self.sample_function = self.random_both
+		elif sampler == "relevant":
+			self.sample_function = self.random_relevants
+		else:
+			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'both', 'relevant'}, but :" + str( sampler))
+
 
 		if target == 'binary':
 			self.target_function = self.binary_target
+		else:
+			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary'}, but :" + str( sampler))
 
 		self.sampler = sampler
 		self.target = target
@@ -286,8 +297,43 @@ class WeakSupervisonTrain(data.Dataset):
 			return [query, doc2, doc1], -1
 
 
-	def random_sampler(self, scores_list):
-		return random.sample(population = scores_list, k=2)
+	def random_relevants(self, scores_list):
+
+		index_A = random.randint(0, len(scores_list) - 1)
+
+		index_B = random.randint(0, len(scores_list) - 1)
+		# make sure they are not the same
+		while index_B == index_A:
+			index_B = random.randint(0, len(scores_list) - 1)
+		# get actual results from indices
+		sample_A = scores_list[index_A]
+		sample_B = scores_list[index_B]
+
+		return sample_A, sample_B
+
+	def random_both(self, scores_list):
+		# randomly sample a document id and its result from the scores_list
+		relevant_sample_index = random.randint(0, len(scores_list) - 1)
+
+		relevant_sample_result = scores_list[relevant_sample_index]
+
+		relevant_doc_id = relevant_sample_result[0]
+
+
+		# sample a random doument from all documents
+		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
+
+		random_doc_id = self.doc_ids_list[random_doc_index]
+
+		# make sure the two document ids are different
+		while relevant_doc_id == random_doc_id:
+			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
+			random_doc_id = self.doc_ids_list[random_doc_index]
+
+		random_doc_result = (random_doc_id, 0)
+
+		return relevant_sample_result, random_doc_result
+
 
 	def binary_target(self, result1, result2):
 		# 1 if result1 is better and -1 if result2 is better
@@ -297,6 +343,13 @@ class WeakSupervisonTrain(data.Dataset):
 	def get_sample_from_query_scores(self, scores_list):
 
 		result1, result2 = self.sample_function(scores_list)
+
+		# randomly swap positions
+		if np.random.random() > 0.5:
+			temp = result1
+			result1 = result2
+			result2 = temp
+
 
 		target = self.target_function(result1, result2)
 
