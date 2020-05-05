@@ -403,7 +403,7 @@ def get_data_loaders_msmarco(cfg):
 	return dataloaders
 
 def get_data_loaders_robust(cfg):
-	train_validation_ratio = 0.8
+	train_validation_ratio = 0.9
 	docs_fi = FileInterface(cfg.robust_docs)
 	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
