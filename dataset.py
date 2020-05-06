@@ -249,23 +249,45 @@ class WeakSupervisonTrain(data.Dataset):
 
 		self.top_k_per_query = top_k_per_query
 
+		# setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
+		self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
 
-		# if sampler == 'uniform':
-		# 	pass
-		# 	# self.sample_function = self.random_both
-		# # elif sampler == "relevant":
-		# # 	self.sample_function = self.random_relevants
-		# else:
-		# 	raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'uniform'}, but :" + str( sampler))
+
+		if sampler == 'uniform':
+			# self.sample_weights = np.ones(self.max_candidates)
+			self.sampler_function = self.sample_uniform
+			pass
+		elif sampler == 'zipf':
+			# initialize common calculations
+			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
+			self.sampler_function = self.sample_zipf
+		else:
+			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'uniform', 'zipf'}, but :" + str( sampler))
+		self.sampler = sampler
 
 
 		if target == 'binary':
 			self.target_function = self.binary_target
+		elif target == 'rank_prob':
+			self.target_function = self.probability_difference_target
 		else:
-			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary'}, but :" + str( sampler))
+			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary', 'rank_prob'}, but :" + str( sampler))
 
 		self.sampler = sampler
 		self.target = target
+
+
+
+
+	def sample_uniform(self, scores_list, n):
+		return np.random.choice(scores_list, size=n, replace=False)
+
+
+	def sample_zipf(self, scores_list, n):
+		# normalize sampling probabilities depending on the number of candidates
+		length = len(scores_list)
+		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
+		return np.random.choice(scores_list, size=n, replace=False, p=p)
 
 
 	def __len__(self):
@@ -291,38 +313,15 @@ class WeakSupervisonTrain(data.Dataset):
 		doc2 = self.documents.get_tokenized_element(d2_id)
 		if doc2 is None:
 			return None
-		# shuffle order
-		if np.random.random() > 0.5:
-			return [query, doc1, doc2], 1
-		else:
-			return [query, doc2, doc1], -1
 
+		return [query, doc1, doc2], target
 
-	# def sample_from_relevants, depends on 'sampler' parameter
+	def sample_with_negative(self, scores_list):
 
-
-	def random_with_positive(self, scores_list):
-
-		index_A = random.randint(0, len(scores_list) - 1)
-
-		index_B = random.randint(0, len(scores_list) - 1)
-		# make sure they are not the same
-		while index_B == index_A:
-			index_B = random.randint(0, len(scores_list) - 1)
-		# get actual results from indices
-		sample_A = scores_list[index_A]
-		sample_B = scores_list[index_B]
-
-		return sample_A, sample_B
-
-	def random_with_negative(self, scores_list):
-		# randomly sample a document id and its result from the scores_list
-		relevant_sample_index = random.randint(0, len(scores_list) - 1)
-
-		relevant_sample_result = scores_list[relevant_sample_index]
+		# sample a relevant document
+		relevant_sample_result = self.sampler_function(scores_list = scores_list, n = 1)[0]
 
 		relevant_doc_id = relevant_sample_result[0]
-
 
 		# sample a random doument from all documents
 		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
@@ -344,14 +343,20 @@ class WeakSupervisonTrain(data.Dataset):
 		target = 1 if result1[1] > result2[1] else -1
 		return  target
 
+	# implementation of the rank_prob model's target from paper : Neural Ranking Models with Weak Supervision (https://arxiv.org/abs/1704.08803)
+	def probability_difference_target(self, result1, result2):
+		target = result1[1] / (result1[1] + result2[1])
+		return target
+
+
 	def get_sample_from_query_scores(self, scores_list):
 
 		if np.random.random() > 0.5:
 			# sample from relevant ones
-			result1, result2 = self.random_with_positive(scores_list)
+			resut1,	result2 = self.sampler_function(scores_list = scores_list, n = 2)
 		else:
-			# sample one rel and one negative
-			result1, result2 = self.random_with_negative(scores_list)
+			# sample one relevant and one negative
+			result1, result2 = self.sample_with_negative(scores_list)
 
 		# randomly swap positions
 		if np.random.random() > 0.5:

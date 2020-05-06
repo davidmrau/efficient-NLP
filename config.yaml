@@ -60,7 +60,7 @@ robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${
 robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
-sampler: 'both'
+sampler: 'uniform'
 target: 'binary'
 top_k_per_query: -1
 dataset: ''
