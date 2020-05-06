@@ -3,17 +3,24 @@ from torch import nn
 from run_model import train, evaluate
 from torch.optim import Adam
 import os
+import torch
 from datetime import datetime
 from omegaconf import OmegaConf
 from dataset import get_data_loaders_robust, get_data_loaders_msmarco
 import shutil
+import numpy as np
 from utils import get_model_folder_name, _getThreads, instantiate_model
 from metrics import MRR, MAPTrec
 from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 from torch.utils.tensorboard import SummaryWriter
-
+import random
 
 def exp(cfg):
+	# set seeds
+	torch.manual_seed(cfg.seed)
+	np.random.seed(cfg.seed)
+	random.seed(cfg.seed)
+
 	# printing params
 	print(cfg.pretty())
 
@@ -26,6 +33,12 @@ def exp(cfg):
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
 	model, device = instantiate_model(cfg)
+
+
+	# set seeds
+	torch.manual_seed(cfg.seed)
+	np.random.seed(cfg.seed)
+	random.seed(cfg.seed)
 
 	avail_threads = _getThreads()
 

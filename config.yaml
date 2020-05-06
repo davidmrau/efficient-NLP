@@ -39,6 +39,7 @@ l1_scalar: 0.0
 num_of_decimals: 5
 balance_scalar: 0.0
 disable_cuda: False
+seed: 1
 data_path: "data/"
 embedding: 'bert'
 glove_embedding_path: '${data_path}/embeddings/glove.6B.300d.p'
