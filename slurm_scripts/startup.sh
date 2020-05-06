@@ -6,6 +6,7 @@ curl -Lb cookie "https://drive.google.com/uc?export=download&confirm=${code}&id=
 
 rm cookie
 
+chmod u+x ../telegram.sh
 # download data
 tar -xzvf data.tar.gz
 mv data ../

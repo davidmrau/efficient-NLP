@@ -39,7 +39,7 @@ N_GRAM_MODELS="cnn"
 # Dense EMB-500-100-500
 SNRM_HIDDEN="100-300"
 
-telegram.sh "${0} ${SLURM_JOBID} Started"
+bash telegram.sh "${0} ${SLURM_JOBID} Started"
 
 
 for EMBEDDING in ${EMBEDDINGS}; do
@@ -55,4 +55,4 @@ for EMBEDDING in ${EMBEDDINGS}; do
 done
 
 
-telegram.sh "${0} ${SLURM_JOBID} Finished"
+bash telegram.sh "${0} ${SLURM_JOBID} Finished"
