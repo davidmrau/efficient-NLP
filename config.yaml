@@ -30,7 +30,7 @@ snrm:
   embedding_dim: 768
 debug: False
 max_rank: 1000
-experiments_dir: "experiments"
+experiments_dir: "experiments_${dataset}"
 temp_exp_prefix: "Dev..."
 max_candidates_per_posting_list: -1
 num_epochs: 100

@@ -392,33 +392,38 @@ class MSMarcoLM(data.Dataset):
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
 
-
+def split_datasest(train_val_ratio, dataset):
+	lengths = [math.floor(len(dataset)*train_validation_ratio), math.ceil(len(dataset)*(1-train_validation_ratio))]
+	# split dataset into train and test
+	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
+	return train_dataset, validation_dataset
 
 def get_data_loaders_msmarco(cfg):
 
 	cfg.msmarco_triplets_train = add_before_ending(cfg.msmarco_triplets_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
-	dataloaders['train'] = DataLoader(MSMarcoTrain(cfg.msmarco_triplets_train, cfg.msmarco_docs_train, cfg.msmarco_query_train),
+	dataset = MSMarcoTrain(cfg.msmarco_triplets_train, cfg.msmarco_docs_train, cfg.msmarco_query_train)
+	
+	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
+	
+	dataloaders['train'] = DataLoader(train_dataseti,
 	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
-
+	dataloaders['val'] = DataLoader(validation_dataset,
+	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
 	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
 	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
 
-	dataloaders['val'] = [query_batch_generator, docs_batch_generator]
+	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
 
 def get_data_loaders_robust(cfg):
-	train_validation_ratio = 0.9
 	docs_fi = FileInterface(cfg.robust_docs)
 	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
 	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
 	# calculate train and validation size according to train_validation_ratio
-	lengths = [math.floor(len(dataset)*train_validation_ratio), math.ceil(len(dataset)*(1-train_validation_ratio))]
-	# split dataset into train and test
-	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
-
+	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
 

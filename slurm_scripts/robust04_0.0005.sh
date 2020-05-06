@@ -1,15 +1,12 @@
 #!/bin/bash
 # Set job requirements
-#SBATCH --job-name=r_2.0
+#SBATCH --job-name=r_5
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:4
 #SBATCH --time=120:00:00
 #SBATCH --mem=100G
 
-
-#SBATCH --mail-type=BEGIN,END
-#SBATCH --mail-user=kondilidisn9@gmail.com
 
 #Loading modules
 module purge
@@ -32,7 +29,7 @@ TRAIN_SAMPLES="10000"
 VAL_SAMPLES="10000"
 NUM_EPOCHS="10000"
 
-L1_SCALARS="2"
+L1_SCALARS="0.0005"
 SPARSE_DIMENSIONS="5000"
 
 
@@ -53,3 +50,5 @@ for EMBEDDING in ${EMBEDDINGS}; do
 		done
 	done
 done
+
+telegram '${0} ${SLURM_JOBID}'
