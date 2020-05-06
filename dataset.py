@@ -319,8 +319,9 @@ class WeakSupervisonTrain(data.Dataset):
 
 	def sample_with_negative(self, scores_list):
 
-		# sample a relevant document
-		relevant_sample_result = self.sampler_function(scores_list = scores_list, n = 1)[0]
+		# sample a relevant document.
+		# In this case, the random relevant document is always being sampled uniformly!
+		relevant_sample_result = self.sample_uniform(scores_list = scores_list, n = 1)[0]
 
 		relevant_doc_id = relevant_sample_result[0]
 
@@ -392,8 +393,8 @@ class MSMarcoLM(data.Dataset):
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
 
-def split_datasest(train_val_ratio, dataset):
-	lengths = [math.floor(len(dataset)*train_validation_ratio), math.ceil(len(dataset)*(1-train_validation_ratio))]
+def split_dataset(train_val_ratio, dataset):
+	lengths = [math.floor(len(dataset)*train_val_ratio), math.ceil(len(dataset)*(1-train_val_ratio))]
 	# split dataset into train and test
 	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
 	return train_dataset, validation_dataset
@@ -422,7 +423,7 @@ def get_data_loaders_robust(cfg):
 	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
 	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
-	# calculate train and validation size according to train_validation_ratio
+	# calculate train and validation size according to train_val_ratio
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
