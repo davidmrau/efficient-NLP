@@ -4,7 +4,7 @@ from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogr
 
 def log_progress(writer, mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
                  balance_loss, total_loss, l0_q, l0_docs, acc):
-	print("  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(currently_trained_samples,
+	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples,
 	                                                                                samples_per_epoch, total_loss, loss, l1_loss,
 	                                                                                balance_loss))
 	# update tensorboard

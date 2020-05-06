@@ -263,7 +263,8 @@ class WeakSupervisonTrain(data.Dataset):
 			self.sampler_function = self.sample_zipf
 		else:
 			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'uniform', 'zipf'}, but :" + str( sampler))
-		self.sampler = sampler
+		# having a calculated list of indices, that will be used while sampling
+		self.candidate_indices = [i for i in range(self.max_candidates)]
 
 
 		if target == 'binary':
@@ -273,21 +274,21 @@ class WeakSupervisonTrain(data.Dataset):
 		else:
 			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary', 'rank_prob'}, but :" + str( sampler))
 
-		self.sampler = sampler
-		self.target = target
-
-
-
 
 	def sample_uniform(self, scores_list, n):
-		return np.random.choice(scores_list, size=n, replace=False)
+		length = len(scores_list)
+		indices = self.candidate_indices[:length]
+		sampled_indices = np.random.choice(indices, size=n, replace=False)
+		return [scores_list[i] for i in sampled_indices]
 
 
 	def sample_zipf(self, scores_list, n):
-		# normalize sampling probabilities depending on the number of candidates
 		length = len(scores_list)
+		indices = self.candidate_indices[:length]
+		# normalize sampling probabilities depending on the number of candidates
 		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
-		return np.random.choice(scores_list, size=n, replace=False, p=p)
+		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
+		return [scores_list[i] for i in sampled_indices]
 
 
 	def __len__(self):
@@ -353,7 +354,7 @@ class WeakSupervisonTrain(data.Dataset):
 
 		if np.random.random() > 0.5:
 			# sample from relevant ones
-			resut1,	result2 = self.sampler_function(scores_list = scores_list, n = 2)
+			result1, result2 = self.sampler_function(scores_list = scores_list, n = 2)
 		else:
 			# sample one relevant and one negative
 			result1, result2 = self.sample_with_negative(scores_list)
