@@ -1,6 +1,6 @@
 #!/bin/bash
 # Set job requirements
-#SBATCH --job-name=0.0005
+#SBATCH --job-name=0.000025
 #SBATCH --ntasks=1
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:4
@@ -29,7 +29,7 @@ TRAIN_SAMPLES="10000"
 VAL_SAMPLES="10000"
 NUM_EPOCHS="10000"
 
-L1_SCALARS="0.0005"
+L1_SCALARS="0.000025"
 SPARSE_DIMENSIONS="5000"
 
 
@@ -40,7 +40,6 @@ N_GRAM_MODELS="cnn"
 SNRM_HIDDEN="100-300"
 
 telegram.sh "${0} ${SLURM_JOBID} Started"
-
 
 for EMBEDDING in ${EMBEDDINGS}; do
 
@@ -53,6 +52,5 @@ for EMBEDDING in ${EMBEDDINGS}; do
 		done
 	done
 done
-
 
 telegram.sh "${0} ${SLURM_JOBID} Finished"
