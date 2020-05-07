@@ -15,6 +15,102 @@ import pickle
 import random
 from tokenizer import Tokenizer
 
+class StrongData(IterableDataset):
+	def __init__(self, strong_results_filename, documents_fi, queries_path, target):
+
+		# "open" triplets file
+		self.strong_results_file = FileInterface(strong_results_filename)
+
+		# "open" documents file
+		self.documents = documents_fi
+
+		# create a list of docment ids
+		self.doc_ids_list = list(self.documents.seek_dict)
+
+		# "open" queries file
+		self.queries = FileInterface(queries_path)
+
+
+		if target == 'binary':
+			self.target_function = self.binary_target
+		elif target == 'rank_prob':
+			self.target_function = self.probability_difference_target
+		else:
+			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary', 'rank_prob'}, but :" + str( sampler))
+
+
+
+
+	def __len__(self):
+		return len(self.strong_results_file)
+
+	def binary_target(self, result1, result2):
+		# 1 if result1 is better and -1 if result2 is better
+		target = 1 if result1[1] > result2[1] else -1
+		return  target
+		# implementation of the rank_prob model's target from paper : Neural Ranking Models with Weak Supervision (https://arxiv.org/abs/1704.08803)
+	def probability_difference_target(self, result1, result2):
+		target = result1[1] / (result1[1] + result2[1])
+		return target
+
+	# sampling candidates functions
+	# sample a negative candidate from the collection
+	def sample_negative_document_result(self, exclude_doc_ids_set):
+		# get a random index from documents' list
+		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
+		# get the corresponding document id
+		random_doc_id = self.doc_ids_list[random_doc_index]
+		# retrieve content of the random document
+		document_content = self.documents.get_tokenized_element(random_doc_id)
+		# make sure that the random document's id is not in the exclude list and its content is not empty
+		while random_doc_id in exclude_doc_ids_set and document_content is not None:
+		# get a random index from documents' list
+			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
+		# get the corresponding document id
+			random_doc_id = self.doc_ids_list[random_doc_index]
+			# retrieve content of the random document
+			document_content = self.documents.get_tokenized_element(random_doc_id)
+		return (random_doc_id, 0, document_content)
+
+	def __iter__(self):
+		for index in range(len(self)):
+			q_id, query_results = self.weak_results_file.read_all_results_of_query_index(index, top_k_per_query = -1)
+			rel_docs = [el if el[1] > 0 for el in query_results ]
+			rel_docs_set = {doc_id for doc_id, score in rel_docs}	
+			non_rel_docs = [el if el[1] <= 0 for el in query_results ]
+			for d1_id, score_1 in rel_docs:
+				if np.random.random() > 0.5:
+					if len(non_rel_docs) > 0:
+						d2_id, d2_score = non_rel_docs.pop()
+						content = self.documents.get_tokenized_element(d2_id)
+						doc2 = (d2_id, d2_score, content )
+						
+					else:
+						doc2 = self.sample_negative_document_result(rel_docs_set)
+				else:
+					doc2 = self.sample_negative_document_result(rel_docs_set)
+	
+				# after tokenizing / preprocessing, some queries/documents have empty content.
+				# If any of these are among 3 the selected ones, then we do not create this triplet sample
+				# In that case, we return None, as soon as possible, so that other file reading operations can be avoided
+
+				# retrieve tokenized content, given id
+				query = self.queries.get_tokenized_element(q_id)
+				doc1 = self.documents.get_tokenized_element(d1_id)
+	
+				if doc1 is None:
+					yield None
+				if doc2[2] is None:
+					yield None
+					
+				# randomly swap positions
+				if np.random.random() > 0.5:
+					temp = doc1
+					doc1 = doc2
+					doc2 = temp
+				
+				target = self.target_function(doc1, doc2)
+				yield [query, doc1[2], doc2[2]], target
 
 class MSMarcoTrain(data.Dataset):
 
