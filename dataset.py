@@ -156,9 +156,6 @@ class MSMarcoSequential(IterableDataset):
 
 	def __iter__(self):
 		self.file_.seek(0)
-		return self
-
-	def __next__(self):
 		for line in self.file_:
 			# getting position of '\t' that separates the doc_id and the begining of the token ids
 			delim_pos = line.find('\t')
@@ -167,8 +164,7 @@ class MSMarcoSequential(IterableDataset):
 			# extracting the token_ids and creating a numpy array
 			tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 
-			return [id_, tokens_list]
-		raise StopIteration
+			yield [id_, tokens_list]
 
 
 class MSMarcoSequentialDev:
@@ -333,9 +329,10 @@ class WeakSupervisionEval:
 
 			yield batch_ids, batch_data, batch_lengths
 
-class WeakSupervisonTrain(data.Dataset):
-	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'uniform', target='binary'):
 
+class WeakSupervision(IterableDataset):
+	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'uniform', target='binary',
+			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True):
 
 		# "open" triplets file
 		self.weak_results_file = FileInterface(weak_results_filename)
@@ -350,24 +347,17 @@ class WeakSupervisonTrain(data.Dataset):
 		self.queries = FileInterface(queries_path)
 
 		self.top_k_per_query = top_k_per_query
+		# defines the full(~1000) combinations to be calculated for a number of (samples_per_query) queries
+		self.samples_per_query = samples_per_query
 
-		# setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
-		self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
+		# if True, then we create exactly one positive sample for each query
+		self.single_sample = single_sample
+		# if strong_negatives == True then then reassuring that negative samples are not among the (weakly) relevant ones
+		self.strong_negatives = strong_negatives
 
+		self.shuffle = shuffle
 
-		if sampler == 'uniform':
-			# self.sample_weights = np.ones(self.max_candidates)
-			self.sampler_function = self.sample_uniform
-			pass
-		elif sampler == 'zipf':
-			# initialize common calculations
-			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
-			self.sampler_function = self.sample_zipf
-		else:
-			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'uniform', 'zipf'}, but :" + str( sampler))
-		# having a calculated list of indices, that will be used while sampling
-		self.candidate_indices = [i for i in range(self.max_candidates)]
-
+		self.min_results = min_results
 
 		if target == 'binary':
 			self.target_function = self.binary_target
@@ -376,25 +366,186 @@ class WeakSupervisonTrain(data.Dataset):
 		else:
 			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary', 'rank_prob'}, but :" + str( sampler))
 
+		# setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
+		self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
 
-	def sample_uniform(self, scores_list, n):
+		if sampler == 'top_n':
+			self.sampler_function = self.sample_top_n
+		elif sampler == 'uniform':
+			self.sampler_function = self.sample_uniform
+		elif sampler == 'zipf':
+			# initialize common calculations
+			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
+			self.sampler_function = self.sample_zipf
+		else:
+			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'top_n', 'uniform', 'zipf'}, but :" + str( sampler))
+		# having a calculated list of indices, that will be used while sampling
+		self.candidate_indices = [i for i in range(self.max_candidates)]
+
+		# this will be used later in case suffle is True
+		self.query_indices = [i for i in range(len(weak_results_file))]
+
+
+	def generate_triplet(self, query, candidates):
+		# shuffle order of candidates
+		random.shuffle(candidates)
+		# get target
+		target = self.target_function(candidates)
+		# get document content from tupples
+		doc1 = candidates[0][2]
+		doc2 = candidates[1][2]
+
+		return [query, doc1, doc2], target
+
+
+	def __iter__(self):
+
+		if self.suffle:
+			random.shuffle(self.query_indices)
+
+		for q_index in self.query_indices:
+			q_id, query_results = self.weak_results_file.read_all_results_of_query_index(q_index, self.top_k_per_query)
+
+			# if the content of the query is empty, then skip this query
+			query = self.queries.get_tokenized_element(q_id)
+			if query is None:
+				continue
+
+			# make sure that there are not any empty documents on the retrieved documents list (query_results)
+			# since we are reading the documents we are also saving their contents in memory as an extra item in the final tupples
+			non_empty_query_results_with_content = []
+			for doc_id, score in query_results:
+				document_content = self.documents.get_tokenized_element(doc_id)
+				if document_content is not None:
+					# updating list with non empy_documents, and also adding the content of the document ot the tupple
+					non_empty_query_results_with_content.append((doc_id, score, document_content))
+			query_results = non_empty_query_results_with_content
+
+			# skip queries that do not have the necessary nuber of results 
+			if len(query_results) < self.min_results:
+				continue
+
+			# reassuring that negative results are not among the weak scorer results, by creting a set with all relevant ids
+			if self.strong_negatives:
+				relevant_doc_ids_set = {doc_id for doc_id , _, _ in query_results }
+
+			#  if we are generating exactly one relevant sample for each query (and one negative)
+			if self.single_sample:
+
+				# sample candidates
+				candidates = self.sampler_function(scores_list = query_results, n = 2)
+
+				# yield triplet of relevants
+				yield self.generate_triplet(query, candidates)
+
+				# get the first of the candidates in order to be matched with a random negative document
+				result1 = candidates[0]
+
+				# add the relevant document id to the excluding list if we haven't already
+				if self.strong_negatives == False:
+					rel_doc_id = result1[0]
+					relevant_doc_ids_set = {rel_doc_id}
+
+				negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
+
+				yield self.generate_triplet(query, [result1, negative_result])
+
+			#  if we are generating all combinations from samples_per_query candidates with all the candidates samples
+			# (plus 1 negative sample for each of the afforementioned samples)
+			else:
+
+				if self.samples_per_query == -1:
+					candidate_indices = [i for i in range( len(query_results) )]
+				else:
+					candidate_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
+					candidate_indices.sort()
+
+				# generating a sample for each combination of i_th candidate with j_th candidate, without duplicates 
+				for i in candidate_indices:
+					for j in range(len(query_results)):
+						# making sure that we do not have any duplicates
+						if (j not in candidate_indices) or (j > i):
+
+							# yield triplet of relevants
+							candidate1 = query_results[i]
+							candidate2 = query_results[j]
+							yield self.generate_triplet(query, [candidate1, candidate2])
+
+							# yield triplet of irrelevants
+							# add the relevant document id to the excluding list if we haven't already
+							if self.strong_negatives == False:
+								rel_doc_id = candidate1[0]
+								relevant_doc_ids_set = {rel_doc_id}
+
+							negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
+
+							yield self.generate_triplet(query, [candidate1, negative_result])
+
+
+# target value calculation functions
+	# binary targets -1/1 defining which is the more relevant candidate out of the two candidates
+	def binary_target(self, result1, result2):
+		# 1 if result1 is better and -1 if result2 is better
+		target = 1 if result1[1] > result2[1] else -1
+		return  target
+
+	# implementation of the rank_prob model's target from paper : Neural Ranking Models with Weak Supervision (https://arxiv.org/abs/1704.08803)
+	def probability_difference_target(self, result1, result2):
+		target = result1[1] / (result1[1] + result2[1])
+		return target
+
+# sampling candidates functions
+	# sample a negative candidate from the collection
+	def sample_negative_document_result(self, exclude_doc_ids_set):
+		# get a random index from documents' list
+		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
+		# get the corresponding document id
+		random_doc_id = self.doc_ids_list[random_doc_index]
+		# retrieve content of the random document
+		document_content = self.documents.get_tokenized_element(random_doc_id)
+
+		# make sure that the random document's id is not in the exclude list and its content is not empty
+		while random_doc_id in exclude_doc_ids_set and document_content is not None:
+		# get a random index from documents' list
+			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
+		# get the corresponding document id
+			random_doc_id = self.doc_ids_list[random_doc_index]
+			# retrieve content of the random document
+			document_content = self.documents.get_tokenized_element(random_doc_id)
+
+		return (random_doc_id, 0, document_content)
+
+	# sampling out of relevant documents functions :
+
+	def sample_uniform(self, scores_list, n, return_indices = False):
 		length = len(scores_list)
 		indices = self.candidate_indices[:length]
 		sampled_indices = np.random.choice(indices, size=n, replace=False)
+		if return_indices:
+			return sampled_indices
 		return [scores_list[i] for i in sampled_indices]
 
-
-	def sample_zipf(self, scores_list, n):
+	def sample_zipf(self, scores_list, n, return_indices = False):
 		length = len(scores_list)
 		indices = self.candidate_indices[:length]
 		# normalize sampling probabilities depending on the number of candidates
 		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
 		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
+		if return_indices:
+			return sampled_indices
 		return [scores_list[i] for i in sampled_indices]
 
+	def sample_top_n(self, scores_list, n, return_indices = False):
+		if return_indices:
+			return [i for i in range(n)]
+		return scores_list[:n]
 
-	def __len__(self):
-		return len(self.weak_results_file)
+	#  def sample linear
+
+
+
+class WeakSupervisonTrain(WeakSupervision, data.Dataset):
+	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'uniform', target='binary'):
 
 
 	def __getitem__(self, index):
@@ -442,17 +593,6 @@ class WeakSupervisonTrain(data.Dataset):
 		return relevant_sample_result, random_doc_result
 
 
-	def binary_target(self, result1, result2):
-		# 1 if result1 is better and -1 if result2 is better
-		target = 1 if result1[1] > result2[1] else -1
-		return  target
-
-	# implementation of the rank_prob model's target from paper : Neural Ranking Models with Weak Supervision (https://arxiv.org/abs/1704.08803)
-	def probability_difference_target(self, result1, result2):
-		target = result1[1] / (result1[1] + result2[1])
-		return target
-
-
 	def get_sample_from_query_scores(self, scores_list):
 
 		if np.random.random() > 0.5:
@@ -471,6 +611,13 @@ class WeakSupervisonTrain(data.Dataset):
 		target = self.target_function(result1, result2)
 
 		return result1[0], result2[0], target
+
+
+
+
+
+
+
 
 class MSMarcoLM(data.Dataset):
 
@@ -513,8 +660,13 @@ def get_data_loaders_msmarco(cfg):
 	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset,
 	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
-	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
-	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
+
+
+	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
+
+
+	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
+	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
 
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
@@ -530,8 +682,10 @@ def get_data_loaders_robust(cfg):
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
 
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False)
+	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
+
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True, num_workers = sequential_num_workers)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False, num_workers = sequential_num_workers)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
