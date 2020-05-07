@@ -40,7 +40,6 @@ class StrongData(IterableDataset):
 
 
 
-
 	def __len__(self):
 		return len(self.strong_results_file)
 
@@ -75,9 +74,16 @@ class StrongData(IterableDataset):
 	def __iter__(self):
 		for index in range(len(self)):
 			q_id, query_results = self.weak_results_file.read_all_results_of_query_index(index, top_k_per_query = -1)
-			rel_docs = [el if el[1] > 0 for el in query_results ]
+			rel_docs, non_rel_docs = list(), list()
+
+			for el in query_results:
+				if el[1] > 0:
+					rel_docs.append(el)
+				else:
+					non_rel_docs.append(el)
+
 			rel_docs_set = {doc_id for doc_id, score in rel_docs}	
-			non_rel_docs = [el if el[1] <= 0 for el in query_results ]
+
 			for d1_id, score_1 in rel_docs:
 				if np.random.random() > 0.5:
 					if len(non_rel_docs) > 0:
