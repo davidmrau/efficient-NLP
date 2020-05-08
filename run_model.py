@@ -1,24 +1,20 @@
 import torch
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
-	plot_ordered_posting_lists_lengths
+	plot_ordered_posting_lists_lengths, Average, EarlyStopping
 
 
-def log_progress(writer, mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
-                 balance_loss, total_loss, l0_q, l0_docs, acc):
-	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode,
-	                                                                                                      currently_trained_samples,
-	                                                                                                      samples_per_epoch,
-	                                                                                                      total_loss,
-	                                                                                                      loss, l1_loss,
-	                                                                                                      balance_loss))
-	# update tensorboard
-	writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
-	writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
-	writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_trained_samples)
-	writer.add_scalar(f'{mode}_total_loss', total_loss, total_trained_samples)
-	writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
-	writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
-	writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
+def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
+                 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
+	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss))
+	if writer:
+		# update tensorboard
+		writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_total_loss', total_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
+		writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
 
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
@@ -41,7 +37,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 	cur_trained_samples = 0
 
-	av_total_loss = 0
+	av_loss, av_l1_loss, av_balance_loss, av_total_loss, av_l0_q, av_l0_docs, av_acc = Average(), Average(), Average(), Average(), Average(), Average(), Average()
 
 	while cur_trained_samples < samples_per_epoch:
 		try:
@@ -97,7 +93,6 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		# aggregating losses and running backward pass and update step
 		total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
-		av_total_loss += total_loss * batch_samples_number
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.zero_grad()
@@ -105,23 +100,24 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			optim.step()
 
 		torch.cuda.empty_cache()
-
+		av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc) 
 		# get pogress ratio
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
 
 		# check whether we should log (only when in train mode)
 		if samples_trained_ratio > current_log_threshold:
 			# log
-			log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
-			             balance_loss, total_loss, l0_q, l0_docs, acc)
+			log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
+			             av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val)
 			# update log threshold
 			current_log_threshold = samples_trained_ratio + log_every_ratio
 
 	# log the values of the final training step
 	# log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
-
-	return total_trained_samples, av_total_loss / cur_trained_samples
+	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
+			             av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
+	return total_trained_samples, av_total_loss.val.item()
 
 
 def get_all_reprs(model, dataloader, device):
@@ -199,10 +195,10 @@ def evaluate(model, mode, data_loaders, device, max_rank, total_trained_samples,
 	metric_score = metric.score(scores, q_ids)
 
 	if writer != None:
-		writer.add_scalar(f'Evaluate_fn_{mode}_l1_loss', l1_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
 
-		writer.add_scalar(f'Evaluate_fn_{mode}_L0_query', q_l0_loss, total_trained_samples)
-		writer.add_scalar(f'Evaluate_fn_{mode}_L0_docs', d_l0_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_query', q_l0_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_docs', d_l0_loss, total_trained_samples)
 
 		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 	print(f'{mode} -  {metric.name}: {metric_score}')
@@ -237,9 +233,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		Best model found throughout the training
 
 	"""
-
-	best_metric_score = 1e20 if validate else -1
-	curr_patience = 0
+	eval_mode='min' if validate else 'max'
+	early_stopper = EarlyStopping(patience=patience, mode=eval_mode)
 	total_trained_samples = 0
 
 	# initialize data loader for the first epoch
@@ -249,6 +244,9 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			batch_iterator_val = iter(dataloaders['val'])
 
 	for epoch in range(1, epochs + 1):
+		if early_stopper.stop:
+			print("Early Stopping!")
+			break
 		print('Epoch', epoch)
 		# training
 		with torch.enable_grad():
@@ -291,23 +289,15 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				
 
 				# check for early stopping
-				if (metric_score < best_metric_score and validate) or (metric_score > best_metric_score and not validate) :
+				if not early_stopper.step(metric_score) :
 					print(f'Best model at current epoch {epoch}, av value: {metric_score}')
-					curr_patience = 0
-					best_metric_score = metric_score
 					# save best model so far to file
 					torch.save(model, f'{model_folder}/best_model.model')
+				
 
-				else:
-
-					curr_patience += 1
-
-					if curr_patience >= patience:
-						print("Early Stopping!")
-						break
 
 	if not bottleneck_run:
 		# load best model
 		model = torch.load(f'{model_folder}/best_model.model')
 
-	return model, best_metric_score, total_trained_samples
+	return model, early_stopper.best, total_trained_samples
