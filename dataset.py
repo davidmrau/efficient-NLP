@@ -1,17 +1,11 @@
-import numpy as np
-import torch
+
 from torch.utils import data
 from utils import *
-from torchtext.data.utils import get_tokenizer
-from os import path
 from fake_data import *
-from random import randint
 from file_interface import FileInterface
 from torch.utils.data import DataLoader, IterableDataset
-from os import path
 from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single
 import math
-import pickle
 import random
 from tokenizer import Tokenizer
 
@@ -36,8 +30,7 @@ class StrongData(IterableDataset):
 		elif target == 'rank_prob':
 			self.target_function = self.probability_difference_target
 		else:
-			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary', 'rank_prob'}, but :" + str( sampler))
-
+			raise ValueError("Param 'target' of StrongData, was not among {'binary', 'rank_prob'}, but :" + str( target))
 
 
 	def __len__(self):
@@ -88,13 +81,13 @@ class StrongData(IterableDataset):
 				if np.random.random() > 0.5:
 					if len(non_rel_docs) > 0:
 						d2_id, d2_score = non_rel_docs.pop()
-						content = self.documents.get_tokenized_element(d2_id)
-						doc2 = (d2_id, d2_score, content )
+						content_2 = self.documents.get_tokenized_element(d2_id)
+						result_2 = (d2_id, d2_score, content_2 )
 						
 					else:
-						doc2 = self.sample_negative_document_result(rel_docs_set)
+						result_2 = self.sample_negative_document_result(rel_docs_set)
 				else:
-					doc2 = self.sample_negative_document_result(rel_docs_set)
+					result_2 = self.sample_negative_document_result(rel_docs_set)
 	
 				# after tokenizing / preprocessing, some queries/documents have empty content.
 				# If any of these are among 3 the selected ones, then we do not create this triplet sample
@@ -102,11 +95,12 @@ class StrongData(IterableDataset):
 
 				# retrieve tokenized content, given id
 				query = self.queries.get_tokenized_element(q_id)
-				doc1 = self.documents.get_tokenized_element(d1_id)
+				content_1 = self.documents.get_tokenized_element(d1_id)
+				result_1 = (d1_id, score_1, content_1)
 	
-				if doc1 is None:
+				if result_1[2] is None:
 					yield None
-				if doc2[2] is None:
+				if result_2[2] is None:
 					yield None
 					
 				# randomly swap positions
@@ -115,8 +109,8 @@ class StrongData(IterableDataset):
 					doc1 = doc2
 					doc2 = temp
 				
-				target = self.target_function(doc1, doc2)
-				yield [query, doc1[2], doc2[2]], target
+				target = self.target_function(result_1, result_2)
+				yield [query, result_1[2], result_2[2]], target
 
 class MSMarcoTrain(data.Dataset):
 
@@ -364,7 +358,7 @@ class WeakSupervision(IterableDataset):
 		elif target == 'rank_prob':
 			self.target_function = self.probability_difference_target
 		else:
-			raise ValueError("Param 'target' of WeakSupervisonTrain, was not among {'binary', 'rank_prob'}, but :" + str( sampler))
+			raise ValueError("Param 'target' of WeakSupervision, was not among {'binary', 'rank_prob'}, but :" + str( target))
 
 		# setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
 		self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
@@ -378,13 +372,15 @@ class WeakSupervision(IterableDataset):
 			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
 			self.sampler_function = self.sample_zipf
 		else:
-			raise ValueError("Param 'sampler' of WeakSupervisonTrain, was not among {'top_n', 'uniform', 'zipf'}, but :" + str( sampler))
+			raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf'}, but :" + str( sampler))
 		# having a calculated list of indices, that will be used while sampling
-		self.candidate_indices = [i for i in range(self.max_candidates)]
+		self.candidate_indices = list(range(self.max_candidates))
 
 		# this will be used later in case suffle is True
-		self.query_indices = [i for i in range(len(weak_results_file))]
+		self.query_indices = list(range(len(self.weak_results_file)))
 
+	def __len__(self):
+		raise NotImplementedError()
 
 	def generate_triplet(self, query, candidates):
 		# shuffle order of candidates
@@ -544,78 +540,6 @@ class WeakSupervision(IterableDataset):
 
 
 
-class WeakSupervisonTrain(WeakSupervision, data.Dataset):
-	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'uniform', target='binary'):
-
-
-	def __getitem__(self, index):
-		q_id, query_results = self.weak_results_file.read_all_results_of_query_index(index, self.top_k_per_query)
-
-		d1_id, d2_id, target = self.get_sample_from_query_scores(query_results)
-
-		# after tokenizing / preprocessing, some queries/documents have empty content.
-		# If any of these are among 3 the selected ones, then we do not create this triplet sample
-		# In that case, we return None, as soon as possible, so that other file reading operations can be avoided
-
-		# retrieve tokenized content, given id
-		query = self.queries.get_tokenized_element(q_id)
-		if query is None:
-			return None
-		doc1 = self.documents.get_tokenized_element(d1_id)
-		if doc1 is None:
-			return None
-		doc2 = self.documents.get_tokenized_element(d2_id)
-		if doc2 is None:
-			return None
-
-		return [query, doc1, doc2], target
-
-	def sample_with_negative(self, scores_list):
-
-		# sample a relevant document.
-		# In this case, the random relevant document is always being sampled uniformly!
-		relevant_sample_result = self.sample_uniform(scores_list = scores_list, n = 1)[0]
-
-		relevant_doc_id = relevant_sample_result[0]
-
-		# sample a random doument from all documents
-		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
-
-		random_doc_id = self.doc_ids_list[random_doc_index]
-
-		# make sure the two document ids are different
-		while relevant_doc_id == random_doc_id:
-			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
-			random_doc_id = self.doc_ids_list[random_doc_index]
-
-		random_doc_result = (random_doc_id, 0)
-
-		return relevant_sample_result, random_doc_result
-
-
-	def get_sample_from_query_scores(self, scores_list):
-
-		if np.random.random() > 0.5:
-			# sample from relevant ones
-			result1, result2 = self.sampler_function(scores_list = scores_list, n = 2)
-		else:
-			# sample one relevant and one negative
-			result1, result2 = self.sample_with_negative(scores_list)
-
-		# randomly swap positions
-		if np.random.random() > 0.5:
-			temp = result1
-			result1 = result2
-			result2 = temp
-
-		target = self.target_function(result1, result2)
-
-		return result1[0], result2[0], target
-
-
-
-
-
 
 
 
@@ -656,7 +580,7 @@ def get_data_loaders_msmarco(cfg):
 	
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	
-	dataloaders['train'] = DataLoader(train_dataseti,
+	dataloaders['train'] = DataLoader(train_dataset,
 	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset,
 	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
@@ -676,7 +600,7 @@ def get_data_loaders_robust(cfg):
 	docs_fi = FileInterface(cfg.robust_docs)
 	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
 	dataloaders = {}
-	dataset = WeakSupervisonTrain(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
+	dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
 	# calculate train and validation size according to train_val_ratio
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
@@ -688,4 +612,22 @@ def get_data_loaders_robust(cfg):
 	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False, num_workers = sequential_num_workers)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
+	return dataloaders
+
+
+def get_data_loaders_robust_strong(cfg):
+	docs_fi = FileInterface(cfg.robust_docs)
+	dataloaders = {}
+	dataset = StrongData(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_test, target=cfg.target)
+	print(len(dataset))
+	exit()
+	# calculate train and validation size according to train_val_ratio
+	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
+	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
+
+	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
+
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True, num_workers = sequential_num_workers)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False, num_workers = sequential_num_workers)
+	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 	return dataloaders

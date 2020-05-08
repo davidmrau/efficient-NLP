@@ -1,12 +1,16 @@
 import torch
-from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
+from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
+	plot_ordered_posting_lists_lengths
 
 
 def log_progress(writer, mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
                  balance_loss, total_loss, l0_q, l0_docs, acc):
-	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples,
-	                                                                                samples_per_epoch, total_loss, loss, l1_loss,
-	                                                                                balance_loss))
+	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode,
+	                                                                                                      currently_trained_samples,
+	                                                                                                      samples_per_epoch,
+	                                                                                                      total_loss,
+	                                                                                                      loss, l1_loss,
+	                                                                                                      balance_loss))
 	# update tensorboard
 	writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
 	writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
@@ -93,7 +97,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		# aggregating losses and running backward pass and update step
 		total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
-		av_total_loss += total_loss*batch_samples_number 
+		av_total_loss += total_loss * batch_samples_number
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.zero_grad()
@@ -115,9 +119,9 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 	# log the values of the final training step
 	# log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
-	             # balance_loss, total_loss, l0_q, l0_docs, acc)
+	# balance_loss, total_loss, l0_q, l0_docs, acc)
 
-	return total_trained_samples, av_total_loss/cur_trained_samples
+	return total_trained_samples, av_total_loss / cur_trained_samples
 
 
 def get_all_reprs(model, dataloader, device):
@@ -206,8 +210,8 @@ def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_
 
 def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
           l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
-          debug=False, bottleneck_run=False, log_every_ratio=0.01, max_rank = 1000, metric = None, 
-          sparse_dimensions = 1000):
+          bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
+          sparse_dimensions=1000):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -246,9 +250,11 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# training
 		with torch.enable_grad():
 			model.train()
-			total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch, writer,
-			                                  l1_scalar, balance_scalar, total_trained_samples, device,
-			                                  optim=optim, samples_per_epoch=samples_per_epoch_train)
+			total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
+			                                     writer,
+			                                     l1_scalar, balance_scalar, total_trained_samples, device,
+			                                     optim=optim, samples_per_epoch=samples_per_epoch_train,
+			                                     log_every_ratio=log_every_ratio)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
@@ -257,19 +263,22 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				break
 			else:
 				# validate
-				total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer,
-				                                  l1_scalar, balance_scalar, total_trained_samples, device,
-				                                  optim=None, samples_per_epoch=samples_per_epoch_val)
+				total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val,
+				                                                  loss_fn, epoch, writer,
+				                                                  l1_scalar, balance_scalar, total_trained_samples,
+				                                                  device,
+				                                                  optim=None, samples_per_epoch=samples_per_epoch_val,
+				                                                  log_every_ratio=log_every_ratio)
 
 				# Run also proper evaluation script
-				_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, max_rank, writer, total_trained_samples, metric)
+				_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, max_rank,
+				                                                     writer, total_trained_samples, metric)
 
 				# plot stats
 				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 				plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
 				plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 				plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
-
 
 				# check for early stopping
 				if val_total_loss < best_val_total_loss:
@@ -286,7 +295,6 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 					if curr_patience >= patience:
 						print("Early Stopping!")
 						break
-
 
 	if not bottleneck_run:
 		# load best model

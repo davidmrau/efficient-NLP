@@ -6,7 +6,7 @@ import os
 import torch
 from datetime import datetime
 from omegaconf import OmegaConf
-from dataset import get_data_loaders_robust, get_data_loaders_msmarco
+from dataset import get_data_loaders_robust_strong
 import shutil
 import numpy as np
 from utils import get_model_folder_name, _getThreads, instantiate_model
@@ -59,11 +59,9 @@ def exp(cfg):
 
 	print('Loading data...')
 	# initialize dataloaders
-	if cfg.dataset == 'msmarco':
-		dataloaders = get_data_loaders_msmarco(cfg)
-		metric = MRR(cfg.msmarco_qrels_val, cfg.max_rank)
-	elif cfg.dataset == 'robust04':
-		dataloaders = get_data_loaders_robust(cfg)
+	if cfg.dataset == 'robust04':
+
+		dataloaders = get_data_loaders_robust_strong(cfg)
 		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
@@ -77,20 +75,12 @@ def exp(cfg):
 	print('Start training...')
 	# train the model
 	model, metric_score, total_trained_samples = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
-	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
-	samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
-	log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions)
+	                                                   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
+	                                                   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
+	                                                   log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions)
 
 	_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, cfg.max_rank, writer, total_trained_samples, metric)
 
-
-
-
-	# plot stats
-	plot_ordered_posting_lists_lengths(cfg.model_folder, q_repr, 'query')
-	plot_histogram_of_latent_terms(cfg.model_folder, q_repr, cfg.sparse_dimensions, 'query')
-	plot_ordered_posting_lists_lengths(cfg.model_folder, d_repr, 'docs')
-	plot_histogram_of_latent_terms(cfg.model_folder, d_repr, cfg.sparse_dimensions, 'docs')
 
 
 if __name__ == "__main__":
