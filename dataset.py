@@ -4,7 +4,7 @@ from utils import *
 from fake_data import *
 from file_interface import FileInterface
 from torch.utils.data import DataLoader, IterableDataset
-from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len
+from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len
 import math
 import random
 from tokenizer import Tokenizer
@@ -615,15 +615,6 @@ def get_data_loaders_msmarco(cfg):
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
-
-
-def split_by_len(dataset_len, ratio):
-	rand_index = list(range(dataset_len))
-	random.shuffle(rand_index)
-	sizes = split_sizes(dataset_len, ratio )
-	indices_train = rand_index[:sizes[0]]
-	indices_test = rand_index[sizes[0]:]
-	return indices_train, indices_test
 
 
 def get_data_loaders_robust(cfg):
