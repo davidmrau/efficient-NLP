@@ -4,7 +4,7 @@ from utils import *
 from fake_data import *
 from file_interface import FileInterface
 from torch.utils.data import DataLoader, IterableDataset
-from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len
+from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len, split_sizes, split_dataset
 import math
 import random
 from tokenizer import Tokenizer
@@ -583,15 +583,6 @@ class MSMarcoLM(data.Dataset):
 		doc = self.documents.get_tokenized_element(d1_id)
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
-
-def split_sizes(dataset_len, train_val_ratio):
-	return [math.floor(dataset_len*train_val_ratio), math.ceil(dataset_len*(1-train_val_ratio))]
-
-def split_dataset(train_val_ratio, dataset):
-	# split dataset into train and test
-	lengths = split_sizes(len(dataset), train_val_ratio)
-	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
-	return train_dataset, validation_dataset
 
 def get_data_loaders_msmarco(cfg):
 

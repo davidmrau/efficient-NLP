@@ -6,6 +6,9 @@
 #SBATCH --time=120:00:00
 #SBATCH --mem=100G
 
+#SBATCH --mail-type=BEGIN,END
+#SBATCH --mail-user=kondilidisn9@gmail.com
+
 
 #Loading modules
 module purge
