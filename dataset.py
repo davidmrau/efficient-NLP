@@ -479,6 +479,7 @@ class WeakSupervision(IterableDataset):
 							# yield triplet of relevants
 							candidate1 = query_results[i]
 							candidate2 = query_results[j]
+							
 							yield self.generate_triplet(query, [candidate1, candidate2])
 
 							# yield triplet of irrelevants
@@ -515,7 +516,7 @@ class WeakSupervision(IterableDataset):
 		document_content = self.documents.get_tokenized_element(random_doc_id)
 
 		# make sure that the random document's id is not in the exclude list and its content is not empty
-		while random_doc_id in exclude_doc_ids_set and document_content is not None:
+		while random_doc_id in exclude_doc_ids_set or document_content is None:
 		# get a random index from documents' list
 			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
 		# get the corresponding document id
@@ -634,14 +635,8 @@ def get_data_loaders_robust(cfg):
 
 	dataset_len = offset_dict_len(cfg.robust_ranking_results_train)
 
-	print(dataset_len)
-
-
 	indices_train, indices_test = split_by_len(dataset_len, ratio = 0.9)
 	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
-
-	print(len(indices_train))
-	print(len(indices_test))
 
 	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train)
 
