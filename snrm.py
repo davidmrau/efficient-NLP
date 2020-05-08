@@ -50,6 +50,8 @@ class SNRM(nn.Module):
 	def forward(self, x, lengths):
 		# generate mask for averaging over non-zero elements later
 		mask = (x > 0)[:, self.n - 1: ]
+		# making sure that inputs smaller than n, will produce at least some output (affected by padding)
+		mask[:,0] = True
 		out = self.embedding(x)
 
 		out = out.permute(0,2,1)
