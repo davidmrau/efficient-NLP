@@ -9,7 +9,7 @@ import math
 import random
 from tokenizer import Tokenizer
 
-def offset_dict_len(fname):
+def offset_dict_len(filename):
 	return len(read_pickle(filename + '.offset_dict.p'))
 
 class StrongData(IterableDataset):
