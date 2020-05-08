@@ -9,11 +9,14 @@ from omegaconf import OmegaConf
 from dataset import get_data_loaders_robust_strong
 import shutil
 import numpy as np
-from utils import get_model_folder_name, _getThreads, instantiate_model
+from utils import get_model_folder_name, _getThreads, instantiate_model, gen_folds
 from metrics import MRR, MAPTrec
-from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
+from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths, offset_dict_len
 from torch.utils.tensorboard import SummaryWriter
+from file_interface import FileInterface
 import random
+import warnings 
+warnings.filterwarnings("ignore")
 
 def exp(cfg):
 	# set seeds
@@ -30,9 +33,7 @@ def exp(cfg):
 		cfg.num_epochs = 1
 
 
-	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
-	model, device = instantiate_model(cfg)
 
 
 	# set seeds
@@ -52,35 +53,51 @@ def exp(cfg):
 
 	print(f"Using {cfg.num_workers} Threads.")
 
-	print(model)
 	# initialize tensorboard
 
-	writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
 	print('Loading data...')
 	# initialize dataloaders
-	if cfg.dataset == 'robust04':
 
-		dataloaders = get_data_loaders_robust_strong(cfg)
-		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
-	else:
-		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
+	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
 	print('done')
-	# initialize loss function
-	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
 
 
-	# initialize optimizer
-	optim = Adam(model.parameters(), lr=cfg.lr)
+	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
+
+	folds = gen_folds(dataset_len, cfg.num_folds)	
+
+	docs_fi = FileInterface(cfg.robust_docs)
+	query_fi = FileInterface(cfg.robust_query_test)
+	ranking_results_fi = FileInterface(cfg.robust_ranking_results_strong)
+
 	print('Start training...')
-	# train the model
-	model, metric_score, total_trained_samples = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
-	                                                   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
-	                                                   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
-	                                                   log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions)
+	metric_scores = list()
+	fold_count = 0
+	for indices_train, indices_test in folds:
+		fold_count += 1
+		print(f'Running fold {fold_count}')
 
-	_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, cfg.max_rank, writer, total_trained_samples, metric)
+		# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
+		writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
+		model, device = instantiate_model(cfg)
+		# initialize loss function
+		loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
+
+
+		# initialize optimizer
+		optim = Adam(model.parameters(), lr=cfg.lr)
+
+		dataloaders = get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi)
+		_, metric_score, total_trained_samples = train(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
+								   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
+								   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
+								   log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions, validate=False)
+
+		metric_scores.append(metric_score)
+
+	writer.add_scalar(f'Av {metric.name} Supervised', np.mean(metric_scores), 0)
 
 
 if __name__ == "__main__":

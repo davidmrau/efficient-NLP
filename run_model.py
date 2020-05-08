@@ -158,7 +158,7 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	return scores
 
 
-def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_samples, metric, reset=True):
+def evaluate(model, mode, data_loaders, device, max_rank, total_trained_samples, metric, reset=True, writer=None):
 	query_batch_generator, docs_batch_generator = data_loaders[mode]
 
 	if reset:
@@ -195,14 +195,16 @@ def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_
 	q_l0_loss /= q_l0_coutner
 	d_l0_loss /= d_l0_coutner
 
-	writer.add_scalar(f'Evaluate_fn_{mode}_l1_loss', l1_loss, total_trained_samples)
-
-	writer.add_scalar(f'Evaluate_fn_{mode}_L0_query', q_l0_loss, total_trained_samples)
-	writer.add_scalar(f'Evaluate_fn_{mode}_L0_docs', d_l0_loss, total_trained_samples)
 
 	metric_score = metric.score(scores, q_ids)
 
-	writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
+	if writer != None:
+		writer.add_scalar(f'Evaluate_fn_{mode}_l1_loss', l1_loss, total_trained_samples)
+
+		writer.add_scalar(f'Evaluate_fn_{mode}_L0_query', q_l0_loss, total_trained_samples)
+		writer.add_scalar(f'Evaluate_fn_{mode}_L0_docs', d_l0_loss, total_trained_samples)
+
+		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 	print(f'{mode} -  {metric.name}: {metric_score}')
 
 	return scores, q_repr, d_repr, q_ids, d_ids, metric_score
@@ -211,7 +213,7 @@ def evaluate(model, mode, data_loaders, device, max_rank, writer, total_trained_
 def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
           l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
           bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
-          sparse_dimensions=1000):
+          sparse_dimensions=1000, validate=True):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -236,14 +238,15 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 	"""
 
-	best_val_total_loss = 1e20
+	best_metric_score = 1e20 if validate else -1
 	curr_patience = 0
 	total_trained_samples = 0
 
 	# initialize data loader for the first epoch
 	if total_trained_samples == 0:
 		batch_iterator_train = iter(dataloaders['train'])
-		batch_iterator_val = iter(dataloaders['val'])
+		if validate:
+			batch_iterator_val = iter(dataloaders['val'])
 
 	for epoch in range(1, epochs + 1):
 		print('Epoch', epoch)
@@ -263,7 +266,8 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				break
 			else:
 				# validate
-				total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val,
+				if validate:
+					total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val,
 				                                                  loss_fn, epoch, writer,
 				                                                  l1_scalar, balance_scalar, total_trained_samples,
 				                                                  device,
@@ -272,19 +276,25 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 
 				# Run also proper evaluation script
 				_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, max_rank,
-				                                                     writer, total_trained_samples, metric)
-
+				                                            		total_trained_samples, metric, writer=writer)
+	
 				# plot stats
 				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 				plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
 				plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
 				plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
 
+				if validate:
+					metric_score = val_total_loss
+				else:
+					metric_score = metric_score
+				
+
 				# check for early stopping
-				if val_total_loss < best_val_total_loss:
-					print(f'Best model at current epoch {epoch}, av total loss: {val_total_loss}')
+				if (metric_score < best_metric_score and validate) or (metric_score > best_metric_score and not validate) :
+					print(f'Best model at current epoch {epoch}, av value: {metric_score}')
 					curr_patience = 0
-					best_val_total_loss = val_total_loss
+					best_metric_score = metric_score
 					# save best model so far to file
 					torch.save(model, f'{model_folder}/best_model.model')
 
@@ -300,4 +310,4 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 		# load best model
 		model = torch.load(f'{model_folder}/best_model.model')
 
-	return model, best_val_total_loss, total_trained_samples
+	return model, best_metric_score, total_trained_samples
