@@ -17,6 +17,22 @@ import math
 import sys
 from bert_based import BERT_based
 from snrm import SNRM
+import random
+
+
+
+def gen_folds(dataset_len, num_folds):
+	folds = list()
+	rand_indices = list(range(dataset_len))
+	random.shuffle(rand_indices)
+	for i in range(1,num_folds+1):
+		# train the model
+		from_ = dataset_len*(i-1)//num_folds
+		to_ = int(np.floor(dataset_len*i/num_folds))
+		test_indices = rand_indices[from_:to_]
+		train_indices = rand_indices[:from_] + rand_indices[to_:]
+		folds.append([train_indices, test_indices])
+	return folds
 
 def file_len(fname):
     """ Get the number of lines from file
@@ -27,6 +43,8 @@ def file_len(fname):
         raise IOError(err)
     return int(result.strip().split()[0])
 
+def offset_dict_len(filename):
+	return len(read_pickle(filename + '.offset_dict.p'))
 
 def instantiate_model(cfg):
 
@@ -122,6 +140,7 @@ def collate_fn_padd_triples(batch):
         # In that case the sample is None, and we skip this samples
         if item is None:
             continue
+
 
         q, doc1, doc2 = item[0]
         batch_q.append(torch.IntTensor(q))

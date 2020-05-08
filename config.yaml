@@ -67,4 +67,4 @@ target: 'binary'
 top_k_per_query: -1
 dataset: ''
 trec_eval: 'trec_eval'
-folds_cross_val: 5
+num_folds: 5

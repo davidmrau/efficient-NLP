@@ -4,19 +4,21 @@ from utils import *
 from fake_data import *
 from file_interface import FileInterface
 from torch.utils.data import DataLoader, IterableDataset
-from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single
+from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len
 import math
 import random
 from tokenizer import Tokenizer
 
-def offset_dict_len(filename):
-	return len(read_pickle(filename + '.offset_dict.p'))
+
 
 class StrongData(IterableDataset):
-	def __init__(self, strong_results_filename, documents_fi, queries_path, target, indices=None):
+	def __init__(self, strong_results, documents_fi, queries, target, indices=None):
 
 		# "open" triplets file
-		self.strong_results_file = FileInterface(strong_results_filename)
+		if isinstance(strong_results, FileInterface):
+			self.strong_results_file = strong_results
+		else:
+			self.strong_results_file = FileInterface(strong_results)
 
 		# "open" documents file
 		self.documents = documents_fi
@@ -29,8 +31,11 @@ class StrongData(IterableDataset):
 		self.doc_ids_list = list(self.documents.seek_dict)
 
 		# "open" queries file
-		self.queries = FileInterface(queries_path)
 
+		if isinstance(queries, FileInterface):
+			self.queries = queries
+		else:
+			self.queries = FileInterface(queries)
 
 		if target == 'binary':
 			self.target_function = self.binary_target
@@ -62,7 +67,7 @@ class StrongData(IterableDataset):
 		# retrieve content of the random document
 		document_content = self.documents.get_tokenized_element(random_doc_id)
 		# make sure that the random document's id is not in the exclude list and its content is not empty
-		while random_doc_id in exclude_doc_ids_set and document_content is not None:
+		while random_doc_id in exclude_doc_ids_set or document_content is None:
 		# get a random index from documents' list
 			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
 		# get the corresponding document id
@@ -73,7 +78,7 @@ class StrongData(IterableDataset):
 
 	def __iter__(self):
 		for index in self.indices: 
-			q_id, query_results = self.weak_results_file.read_all_results_of_query_index(index, top_k_per_query = -1)
+			q_id, query_results = self.strong_results_file.read_all_results_of_query_index(index, top_k_per_query = -1)
 			rel_docs, non_rel_docs = list(), list()
 
 			for el in query_results:
@@ -89,7 +94,7 @@ class StrongData(IterableDataset):
 					if len(non_rel_docs) > 0:
 						d2_id, d2_score = non_rel_docs.pop()
 						content_2 = self.documents.get_tokenized_element(d2_id)
-						result_2 = (d2_id, d2_score, content_2 )
+						result_2 = (d2_id, d2_score, content_2)
 						
 					else:
 						result_2 = self.sample_negative_document_result(rel_docs_set)
@@ -104,17 +109,14 @@ class StrongData(IterableDataset):
 				query = self.queries.get_tokenized_element(q_id)
 				content_1 = self.documents.get_tokenized_element(d1_id)
 				result_1 = (d1_id, score_1, content_1)
-	
-				if result_1[2] is None:
+				if result_1[2] is None or result_2[2] is None:
 					yield None
-				if result_2[2] is None:
-					yield None
-					
+					continue
 				# randomly swap positions
 				if np.random.random() > 0.5:
-					temp = doc1
-					doc1 = doc2
-					doc2 = temp
+					temp = result_1
+					result_1 = result_2
+					result_2 = temp
 				
 				target = self.target_function(result_1, result_2)
 				yield [query, result_1[2], result_2[2]], target
@@ -262,16 +264,17 @@ class MSMarcoSequentialDev:
 
 
 class WeakSupervisionEval:
-	def __init__(self, ranking_results, id2text, batch_size, is_query, min_len=5):
+	def __init__(self, ranking_results, id2text, batch_size, is_query, min_len=5, indices=None):
 		# open file
 		self.batch_size = batch_size
 
 		if isinstance(ranking_results, FileInterface):
 			self.ranking_results = ranking_results
 		else:
-			self.ranking_results = open(ranking_results_path, 'r')
+			self.ranking_results = open(ranking_results, 'r')
 		self.is_query = is_query
 		self.min_len = min_len
+		self.indices = indices if indices else []
 		if isinstance(id2text, FileInterface):
 			self.id2text = id2text
 		else:
@@ -301,7 +304,6 @@ class WeakSupervisionEval:
 		line = self.ranking_results.readline()
 
 		prev_q_id = self.get_id(line, is_query=True)
-		curr_q_id = prev_q_id
 		self.stop = False
 
 		while line and not self.stop:
@@ -317,10 +319,10 @@ class WeakSupervisionEval:
 					self.stop = True
 					break
 				# extracting the token_ids and creating a numpy array
-				tokens_list = torch.IntTensor(self.get_text(id_))
 
-				if id_ not in batch_ids:
+				if id_ not in batch_ids and curr_q_id not in self.indices:
 
+					tokens_list = torch.IntTensor(self.get_text(id_))
 					batch_ids.append(id_)
 
 					batch_data.append(tokens_list)
@@ -637,23 +639,16 @@ def split_by_len(dataset_len, ratio):
 	indices_test = rand_index[sizes[0]:]
 	return indices_train, indices_test
 
-def get_data_loaders_robust_strong(cfg):
+def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi):
 	
-	docs_fi = FileInterface(cfg.robust_docs)
-	dataloaders = {}
-	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 
-	train_test_ratio = 1/cfg.folds_cross_val
-	indices_train, indices_test = split_by_len(dataset_len, train_test_ratio)
+	dataloaders = {}
 
 	# calculate train and validation size according to train_val_ratio
 	
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-	dataloaders['train'] = DataLoader(StrongData(cfg.robust_ranking_results_strong, docs_fi, cfg.robust_query_test, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
-	for k in dataloaders['train']:
-		print(k)
-		exit()
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, indices=indices_test, is_query=True, num_workers = sequential_num_workers)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, indices=indices_test, is_query=False, num_workers = sequential_num_workers)
+	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, num_workers = cfg.num_workers)
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, query_fi, cfg.batch_size, indices=indices_test, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, indices=indices_test, is_query=False)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 	return dataloaders
