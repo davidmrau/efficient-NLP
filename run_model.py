@@ -265,7 +265,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			else:
 				# validate
 				if validate:
-					total_trained_samples, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val,
+					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val,
 				                                                  loss_fn, epoch, writer,
 				                                                  l1_scalar, balance_scalar, total_trained_samples,
 				                                                  device,
