@@ -269,7 +269,7 @@ class WeakSupervisionEval:
 		if isinstance(ranking_results, FileInterface):
 			self.ranking_results = ranking_results
 		else:
-			self.ranking_results = open(ranking_results_path, 'r')
+			self.ranking_results = open(ranking_results, 'r')
 		self.is_query = is_query
 		self.min_len = min_len
 		if isinstance(id2text, FileInterface):
@@ -336,11 +336,11 @@ class WeakSupervisionEval:
 
 
 class WeakSupervision(IterableDataset):
-	def __init__(self, weak_results_filename, documents_fi, queries_path, top_k_per_query=-1, sampler = 'uniform', target='binary',
-			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True):
+	def __init__(self, weak_results_fi, documents_fi, queries_fi, top_k_per_query=-1, sampler = 'uniform', target='binary',
+			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True, indices_to_use = None):
 
 		# "open" triplets file
-		self.weak_results_file = FileInterface(weak_results_filename)
+		self.weak_results_file = weak_results_fi
 
 		# "open" documents file
 		self.documents = documents_fi
@@ -349,7 +349,7 @@ class WeakSupervision(IterableDataset):
 		self.doc_ids_list = list(self.documents.seek_dict)
 
 		# "open" queries file
-		self.queries = FileInterface(queries_path)
+		self.queries = queries_fi
 
 		self.top_k_per_query = top_k_per_query
 		# defines the full(~1000) combinations to be calculated for a number of (samples_per_query) queries
@@ -388,7 +388,10 @@ class WeakSupervision(IterableDataset):
 		self.candidate_indices = list(range(self.max_candidates))
 
 		# this will be used later in case suffle is True
-		self.query_indices = list(range(len(self.weak_results_file)))
+		if indices_to_use is None:
+			self.query_indices = list(range(len(self.weak_results_file)))
+		else:
+			self.query_indices = indices_to_use
 
 	def __len__(self):
 		raise NotImplementedError()
@@ -397,7 +400,7 @@ class WeakSupervision(IterableDataset):
 		# shuffle order of candidates
 		random.shuffle(candidates)
 		# get target
-		target = self.target_function(candidates)
+		target = self.target_function(candidates[0], candidates[1])
 		# get document content from tupples
 		doc1 = candidates[0][2]
 		doc2 = candidates[1][2]
@@ -407,7 +410,7 @@ class WeakSupervision(IterableDataset):
 
 	def __iter__(self):
 
-		if self.suffle:
+		if self.shuffle:
 			random.shuffle(self.query_indices)
 
 		for q_index in self.query_indices:
@@ -610,24 +613,6 @@ def get_data_loaders_msmarco(cfg):
 
 	return dataloaders
 
-def get_data_loaders_robust(cfg):
-	docs_fi = FileInterface(cfg.robust_docs)
-	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
-	dataloaders = {}
-	dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
-	# calculate train and validation size according to train_val_ratio
-	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
-	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
-	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
-
-	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True, num_workers = sequential_num_workers)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False, num_workers = sequential_num_workers)
-	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
-
-	return dataloaders
-
 
 def split_by_len(dataset_len, ratio):
 	rand_index = list(range(dataset_len))
@@ -636,6 +621,46 @@ def split_by_len(dataset_len, ratio):
 	indices_train = rand_index[:sizes[0]]
 	indices_test = rand_index[sizes[0]:]
 	return indices_train, indices_test
+
+
+def get_data_loaders_robust(cfg):
+
+	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
+
+	docs_fi = FileInterface(cfg.robust_docs)
+	queries_fi = FileInterface(cfg.robust_query_train)
+	weak_results_fi = FileInterface(cfg.robust_ranking_results_train)
+	dataloaders = {}
+
+	dataset_len = offset_dict_len(cfg.robust_ranking_results_train)
+
+	print(dataset_len)
+
+
+	indices_train, indices_test = split_by_len(dataset_len, ratio = 0.9)
+	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
+
+	print(len(indices_train))
+	print(len(indices_test))
+
+	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train)
+
+	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True, shuffle=False, indices_to_use = indices_test)
+
+
+	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
+
+	# calculate train and validation size according to train_val_ratio
+	# train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
+	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
+	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
+
+
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False)
+	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
+
+	return dataloaders
 
 def get_data_loaders_robust_strong(cfg):
 	
