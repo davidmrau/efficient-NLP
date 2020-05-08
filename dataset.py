@@ -4,7 +4,7 @@ from utils import *
 from fake_data import *
 from file_interface import FileInterface
 from torch.utils.data import DataLoader, IterableDataset
-from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len
+from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len, split_sizes, split_dataset
 import math
 import random
 from tokenizer import Tokenizer
@@ -466,7 +466,8 @@ class WeakSupervision(IterableDataset):
 			# (plus 1 negative sample for each of the afforementioned samples)
 			else:
 
-				if self.samples_per_query == -1:
+				# inb case we will end up using all the candidaes to create combinations
+				if self.samples_per_query == -1 or len(query_results) <= self.samples_per_query :
 					candidate_indices = [i for i in range( len(query_results) )]
 				else:
 					candidate_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
@@ -583,15 +584,6 @@ class MSMarcoLM(data.Dataset):
 		inp = list(query[1:]) + list(doc[1:])
 		return torch.LongTensor(inp)
 
-def split_sizes(dataset_len, train_val_ratio):
-	return [math.floor(dataset_len*train_val_ratio), math.ceil(dataset_len*(1-train_val_ratio))]
-
-def split_dataset(train_val_ratio, dataset):
-	# split dataset into train and test
-	lengths = split_sizes(len(dataset), train_val_ratio)
-	train_dataset, validation_dataset = torch.utils.data.dataset.random_split(dataset, lengths)
-	return train_dataset, validation_dataset
-
 def get_data_loaders_msmarco(cfg):
 
 	cfg.msmarco_triplets_train = add_before_ending(cfg.msmarco_triplets_train,  '.debug' if cfg.debug else '')
@@ -628,12 +620,12 @@ def get_data_loaders_robust(cfg):
 
 	dataset_len = offset_dict_len(cfg.robust_ranking_results_train)
 
-	indices_train, indices_test = split_by_len(dataset_len, ratio = 0.9)
+	indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
 	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
 
-	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train)
+	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query)
 
-	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True, shuffle=False, indices_to_use = indices_test)
+	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True, shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query)
 
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
