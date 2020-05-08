@@ -629,12 +629,12 @@ def get_data_loaders_robust(cfg):
 
 	dataset_len = offset_dict_len(cfg.robust_ranking_results_train)
 
-	indices_train, indices_test = split_by_len(dataset_len, ratio = 0.9)
+	indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
 	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
 
-	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train)
+	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query)
 
-	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True, shuffle=False, indices_to_use = indices_test)
+	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True, shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query)
 
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0

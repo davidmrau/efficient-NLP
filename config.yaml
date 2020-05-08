@@ -65,6 +65,7 @@ robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt.stron
 sampler: 'uniform'
 target: 'binary'
 top_k_per_query: -1
+samples_per_query: -1
 dataset: ''
 trec_eval: 'trec_eval'
 num_folds: 5
