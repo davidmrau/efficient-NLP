@@ -466,7 +466,8 @@ class WeakSupervision(IterableDataset):
 			# (plus 1 negative sample for each of the afforementioned samples)
 			else:
 
-				if self.samples_per_query == -1:
+				# inb case we will end up using all the candidaes to create combinations
+				if self.samples_per_query == -1 or len(query_results) <= self.samples_per_query :
 					candidate_indices = [i for i in range( len(query_results) )]
 				else:
 					candidate_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
