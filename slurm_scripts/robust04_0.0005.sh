@@ -2,8 +2,8 @@
 # Set job requirements
 #SBATCH --job-name=0.0005
 #SBATCH --ntasks=1
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
+#SBATCH --partition=gpu_shared
+##SBATCH --gres=gpu:4
 #SBATCH --time=120:00:00
 #SBATCH --mem=100G
 
@@ -16,7 +16,7 @@ module load Python/3.6.3-foss-2017b
 module load cuDNN/7.0.5-CUDA-9.0.176
 module load NCCL/2.0.5-CUDA-9.0.176
 
-BATCH_SIZE="64"
+BATCH_SIZE="16"
 
 cd ..
 DATASET='robust04'
@@ -25,8 +25,8 @@ STOPWORDS='lucene'
 MODEL=snrm
 EMBEDDINGS="glove"
 
-TRAIN_SAMPLES="10000"
-VAL_SAMPLES="10000"
+TRAIN_SAMPLES="50000"
+VAL_SAMPLES="50000"
 NUM_EPOCHS="10000"
 
 L1_SCALARS="0.0005"

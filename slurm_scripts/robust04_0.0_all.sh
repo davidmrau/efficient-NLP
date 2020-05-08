@@ -1,23 +1,6 @@
-#!/bin/bash
-# Set job requirements
-#SBATCH --job-name=0.0_all
-#SBATCH --ntasks=1
-#SBATCH --partition=gpu_shared
-#SBATCH --time=120:00:00
-#SBATCH --mem=100G
-
-
-#Loading modules
-module purge
-module load pre2019
-module load eb
-module load Python/3.6.3-foss-2017b
-module load cuDNN/7.0.5-CUDA-9.0.176
-module load NCCL/2.0.5-CUDA-9.0.176
 
 BATCH_SIZE="16"
 
-cd ..
 DATASET='robust04'
 STOPWORDS='lucene'
 
@@ -42,7 +25,6 @@ SAMPLER="uniform"
 
 
 
-bash telegram.sh "${0} ${SLURM_JOBID} Started"
 
 
 for EMBEDDING in ${EMBEDDINGS}; do
@@ -62,4 +44,3 @@ for EMBEDDING in ${EMBEDDINGS}; do
 done
 
 
-bash telegram.sh "${0} ${SLURM_JOBID} Finished"
