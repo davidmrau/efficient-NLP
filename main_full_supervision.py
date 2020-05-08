@@ -122,6 +122,11 @@ if __name__ == "__main__":
 	if cfg.bottleneck_run:
 		model_folder = "BOTTLENECK_RUN_" + model_folder
 
+	if cl_cfg.load_model:
+		model_folder += '_fine_tuned'
+	else:
+		model_folder += '_full_supervision'
+
 	completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
 
 	temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
