@@ -44,7 +44,7 @@ class EarlyStopping(object):
 			self.best = metrics
 			return False
 
-		if numpy.isnan(metrics):
+		if np.isnan(metrics):
 			self.stop = True
 			return True
 

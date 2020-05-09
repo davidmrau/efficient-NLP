@@ -85,13 +85,6 @@ def exp(cfg):
 
 
 
-	# plot stats
-	plot_ordered_posting_lists_lengths(cfg.model_folder, q_repr, 'query')
-	plot_histogram_of_latent_terms(cfg.model_folder, q_repr, cfg.sparse_dimensions, 'query')
-	plot_ordered_posting_lists_lengths(cfg.model_folder, d_repr, 'docs')
-	plot_histogram_of_latent_terms(cfg.model_folder, d_repr, cfg.sparse_dimensions, 'docs')
-
-
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
