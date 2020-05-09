@@ -1,23 +1,6 @@
-#!/bin/bash
-# Set job requirements
-#SBATCH --job-name=r_0
-#SBATCH --ntasks=1
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
-#SBATCH --time=120:00:00
-#SBATCH --mem=100G
-
-#Loading modules
-module purge
-module load pre2019
-module load eb
-module load Python/3.6.3-foss-2017b
-module load cuDNN/7.0.5-CUDA-9.0.176
-module load NCCL/2.0.5-CUDA-9.0.176
 
 BATCH_SIZE="64"
 
-cd ..
 DATASET='robust04'
 STOPWORDS='lucene'
 

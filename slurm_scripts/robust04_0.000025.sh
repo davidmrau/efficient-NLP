@@ -1,25 +1,7 @@
-#!/bin/bash
-# Set job requirements
-#SBATCH --job-name=0.000025
-#SBATCH --ntasks=1
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
-#SBATCH --time=120:00:00
-#SBATCH --mem=100G
-
-
-#Loading modules
-module purge
-module load pre2019
-module load eb
-module load Python/3.6.3-foss-2017b
-module load cuDNN/7.0.5-CUDA-9.0.176
-module load NCCL/2.0.5-CUDA-9.0.176
 
 BATCH_SIZE="64"
 
-cd ..
-DATASET='robust04'
+
 STOPWORDS='lucene'
 
 MODEL=snrm
@@ -39,7 +21,6 @@ N_GRAM_MODELS="cnn"
 # Dense EMB-500-100-500
 SNRM_HIDDEN="100-300"
 
-bash telegram.sh "${0} ${SLURM_JOBID} Started"
 
 for EMBEDDING in ${EMBEDDINGS}; do
 
@@ -53,4 +34,3 @@ for EMBEDDING in ${EMBEDDINGS}; do
 	done
 done
 
-bash telegram.sh "${0} ${SLURM_JOBID} Finished"
