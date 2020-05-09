@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
 	plot_ordered_posting_lists_lengths, Average, EarlyStopping
 
@@ -121,6 +122,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 
 def get_all_reprs(model, dataloader, device):
+	av_l1_loss, av_l0 = Average(), Average()
 	with torch.no_grad():
 		model.eval()
 		reprs = list()
@@ -129,7 +131,9 @@ def get_all_reprs(model, dataloader, device):
 			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
 			reprs.append(repr_)
 			ids += batch_ids_d
-		return reprs, ids
+			l1, l0 = l1_loss_fn(repr_), l0_loss(repr_)
+			av_l1_loss.step(l1), av_l0.step(l0)
+		return reprs, ids, av_l0.val, av_l1_loss.val
 
 
 def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
@@ -154,51 +158,28 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	return scores
 
 
-def evaluate(model, mode, data_loaders, device, max_rank, total_trained_samples, metric, reset=True, writer=None):
+def test(model, mode, data_loaders, device, max_rank, total_trained_samples, metric, reset=True, writer=None):
 	query_batch_generator, docs_batch_generator = data_loaders[mode]
 
 	if reset:
 		docs_batch_generator.reset()
 		query_batch_generator.reset()
 
-	d_repr, d_ids = get_all_reprs(model, docs_batch_generator, device)
-	q_repr, q_ids = get_all_reprs(model, query_batch_generator, device)
+	d_repr, d_ids, l0_q, l1_loss_q = get_all_reprs(model, docs_batch_generator, device)
+	q_repr, q_ids, l0_docs, l1_loss_docs = get_all_reprs(model, query_batch_generator, device)
+
+
+	l1_loss = np.mean([l1_loss_q, l1_loss_docs])
 	scores = get_scores(d_repr, d_ids, q_repr, max_rank)
-
-	q_l0_loss = 0
-	q_l0_coutner = 0
-	l1_loss = 0
-	l1_counter = 0
-	# calculate average l1 and l0 losses from queries
-	for i in range(len(q_repr)):
-		number_of_samples = q_repr[i].size(0)
-		l1_loss += l1_loss_fn(q_repr[i])
-		q_l0_loss += l0_loss(q_repr[i])
-		q_l0_coutner += number_of_samples
-		l1_counter += number_of_samples
-
-	d_l0_loss = 0
-	d_l0_coutner = 0
-	# calculate average l1 and l0 losses from documents
-	for i in range(len(d_repr)):
-		number_of_samples = d_repr[i].size(0)
-		l1_loss += l1_loss_fn(d_repr[i])
-		d_l0_loss += l0_loss(d_repr[i])
-		d_l0_coutner += number_of_samples
-		l1_counter += number_of_samples
-
-	l1_loss /= l1_counter
-	q_l0_loss /= q_l0_coutner
-	d_l0_loss /= d_l0_coutner
 
 
 	metric_score = metric.score(scores, q_ids)
 
 	if writer != None:
-		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_l1_loss', l1_loss , total_trained_samples)
 
-		writer.add_scalar(f'{mode}_L0_query', q_l0_loss, total_trained_samples)
-		writer.add_scalar(f'{mode}_L0_docs', d_l0_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
 
 		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 	print(f'{mode} -  {metric.name}: {metric_score}')
@@ -206,7 +187,7 @@ def evaluate(model, mode, data_loaders, device, max_rank, total_trained_samples,
 	return scores, q_repr, d_repr, q_ids, d_ids, metric_score
 
 
-def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
+def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
           l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
           bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
           sparse_dimensions=1000, validate=True):
@@ -244,9 +225,11 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 			batch_iterator_val = iter(dataloaders['val'])
 
 	for epoch in range(1, epochs + 1):
+
 		if early_stopper.stop:
-			print("Early Stopping!")
+			print(f"Early Stopping at Epoch: {epoch-1}!")
 			break
+
 		print('Epoch', epoch)
 		# training
 		with torch.enable_grad():
@@ -273,7 +256,7 @@ def train(model, dataloaders, optim, loss_fn, epochs, writer, device, model_fold
 				                                                  log_every_ratio=log_every_ratio)
 
 				# Run also proper evaluation script
-				_, q_repr, d_repr, q_ids, _, metric_score = evaluate(model, 'test', dataloaders, device, max_rank,
+				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
 				                                            		total_trained_samples, metric, writer=writer)
 	
 				# plot stats
