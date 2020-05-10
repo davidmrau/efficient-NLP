@@ -523,6 +523,8 @@ def get_model_folder_name(cfg):
 
 		if cfg.dataset == "robust04":
 			model_string +=  '_sample_' + cfg.sampler + "_target_" + cfg.target
+			if cfg.samples_per_query != -1:
+				model_string += "comb_of_" + str(cfg.model_string)
 		# create experiment directory name
 		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
 
