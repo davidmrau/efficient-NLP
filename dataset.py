@@ -484,7 +484,7 @@ class WeakSupervision(IterableDataset):
 					if self.sample_j:
 						j_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
 					else:
-						j_indices list(range(len(query_results)))
+						j_indices = list(range(len(query_results)))
 					for j in j_indices:
 						# making sure that we do not have any duplicates
 						if (j not in candidate_indices) or (j > i):
