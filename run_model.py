@@ -174,13 +174,9 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 	d_repr, d_ids, l0_docs, l1_loss_docs = get_all_reprs(model, docs_batch_generator, device)
 	q_repr, q_ids, l0_q, l1_loss_q = get_all_reprs(model, query_batch_generator, device)
 
-	# print("l1_loss_q: ", l1_loss_q)
-	# print("l1_loss_docs: ", l1_loss_q)
 	l1_loss = (l1_loss_q + l1_loss_docs)/ 2
 
-	# l1_loss = np.mean([l1_loss_q, l1_loss_docs])
 	scores = get_scores(d_repr, d_ids, q_repr, max_rank)
-
 
 	metric_score = metric.score(scores, q_ids)
 
