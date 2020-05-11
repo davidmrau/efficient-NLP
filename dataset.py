@@ -339,7 +339,8 @@ class WeakSupervisionEval:
 
 class WeakSupervision(IterableDataset):
 	def __init__(self, weak_results_fi, documents_fi, queries_fi, top_k_per_query=-1, sampler = 'uniform', target='binary',
-			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True, indices_to_use = None):
+			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True, indices_to_use = None,
+			sample_j = False):
 
 		# "open" triplets file
 		self.weak_results_file = weak_results_fi
@@ -363,6 +364,8 @@ class WeakSupervision(IterableDataset):
 		self.strong_negatives = strong_negatives
 
 		self.shuffle = shuffle
+		# if sample_j is True, then we sample samples_per_query samples for creating the cpmbinations. sample different ones for each (i)
+		self.sample_j = sample_j
 
 		self.min_results = min_results
 
@@ -380,12 +383,15 @@ class WeakSupervision(IterableDataset):
 			self.sampler_function = self.sample_top_n
 		elif sampler == 'uniform':
 			self.sampler_function = self.sample_uniform
+		elif sampler == 'linear':
+			self.sample_weights =  np.linspace(1,0,self.max_candidates)
+			self.sampler_function = self.sample_linear
 		elif sampler == 'zipf':
 			# initialize common calculations
 			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
 			self.sampler_function = self.sample_zipf
 		else:
-			raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf'}, but :" + str( sampler))
+			raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf', 'linear'}, but :" + str( sampler))
 		# having a calculated list of indices, that will be used while sampling
 		self.candidate_indices = list(range(self.max_candidates))
 
@@ -475,7 +481,11 @@ class WeakSupervision(IterableDataset):
 
 				# generating a sample for each combination of i_th candidate with j_th candidate, without duplicates 
 				for i in candidate_indices:
-					for j in range(len(query_results)):
+					if self.sample_j:
+						j_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
+					else:
+						j_indices list(range(len(query_results)))
+					for j in j_indices:
 						# making sure that we do not have any duplicates
 						if (j not in candidate_indices) or (j > i):
 
@@ -554,7 +564,16 @@ class WeakSupervision(IterableDataset):
 			return [i for i in range(n)]
 		return scores_list[:n]
 
-	#  def sample linear
+	def sample_linear(self, scores_list, n, return_indices = False):
+		length = len(scores_list)
+		indices = self.candidate_indices[:length]
+		# normalize sampling probabilities depending on the number of candidates
+		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
+		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
+		if return_indices:
+			return sampled_indices
+		return [scores_list[i] for i in sampled_indices]
+
 
 
 
@@ -623,10 +642,9 @@ def get_data_loaders_robust(cfg):
 	indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
 	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
 
-	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query)
+	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, single_sample=cfg.single_sample, shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j)
 
 	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True, shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query)
-
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 

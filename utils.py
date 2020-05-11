@@ -525,6 +525,10 @@ def get_model_folder_name(cfg):
 			model_string +=  '_sample_' + cfg.sampler + "_target_" + cfg.target
 			if cfg.samples_per_query != -1:
 				model_string += "_comb_of_" + str(cfg.samples_per_query)
+			if cfg.sample_j:
+				model_string += "_sample_j"
+			if cfg.single_sample:
+				model_string += "_single_sample"
 		# create experiment directory name
 		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
 

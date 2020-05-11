@@ -70,3 +70,5 @@ dataset: ''
 trec_eval: 'trec_eval'
 num_folds: 5
 margin: 0
+sample_j: False
+single_sample: False
