@@ -524,9 +524,9 @@ def get_model_folder_name(cfg):
 		if cfg.dataset == "robust04":
 			model_string +=  '_sample_' + cfg.sampler + "_target_" + cfg.target
 			if cfg.samples_per_query != -1:
-				model_string += "comb_of_" + str(cfg.model_string)
+				model_string += "_comb_of_" + str(cfg.samples_per_query)
 		# create experiment directory name
-		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
+		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
 
 
 def plot_top_k_analysis(analysis_dict):
