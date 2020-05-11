@@ -77,6 +77,12 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		# performing inner products
 		dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
 		dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+		
+		# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
+		# so we need to unsqueeze
+		if batch_samples_number == 1:
+			dot_q_d1.unsqueeze(0)
+			dot_q_d2.unsqueeze(0)
 
 		# calculating loss
 		loss = loss_fn(dot_q_d1, dot_q_d2, targets)
@@ -133,7 +139,7 @@ def get_all_reprs(model, dataloader, device):
 			ids += batch_ids_d
 			l1, l0 = l1_loss_fn(repr_), l0_loss(repr_)
 			av_l1_loss.step(l1), av_l0.step(l0)
-		return reprs, ids, av_l0.val, av_l1_loss.val
+		return reprs, ids, av_l0.val.item(), av_l1_loss.val.item()
 
 
 def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
