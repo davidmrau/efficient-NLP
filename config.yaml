@@ -69,3 +69,4 @@ samples_per_query: -1
 dataset: ''
 trec_eval: 'trec_eval'
 num_folds: 5
+margin: 0

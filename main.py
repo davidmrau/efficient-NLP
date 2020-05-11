@@ -69,7 +69,7 @@ def exp(cfg):
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
 	# initialize loss function
-	loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
+	loss_fn = nn.MarginRankingLoss(margin = cfg.margin).to(device)
 
 
 	# initialize optimizer
