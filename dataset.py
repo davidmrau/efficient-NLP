@@ -481,10 +481,13 @@ class WeakSupervision(IterableDataset):
 
 				# generating a sample for each combination of i_th candidate with j_th candidate, without duplicates 
 				for i in candidate_indices:
-					if self.sample_j:
-						j_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
-					else:
+					# if we do not request sampling, or there are not enough results to sample from, then we use all of them
+					if (self.sample_j == False) or (self.samples_per_query == -1) or (len(query_results) <= self.samples_per_query):
 						j_indices = list(range(len(query_results)))
+					# otherwise we are able and requested to sample for the nested loop of combinations (j), so we do sample
+					else:
+						j_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
+
 					for j in j_indices:
 						# making sure that we do not have any duplicates
 						if (j not in candidate_indices) or (j > i):
