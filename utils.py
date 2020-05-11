@@ -439,7 +439,7 @@ def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
 	plt.ylabel('Document Frequency')
 	# plt.xlabel('Dimension of the Representation Space (sorted)')
 	plt.xlabel('# Latent Terms')
-	plt.savefig(path + f'/num_latent_terms_per_doc_{name}.pdf', bbox_inches='tight')
+	plt.savefig(path + f'/num_latent_terms_per_{name}.pdf', bbox_inches='tight')
 	plt.close()
 
 
@@ -457,7 +457,7 @@ def plot_ordered_posting_lists_lengths(path,reprs, name, n=-1):
 	# plt.xlabel('Dimension of the Representation Space (sorted)')
 	n_text = f' (top {n})' if n != len(frequencies) else ''
 	plt.xlabel('Latent Dimension (Sorted)' + n_text)
-	plt.savefig(path+ f'/num_docs_per_latent_term_{name}.pdf', bbox_inches='tight')
+	plt.savefig(path+ f'/num_{name}_per_latent_term.pdf', bbox_inches='tight')
 	plt.close()
 
 

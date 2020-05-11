@@ -171,8 +171,8 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 		docs_batch_generator.reset()
 		query_batch_generator.reset()
 
-	d_repr, d_ids, l0_q, l1_loss_q = get_all_reprs(model, docs_batch_generator, device)
-	q_repr, q_ids, l0_docs, l1_loss_docs = get_all_reprs(model, query_batch_generator, device)
+	d_repr, d_ids, l0_docs, l1_loss_docs = get_all_reprs(model, docs_batch_generator, device)
+	q_repr, q_ids, l0_q, l1_loss_q = get_all_reprs(model, query_batch_generator, device)
 
 	# print("l1_loss_q: ", l1_loss_q)
 	# print("l1_loss_docs: ", l1_loss_q)
