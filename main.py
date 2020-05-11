@@ -101,7 +101,7 @@ if __name__ == "__main__":
 	else:
 		model_folder = cl_cfg.model_folder
 	if cl_cfg:	
-		model_folder += cl_cfg.add
+		model_folder += f'_{cl_cfg.add}'
 
 	if cfg.debug:
 		model_folder += "_DEBUG"

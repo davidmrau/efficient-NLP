@@ -126,7 +126,8 @@ if __name__ == "__main__":
 		model_folder += '_fine_tuned'
 	else:
 		model_folder += '_full_supervision'
-
+	if cl_cfg.add:
+		model_folder += f'_{cl_cfg.add}'
 	completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
 
 	temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
