@@ -587,7 +587,7 @@ def get_model_folder_name(cfg):
 			if cfg.single_sample:
 				model_string += "_single_sample"
 		# create experiment directory name
-		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size}_lr_{cfg.lr}_{model_string}"
+		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 
 
 def plot_top_k_analysis(analysis_dict):
