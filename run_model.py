@@ -114,7 +114,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
-			total_loss = total_loss * (minibatch_samples_number / batch[0].size(0))
+			total_loss = total_loss * (minibatch_samples_number / batch[1].size(0))
 
 			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc)
 
