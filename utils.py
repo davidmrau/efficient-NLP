@@ -73,9 +73,11 @@ class EarlyStopping(object):
 
 
 class Average(object):
+
 	def __init__(self):
 		self.val = None
 		self.count = 0
+
 	def step(self, x):
 		self.count += 1
 		if self.val is None:
