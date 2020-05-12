@@ -125,8 +125,12 @@ if __name__ == "__main__":
 				completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
 				temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
 		else:
-			print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
-			exit()
+			if cfg.debug:
+				shutil.rmtree(completed_model_folder)
+				print("Deleted model folder and starting from scratch.")
+			else:
+				print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
+				exit()
 
 	elif os.path.isdir(temp_model_folder):
 		print("Incomplete experiment directory found :\n", temp_model_folder)
