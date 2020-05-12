@@ -1,8 +1,8 @@
 # choose which model to use {tf : Transformer (BERT-like) / snrm : SNRM}
 model: 'snrm'
 vocab_size: 30522
-batch_size_train: 64
-batch_size_test: ${max_samples_per_gpu}
+batch_size_train: 16
+batch_size_test: 16
 lr: 0.0001
 stopwords: "none"
 remove_unk: False
@@ -73,4 +73,4 @@ num_folds: 5
 margin: 0
 sample_j: False
 single_sample: False
-max_samples_per_gpu: 16
+max_samples_per_gpu: -1
