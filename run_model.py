@@ -19,7 +19,7 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
-              total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01):
+              total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01, always_correct=True):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
@@ -57,6 +57,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		# decompose batch
 		data, targets, lengths = batch
 
+
 		# get number of samples within the batch
 		batch_samples_number = targets.size(0)
 
@@ -77,7 +78,14 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		# performing inner products
 		dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
 		dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-		
+		if always_correct:
+			if np.random.random() > 0.5:	
+				targets = (((dot_q_d1 > dot_q_d2).int()*2 )-1).float().to(device)
+			else:
+
+				targets = (((dot_q_d1 < dot_q_d2).int()*2 )-1).float().to(device)
+		else:
+			targets = (((dot_q_d1 < dot_q_d2).int()*2 )-1).float().to(device)
 		# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 		# so we need to unsqueeze
 		if batch_samples_number == 1:
@@ -139,7 +147,10 @@ def get_all_reprs(model, dataloader, device):
 			ids += batch_ids_d
 			l1, l0 = l1_loss_fn(repr_), l0_loss(repr_)
 			av_l1_loss.step(l1), av_l0.step(l0)
-		return reprs, ids, av_l0.val.item(), av_l1_loss.val.item()
+		if len(reprs) > 0:
+			return reprs, ids, av_l0.val.item(), av_l1_loss.val.item()
+		else:
+			return None, None, None, None
 
 
 def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
@@ -171,22 +182,25 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 		docs_batch_generator.reset()
 		query_batch_generator.reset()
 
-	scores = []
-
+	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
 	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
+		
 
 	while True:
 
 		# if return has len == 0 then break
 		d_repr, d_ids, l0_docs, l1_loss_docs = get_all_reprs(model, docs_batch_generator, device)
-		q_repr, q_ids, l0_q, l1_loss_q = get_all_reprs(model, query_batch_generator, device)
-		if len(q_repr) == 0:
+		q_repr, q_ids_q, l0_q, l1_loss_q = get_all_reprs(model, query_batch_generator, device)
+		if q_repr is None or d_repr is None:
 			break
-
+		
 		scores += get_scores(d_repr, d_ids, q_repr, max_rank)
+		q_ids += q_ids_q
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
 		av_l1_loss.step((l1_loss_q + l1_loss_docs)/ 2)
+		d_reprs.append(torch.cat(d_repr, 0))
+		q_reprs.append(q_repr[0])
 
 
 	metric_score = metric.score(scores, q_ids)
@@ -199,14 +213,13 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 
 		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 	print(f'{mode} -  {metric.name}: {metric_score}')
-
-	return scores, q_repr, d_repr, q_ids, d_ids, metric_score
+	return scores, q_reprs, d_reprs, q_ids, d_ids, metric_score
 
 
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
           l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
           bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
-          sparse_dimensions=1000, validate=True):
+          sparse_dimensions=1000, validate=True, always_correct=True):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -254,7 +267,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 		 	                                     writer,
 		 	                                     l1_scalar, balance_scalar, total_trained_samples, device,
 		 	                                     optim=optim, samples_per_epoch=samples_per_epoch_train,
-		 	                                     log_every_ratio=log_every_ratio)
+		 	                                     log_every_ratio=log_every_ratio, always_correct=always_correct)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
@@ -264,13 +277,12 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			else:
 				validate
 				if validate:
-					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,	optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio)
+					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,	optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, always_correct=always_correct)
 
 				# Run also proper evaluation script
 				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
 				                                            		total_trained_samples, metric, writer=writer)
 	
-				exit()
 				# plot stats
 				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 				plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')

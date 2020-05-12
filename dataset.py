@@ -296,6 +296,9 @@ class WeakSupervisionEval:
 
 	def get_text(self, id_):
 		tokenized_ids = self.id2text.get_tokenized_element(id_)
+		if tokenized_ids is None:
+			return None
+		
 		if len(tokenized_ids) < self.min_len:
 			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
 		return tokenized_ids
@@ -321,12 +324,15 @@ class WeakSupervisionEval:
 					break
 				# extracting the token_ids and creating a numpy array
 
-				if id_ not in batch_ids and curr_q_id not in self.indices:
 
-					tokens_list = torch.IntTensor(self.get_text(id_))
+
+				tokens_list = self.get_text(id_)
+				
+				if tokens_list is not None and id_ not in batch_ids and curr_q_id not in self.indices:
+
 					batch_ids.append(id_)
 
-					batch_data.append(tokens_list)
+					batch_data.append(torch.IntTensor(tokens_list))
 
 				prev_q_id = curr_q_id
 
