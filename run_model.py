@@ -54,6 +54,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		# If all samples are None within a batch, then the batch is None
 		if batch is None:
 			continue
+
 		if optim != None:
 			optim.zero_grad()
 
@@ -63,9 +64,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		# allocate space in tensor form to sum the losses, per task
 
-		for i, minibatch in enumerate(minibatches):
-
-			torch.cuda.empty_cache()
+		for minibatch in minibatches:
 
 			# decompose batch
 			data, targets, lengths = minibatch
@@ -117,18 +116,15 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			total_loss = total_loss * (minibatch_samples_number / batch[0].size(0))
 
-			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc) 
+			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc)
 
-			if i == len(minibatches) -1:
+			if optim != None:
 				total_loss.backward()
-			else:
-				total_loss.backward(retain_graph=True)
 
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.step()
 			optim.zero_grad()
-		torch.cuda.empty_cache()
 
 		# get pogress ratio
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
