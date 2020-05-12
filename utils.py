@@ -260,6 +260,9 @@ def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):
 	# calculate number of minibatches (/3 cause each sample has 3 items in the batch (q,d1,d2))
 	number_of_samples_in_batch = batch[0].size(0) // 3
 
+	if number_of_samples_in_batch <= max_samples_per_gpu:
+		return [batch]
+
 	q_init_index = 0
 	d1_init_index = number_of_samples_in_batch
 	d2_init_index = 2*number_of_samples_in_batch
