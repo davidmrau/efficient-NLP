@@ -58,7 +58,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if optim != None:
 			optim.zero_grad()
 
-		minibatches = split_batch_to_minibatches(batch)
+		minibatches = split_batch_to_minibatches(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
 
 		batch_samples_number = 0
 
