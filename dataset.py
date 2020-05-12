@@ -221,11 +221,12 @@ class MSMarcoSequentialDev:
 		prev_q_id = self.get_id(line, is_query=True)
 		curr_q_id = prev_q_id
 		self.stop = False
-
+		# read until file is over or stop
 		while line and not self.stop:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
+			# for each batch and file is not over
 			while (line and ( len(batch_ids) <= self.batch_size) ):
 
 				id_ = self.get_id(line, self.is_query)
@@ -330,7 +331,10 @@ class WeakSupervisionEval:
 				prev_q_id = curr_q_id
 
 				line = self.ranking_results.readline()
+			
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
+			if len(batch_data) < 1:
+				return
 			#padd data along axis 1
 			batch_data = pad_sequence(batch_data,1).long()
 

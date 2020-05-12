@@ -173,66 +173,29 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 
 	scores = []
 
-	av_l1_loss = 0
-	av_l0_docs = 0
-	av_l0_query = 0
-
-	counter = 0
+	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
 
 	while True:
-		print(counter)
 
 		# if return has len == 0 then break
-
 		d_repr, d_ids, l0_docs, l1_loss_docs = get_all_reprs(model, docs_batch_generator, device)
 		q_repr, q_ids, l0_q, l1_loss_q = get_all_reprs(model, query_batch_generator, device)
 		if len(q_repr) == 0:
 			break
 
-		print(q_ids)
-		print(len(d_repr))
-
-
 		scores += get_scores(d_repr, d_ids, q_repr, max_rank)
-		print(len(scores))
-		av_l0_docs += l0_docs
-		av_l0_query += l0_q
-		av_l1_loss += (l1_loss_q + l1_loss_docs)/ 2
-		counter += 1
-
-
-
-	av_l1_loss /= counter
-	av_l0_docs /= counter
-	av_l0_query /= counter
-
-
-
-
-	# # print(len(d_repr), "batches of document representation")
-	# # print(len(q_repr), "batches of query representation")
-	# # exit()s
-
-	# for batch_ids_d, batch_data_d, batch_lengths_d in query_batch_generator.batch_generator():
-	# 	print(batch_ids_d)
-	# for batch_ids_d, batch_data_d, batch_lengths_d in query_batch_generator.batch_generator():
-	# 	print(batch_ids_d)
-
-	# exit()
-
-	# l1_loss = 
-
-	# scores = get_scores(d_repr, d_ids, q_repr, max_rank)
-
+		av_l0_docs.step(l0_docs)
+		av_l0_query.step(l0_q)
+		av_l1_loss.step((l1_loss_q + l1_loss_docs)/ 2)
 
 
 	metric_score = metric.score(scores, q_ids)
 
 	if writer != None:
-		writer.add_scalar(f'{mode}_l1_loss', av_l1_loss , total_trained_samples)
+		writer.add_scalar(f'{mode}_l1_loss', av_l1_loss.val , total_trained_samples)
 
-		writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
-		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_query', av_l0_query.val, total_trained_samples)
+		writer.add_scalar(f'{mode}_L0_docs', av_l0_docs.val, total_trained_samples)
 
 		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 	print(f'{mode} -  {metric.name}: {metric_score}')
@@ -283,15 +246,15 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			print(f"Early Stopping at Epoch: {epoch-1}!")
 			break
 
-		# print('Epoch', epoch)
-		# # training
-		# with torch.enable_grad():
-		# 	model.train()
-		# 	total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
-		# 	                                     writer,
-		# 	                                     l1_scalar, balance_scalar, total_trained_samples, device,
-		# 	                                     optim=optim, samples_per_epoch=samples_per_epoch_train,
-		# 	                                     log_every_ratio=log_every_ratio)
+		print('Epoch', epoch)
+		# training
+		with torch.enable_grad():
+			model.train()
+			total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
+		 	                                     writer,
+		 	                                     l1_scalar, balance_scalar, total_trained_samples, device,
+		 	                                     optim=optim, samples_per_epoch=samples_per_epoch_train,
+		 	                                     log_every_ratio=log_every_ratio)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
@@ -299,14 +262,9 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			if bottleneck_run:
 				break
 			else:
-				# validate
-				# if validate:
-					# _, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val,
-				 #                                                  loss_fn, epoch, writer,
-				 #                                                  l1_scalar, balance_scalar, total_trained_samples,
-				 #                                                  device,
-				 #                                                  optim=None, samples_per_epoch=samples_per_epoch_val,
-				 #                                                  log_every_ratio=log_every_ratio)
+				validate
+				if validate:
+					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,	optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio)
 
 				# Run also proper evaluation script
 				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
