@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
-	plot_ordered_posting_lists_lengths, Average, EarlyStopping
+	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches
 
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
-                 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
+				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
 	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss))
 	if writer:
 		# update tensorboard
@@ -19,7 +19,8 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
-              total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01):
+			  total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01,
+			  max_samples_per_gpu = 16, n_gpu = 1):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
@@ -54,60 +55,82 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if batch is None:
 			continue
 
-		# decompose batch
-		data, targets, lengths = batch
+		minibatches = split_batch_to_minibatches(batch)
 
-		# get number of samples within the batch
-		batch_samples_number = targets.size(0)
+		batch_samples_number = 0
 
-		# update the number of trained samples in this epoch
-		cur_trained_samples += batch_samples_number
-		# update the total number of trained samples
-		total_trained_samples += batch_samples_number
+		# allocate space in tensor form to sum the losses, per task
+		batch_loss = torch.Tensor([0])
 
-		# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
-		logits = model(data.to(device), lengths.to(device))
-		# moving targets also to the appropriate device
-		targets = targets.to(device)
+		if next(model.parameters()).is_cuda:
+			batch_loss = batch_loss.cuda()
 
-		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-		split_size = logits.size(0) // 3
-		q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+		for minibatch in minibatches:
 
-		# performing inner products
-		dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-		dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-		
-		# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
-		# so we need to unsqueeze
-		if batch_samples_number == 1:
-			dot_q_d1.unsqueeze(0)
-			dot_q_d2.unsqueeze(0)
+			torch.cuda.empty_cache()
 
-		# calculating loss
-		loss = loss_fn(dot_q_d1, dot_q_d2, targets)
+			# decompose batch
+			data, targets, lengths = minibatch
+			# get number of samples within the batch
+			minibatch_samples_number = targets.size(0)
 
-		# calculate l1 loss
-		l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
-		# calculate balance loss
-		balance_loss = balance_loss_fn(logits, device)
-		# calculating L0 loss
-		l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+			batch_samples_number += minibatch_samples_number
 
-		# calculating classification accuracy (whether the correct document was classified as more relevant)
-		acc = (((dot_q_d1 > dot_q_d2).float() == targets).float() + (
-				(dot_q_d2 > dot_q_d1).float() == targets * -1).float()).mean()
+			# update the number of trained samples in this epoch
+			cur_trained_samples += minibatch_samples_number
+			# update the total number of trained samples
+			total_trained_samples += minibatch_samples_number
 
-		# aggregating losses and running backward pass and update step
-		total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
+			# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
+			logits = model(data.to(device), lengths.to(device))
+			# moving targets also to the appropriate device
+			targets = targets.to(device)
+
+			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+			split_size = logits.size(0) // 3
+			q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+
+			# performing inner products
+			dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+			dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+			
+			# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
+			# so we need to unsqueeze
+			if minibatch_samples_number == 1:
+				dot_q_d1.unsqueeze(0)
+				dot_q_d2.unsqueeze(0)
+
+			# calculating loss
+			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
+
+			# calculate l1 loss
+			l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+			# calculate balance loss
+			balance_loss = balance_loss_fn(logits, device)
+			# calculating L0 loss
+			l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+
+			# calculating classification accuracy (whether the correct document was classified as more relevant)
+			acc = (((dot_q_d1 > dot_q_d2).float() == targets).float() + (
+					(dot_q_d2 > dot_q_d1).float() == targets * -1).float()).mean()
+
+			# aggregating losses and running backward pass and update step
+			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
+
+			batch_loss += total_loss * minibatch_samples_number
+
+			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc) 
+
+		batch_loss /= batch_samples_number
+
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.zero_grad()
-			total_loss.backward()
+			batch_loss.backward()
 			optim.step()
 
 		torch.cuda.empty_cache()
-		av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc) 
+
 		# get pogress ratio
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
 
@@ -115,7 +138,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if samples_trained_ratio > current_log_threshold:
 			# log
 			log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
-			             av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val)
+						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val)
 			# update log threshold
 			current_log_threshold = samples_trained_ratio + log_every_ratio
 
@@ -123,7 +146,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	# log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
-			             av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
+						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
 	return total_trained_samples, av_total_loss.val.item()
 
 
@@ -204,9 +227,9 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 
 
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
-          l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
-          bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
-          sparse_dimensions=1000, validate=True):
+		  l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
+		  bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
+		  sparse_dimensions=1000, validate=True, max_samples_per_gpu = 16, n_gpu = 1):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -251,10 +274,10 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 		with torch.enable_grad():
 			model.train()
 			total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
-		 	                                     writer,
-		 	                                     l1_scalar, balance_scalar, total_trained_samples, device,
-		 	                                     optim=optim, samples_per_epoch=samples_per_epoch_train,
-		 	                                     log_every_ratio=log_every_ratio)
+												 writer,
+												 l1_scalar, balance_scalar, total_trained_samples, device,
+												 optim=optim, samples_per_epoch=samples_per_epoch_train,
+												 log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
 		# evaluation
 		with torch.no_grad():
 			model.eval()
@@ -262,15 +285,15 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			if bottleneck_run:
 				break
 			else:
-				validate
+				
 				if validate:
-					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,	optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio)
+					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
+						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
 
 				# Run also proper evaluation script
 				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
-				                                            		total_trained_samples, metric, writer=writer)
+																	total_trained_samples, metric, writer=writer)
 	
-				exit()
 				# plot stats
 				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 				plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')

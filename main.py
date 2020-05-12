@@ -32,7 +32,7 @@ def exp(cfg):
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
-	model, device = instantiate_model(cfg)
+	model, device, n_gpu = instantiate_model(cfg)
 
 
 	# set seeds
@@ -79,7 +79,8 @@ def exp(cfg):
 	model, metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 	samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
-	log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions)
+	log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions,
+	max_samples_per_gpu = cfg.max_samples_per_gpu, n_gpu = n_gpu)
 
 
 

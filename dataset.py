@@ -619,16 +619,15 @@ def get_data_loaders_msmarco(cfg):
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	
 	dataloaders['train'] = DataLoader(train_dataset,
-	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
+	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset,
-	                                  batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
+	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
 
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
-
-	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
-	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
+	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size_test, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
+	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size_test, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
 
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
@@ -657,12 +656,12 @@ def get_data_loaders_robust(cfg):
 
 	# calculate train and validation size according to train_val_ratio
 	# train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
-	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
-	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
+	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
+	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, is_query=False)
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size_test, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, is_query=False)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
@@ -675,8 +674,8 @@ def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, qu
 	# calculate train and validation size according to train_val_ratio
 	
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size, collate_fn=collate_fn_padd_triples, num_workers = cfg.num_workers)
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, query_fi, cfg.batch_size, indices=indices_test, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size, indices=indices_test, is_query=False)
+	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = cfg.num_workers)
+	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, query_fi, cfg.batch_size_test, indices=indices_test, is_query=True)
+	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, indices=indices_test, is_query=False)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 	return dataloaders
