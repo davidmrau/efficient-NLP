@@ -377,21 +377,6 @@ def l0_loss_fn(q_repr, d1_repr, d2_repr):
 	non_zero_q = l0_loss(q_repr)
 	return non_zero_d, non_zero_q
 
-def get_posting_lengths(reprs, sparse_dims):
-	lengths = np.zeros(sparse_dims)
-	for repr_ in  reprs:
-		lengths += (repr_ != 0).sum(0).detach().cpu().numpy()
-	return lengths
-
-def get_latent_terms_per_doc(reprs):
-	terms = list()
-	for repr_ in reprs:
-		terms += list((repr_ != 0).sum(1).detach().cpu().numpy())
-	return terms
-
-
-
-
 
 def read_csv(path, delimiter='\t'):
 	return np.genfromtxt(path, delimiter=delimiter)
@@ -488,15 +473,27 @@ def balance_loss_fn(actications, device):
 	load = activations_to_load(actications)
 	return cv_squared(load, device)
 
+def get_posting_lengths(reprs, sparse_dims):
+	lengths = np.zeros(sparse_dims)
+	for repr_ in  reprs:
+		lengths += (repr_ != 0).sum(0)
+	return lengths
 
-def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
-	sparse_dims = reprs[0].size(1)
+def get_latent_terms_per_doc(reprs):
+	terms = list()
+	for repr_ in reprs:
+		terms += (repr_ != 0).sum(1).tolist()
+	return terms
+
+
+def plot_histogram_of_latent_terms(path, reprs, name):
+	sparse_dims = reprs[0].shape[1]
 	latent_terms_per_doc = get_latent_terms_per_doc(reprs)
 	sns.distplot(latent_terms_per_doc, bins=sparse_dims//10)
 	# plot histogram
 	# save histogram
 
-	plt.ylabel('Document Frequency')
+	plt.ylabel('Frequency')
 	# plt.xlabel('Dimension of the Representation Space (sorted)')
 	plt.xlabel('# Latent Terms')
 	plt.savefig(path + f'/num_latent_terms_per_{name}.pdf', bbox_inches='tight')
@@ -504,7 +501,7 @@ def plot_histogram_of_latent_terms(path, reprs, vocab_size, name):
 
 
 def plot_ordered_posting_lists_lengths(path,reprs, name, n=-1):
-	sparse_dims = reprs[0].size(1)
+	sparse_dims = reprs[0].shape[1]
 	frequencies = get_posting_lengths(reprs, sparse_dims)
 	n = n if n > 0 else len(frequencies)
 	top_n = sorted(frequencies, reverse=True)[:n]
@@ -513,7 +510,7 @@ def plot_ordered_posting_lists_lengths(path,reprs, name, n=-1):
 
 
 	plt.plot(top_n)
-	plt.ylabel('Document Frequency')
+	plt.ylabel('Frequency')
 	# plt.xlabel('Dimension of the Representation Space (sorted)')
 	n_text = f' (top {n})' if n != len(frequencies) else ''
 	plt.xlabel('Latent Dimension (Sorted)' + n_text)

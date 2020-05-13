@@ -186,6 +186,7 @@ class MSMarcoSequentialDev:
 
 	def reset(self):
 		self.file_.seek(0)
+		self.line = None
 		return self
 		
 	def tokenize(self, text):
@@ -215,28 +216,29 @@ class MSMarcoSequentialDev:
 
 	def batch_generator(self):
 
-		line = self.file_.readline()
+		if self.line is None:
+			self.line = self.file_.readline()
 		# line = self.file.readline()
 		#
-		prev_q_id = self.get_id(line, is_query=True)
+		prev_q_id = self.get_id(self.line, is_query=True)
 		curr_q_id = prev_q_id
 		self.stop = False
 		# read until file is over or stop
-		while line and not self.stop:
+		while self.line and not self.stop:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
 			# for each batch and file is not over
-			while (line and ( len(batch_ids) <= self.batch_size) ):
+			while (self.line and ( len(batch_ids) <= self.batch_size) ):
 
-				id_ = self.get_id(line, self.is_query)
-				curr_q_id = self.get_id(line, is_query=True)
+				id_ = self.get_id(self.line, self.is_query)
+				curr_q_id = self.get_id(self.line, is_query=True)
 				if curr_q_id != prev_q_id:
 					prev_q_id = curr_q_id
 					self.stop = True
 					break
 				# extracting the token_ids and creating a numpy array
-				text = self.get_text(line)
+				text = self.get_text(self.line)
 
 				tokens_list = self.tokenize(text)
 
@@ -248,7 +250,7 @@ class MSMarcoSequentialDev:
 
 				prev_q_id = curr_q_id
 
-				line = self.file_.readline()
+				self.line = self.file_.readline()
 
 				#print(self.is_query, id_)
 
@@ -284,6 +286,7 @@ class WeakSupervisionEval:
 
 	def reset(self):
 		self.ranking_results.seek(0)
+		self.line = None
 		return self
 
 
@@ -305,19 +308,20 @@ class WeakSupervisionEval:
 
 	def batch_generator(self):
 
-		line = self.ranking_results.readline()
+		if self.line is None:
+			self.line = self.ranking_results.readline()
 
-		prev_q_id = self.get_id(line, is_query=True)
+		prev_q_id = self.get_id(self.line, is_query=True)
 		self.stop = False
 
-		while line and not self.stop:
+		while self.line and not self.stop:
 			# read a number of lines equal to batch_size
 			batch_ids = []
 			batch_data = []
-			while (line and ( len(batch_ids) <= self.batch_size) ):
+			while (self.line and ( len(batch_ids) < self.batch_size) ):
 
-				id_ = self.get_id(line, self.is_query)
-				curr_q_id = self.get_id(line, is_query=True)
+				id_ = self.get_id(self.line, self.is_query)
+				curr_q_id = self.get_id(self.line, is_query=True)
 				if curr_q_id != prev_q_id:
 					prev_q_id = curr_q_id
 					self.stop = True
@@ -336,7 +340,7 @@ class WeakSupervisionEval:
 
 				prev_q_id = curr_q_id
 
-				line = self.ranking_results.readline()
+				self.line = self.ranking_results.readline()
 			
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
 			if len(batch_data) < 1:

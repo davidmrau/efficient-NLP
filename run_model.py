@@ -94,8 +94,8 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 			# so we need to unsqueeze
 			if minibatch_samples_number == 1:
-				dot_q_d1.unsqueeze(0)
-				dot_q_d2.unsqueeze(0)
+				dot_q_d1 = dot_q_d1.unsqueeze(0)
+				dot_q_d2 = dot_q_d2.unsqueeze(0)
 
 			# calculating loss
 			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
@@ -153,7 +153,7 @@ def get_all_reprs(model, dataloader, device):
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
 			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
-			reprs.append(repr_)
+			reprs.append(repr_.detach().cpu().numpy())
 			ids += batch_ids_d
 			l1, l0 = l1_loss_fn(repr_), l0_loss(repr_)
 			av_l1_loss.step(l1), av_l0.step(l0)
@@ -173,7 +173,7 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 			dots_q_d = batch_q_repr @ batch_doc_repr.T
 			# appending scores of batch_documents for this batch of queries
 			for i in range(batch_len):
-				q_score_lists[i] += dots_q_d[i].detach().cpu().tolist()
+				q_score_lists[i] += list(dots_q_d[i])
 
 		# now we will sort the documents by relevance, for each query
 		for i in range(batch_len):
@@ -195,7 +195,6 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
 	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
 		
-
 	while True:
 
 		# if return has len == 0 then break
@@ -205,13 +204,13 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 			break
 		
 		scores += get_scores(d_repr, d_ids, q_repr, max_rank)
+
 		q_ids += q_ids_q
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
 		av_l1_loss.step((l1_loss_q + l1_loss_docs)/ 2)
-		d_reprs.append(torch.cat(d_repr, 0))
+		d_reprs.append(np.concatenate(d_repr, 0))
 		q_reprs.append(q_repr[0])
-
 
 	metric_score = metric.score(scores, q_ids)
 
@@ -298,9 +297,9 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 	
 				# plot stats
 				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
-				plot_histogram_of_latent_terms(model_folder, q_repr, sparse_dimensions, 'query')
+				plot_histogram_of_latent_terms(model_folder, q_repr, 'query')
 				plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
-				plot_histogram_of_latent_terms(model_folder, d_repr, sparse_dimensions, 'docs')
+				plot_histogram_of_latent_terms(model_folder, d_repr, 'docs')
 
 				if validate:
 					metric_score = val_total_loss
