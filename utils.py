@@ -250,47 +250,38 @@ def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):
 	if max_samples_per_gpu == -1:
 		return [batch]
 
-	# print(batch)
+	data, targets, lengths = batch
 
 	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
 	size_of_minibatch = max_samples_per_gpu * n_gpu
 
-	data, targets, lengths = batch
+	split_size = data.size(0) // 3
+	queries, doc1, doc2 = torch.split(data, split_size)
+	queries_len, doc1_len, doc2_len = torch.split(data, split_size)
 
-	# calculate number of minibatches (/3 cause each sample has 3 items in the batch (q,d1,d2))
-	number_of_samples_in_batch = batch[0].size(0) // 3
+	number_of_samples_in_batch = queries.size(0)
 
 	if number_of_samples_in_batch <= max_samples_per_gpu:
 		return [batch]
 
-	q_init_index = 0
-	d1_init_index = number_of_samples_in_batch
-	d2_init_index = 2*number_of_samples_in_batch
 
-	number_of_minibatches = number_of_samples_in_batch // size_of_minibatch
-
-	# check if there is an incomplete last minibatch
-	if number_of_samples_in_batch % size_of_minibatch != 0:
-		number_of_minibatches += 1
+	number_of_minibatches = math.ceil(number_of_samples_in_batch / size_of_minibatch)
 
 	# arrange the minibatches
 	minibatches = []
 	for i in range(number_of_minibatches):
 
-		# for j in range(size_of_minibatch):
-		minibatch_queries =  data[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
+		minibatch_queries =  queries[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
 
-		minibatch_d1 =  data[ d1_init_index +  i * size_of_minibatch : d1_init_index + (i+1) * size_of_minibatch ]
-		minibatch_d2 =  data[ d2_init_index +  i * size_of_minibatch : d2_init_index + (i+1) * size_of_minibatch ]
+		minibatch_d1 =  doc1[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
+		minibatch_d2 =  doc2[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
 
-		minibatch_queries_lengths =  lengths[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
+		minibatch_queries_lengths =  queries_len[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
 
-		minibatch_d1_lengths =  lengths[ d1_init_index +  i * size_of_minibatch : d1_init_index + (i+1) * size_of_minibatch ]
-		minibatch_d2_lengths =  lengths[ d2_init_index +  i * size_of_minibatch : d2_init_index + (i+1) * size_of_minibatch ]
-
+		minibatch_d1_lengths =  doc1_len[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
+		minibatch_d2_lengths =  doc2_len[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
 
 		minibatch_targets =  targets[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
-
 
 		minibatch_data = torch.cat([minibatch_queries , minibatch_d1 , minibatch_d2], dim = 0)
 		minibatch_lengths = torch.cat([minibatch_queries_lengths , minibatch_d1_lengths , minibatch_d2_lengths], dim = 0)
@@ -299,7 +290,6 @@ def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):
 
 		minibatches.append(minibatch)
 	return minibatches
-
 
 
 def get_pretrained_BERT_embeddings():
