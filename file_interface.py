@@ -5,7 +5,7 @@ import numpy as np
 import multiprocessing
 
 from collections import defaultdict
-
+import indexed_gzip as igzip
 
 class FileInterface:
 	""" This interface class is used for reading large files, withouth loading them on memory
@@ -23,20 +23,25 @@ class FileInterface:
 	def __init__(self, filename):
 
 		self.filename = filename
-
+		self.decode = False
 		# check if filename exists
 		try:
 			# we keep the file always open
-			self.file = open(filename, 'r')
+			# if gzipped open with igzip
+			if filename.endswith('.gz'):
+				self.file = igzip.IndexedGzipFile(filename)
+				self.decode = True
+			else:
+				self.file = open(filename, 'r')
 		except:
 			raise IOError(f'File: {filename} not accessible!')
-
+		
 		# check if dictionary pickle exists
 		try:
 				# given an id of an element, this dictionary returns the seek value of the file to the corresponding line
-			self.seek_dict = read_pickle(filename + '.offset_dict.p')
+			self.seek_dict = read_pickle(filename.replace('.gz', '') + '.offset_dict.p')
 		except:
-			raise IOError(f'File: {filename}.offset_dict.p not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
+			raise IOError(f'File: {filename.replace(".gz", "")}.offset_dict.p not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
 
 		if self.filename in FileInterface.locks:
 			raise ValueError(f'Filename "{self.filename}", is alredy open from another FileInterface instance !!!\nMultiprocessing will not work!')
@@ -55,7 +60,10 @@ class FileInterface:
 			# seek the file to the line that you want to read
 			self.file.seek( self.seek_dict[id] )
 			# read and return the line
-			return self.file.readline()
+			line = self.file.readline()
+			if self.decode:
+				line = line.decode()
+			return line
 
 	def get_triplet(self, index):
 		# returns 3 strings q_id, d1_id, d2_id
