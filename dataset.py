@@ -170,103 +170,11 @@ class MSMarcoSequential(IterableDataset):
 			yield [id_, tokens_list]
 
 
-class MSMarcoSequentialDev:
-	def __init__(self, fname, batch_size, word2index_path, embedding, is_query, min_len=5, max_len=150):
-
-		# open file
-		self.batch_size = batch_size
-		self.file_ = open(fname, 'r')
-		self.is_query = is_query
-		self.min_len = min_len
-
-		self.tokenizer = Tokenizer(tokenizer = embedding, max_len = max_len, stopwords='none', remove_unk = False,
-							word2index_path = word2index_path, unk_words_filename = None)
-
-		self.stop = False
-
-	def reset(self):
-		self.file_.seek(0)
-		self.line = None
-		return self
-		
-	def tokenize(self, text):
-		tokenized_ids = self.tokenizer.encode(text)
-
-		if len(tokenized_ids) < self.min_len:
-			tokenized_ids += [0]*(self.min_len - len(tokenized_ids))
-
-		return torch.IntTensor(tokenized_ids)
-
-
-	def get_id(self, line, is_query):
-		spl = line.split('\t')
-
-		if is_query:
-			return spl[0]
-		else:
-			return spl[1]
-
-	def get_text(self, line):
-		spl = line.split('\t')
-
-		if self.is_query:
-			return spl[2]
-		else:
-			return spl[3]
-
-	def batch_generator(self):
-
-		if self.line is None:
-			self.line = self.file_.readline()
-		# line = self.file.readline()
-		#
-		prev_q_id = self.get_id(self.line, is_query=True)
-		curr_q_id = prev_q_id
-		self.stop = False
-		# read until file is over or stop
-		while self.line and not self.stop:
-			# read a number of lines equal to batch_size
-			batch_ids = []
-			batch_data = []
-			# for each batch and file is not over
-			while (self.line and ( len(batch_ids) <= self.batch_size) ):
-
-				id_ = self.get_id(self.line, self.is_query)
-				curr_q_id = self.get_id(self.line, is_query=True)
-				if curr_q_id != prev_q_id:
-					prev_q_id = curr_q_id
-					self.stop = True
-					break
-				# extracting the token_ids and creating a numpy array
-				text = self.get_text(self.line)
-
-				tokens_list = self.tokenize(text)
-
-				if id_ not in batch_ids:
-
-					batch_ids.append(id_)
-
-					batch_data.append(tokens_list)
-
-				prev_q_id = curr_q_id
-
-				self.line = self.file_.readline()
-
-				#print(self.is_query, id_)
-
-			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
-			#padd data along axis 1
-			batch_data = pad_sequence(batch_data,1).long()
-
-			yield batch_ids, batch_data, batch_lengths
 
 
 
 
-
-
-
-class WeakSupervisionEval:
+class RankingResultsTest:
 	def __init__(self, ranking_results, id2text, batch_size, is_query, min_len=5, indices=None):
 		# open file
 		self.batch_size = batch_size
@@ -293,9 +201,9 @@ class WeakSupervisionEval:
 	def get_id(self, line, is_query):
 		spl = line.split(' ')
 		if is_query:
-			return str(spl[0])
+			return str(spl[0].strip())
 		else:
-			return str(spl[2])
+			return str(spl[2].strip())
 
 	def get_text(self, id_):
 		tokenized_ids = self.id2text.get_tokenized_element(id_)
@@ -636,9 +544,9 @@ def get_data_loaders_msmarco(cfg):
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
-	query_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_query_val), batch_size=cfg.batch_size_test, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
-	docs_batch_generator = DataLoader(MSMarcoSequential(cfg.msmarco_docs_val), batch_size=cfg.batch_size_test, collate_fn=collate_fn_padd_single, num_workers = sequential_num_workers)
+	query_batch_generator = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_query_test, cfg.batch_size_test, is_query=True)
 
+	docs_batch_generator = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_docs_test, cfg.batch_size_test, is_query=False)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
@@ -670,8 +578,8 @@ def get_data_loaders_robust(cfg):
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size_test, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, is_query=False)
+	query_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size_test, is_query=True)
+	docs_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, is_query=False)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 
 	return dataloaders
@@ -685,7 +593,7 @@ def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, qu
 	
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
-	query_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, query_fi, cfg.batch_size_test, indices=indices_test, is_query=True)
-	docs_batch_generator = WeakSupervisionEval(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, indices=indices_test, is_query=False)
+	query_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, query_fi, cfg.batch_size_test, indices=indices_test, is_query=True)
+	docs_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, indices=indices_test, is_query=False)
 	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
 	return dataloaders

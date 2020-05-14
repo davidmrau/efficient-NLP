@@ -34,14 +34,15 @@ class MRR(Metric):
 		return round(metric, 6)
 	
 class MAPTrec(Metric):
-	def __init__(self, trec_eval_path, qrel_file, max_rank):
+	def __init__(self, trec_eval_path, qrel_file, max_rank, add_params=''):
 		super().__init__(max_rank, qrel_file)
 		self.name = f'MAP@{max_rank}'
+		self.add_params = add_params
 		self.trec_eval = TrecEval(trec_eval_path)
 	def write_scores(self, scores, qids):
 		write_ranking_trec(scores, qids, self.tmp_ranking_file)
 
 	def score(self, scores, qids):
 		self.write_scores(scores, qids)
-		metric = self.trec_eval.score(self.qrel_file, self.tmp_ranking_file, self.max_rank)
+		metric = self.trec_eval.score(self.qrel_file, self.tmp_ranking_file, self.max_rank, self.add_params)
 		return round(metric, 6)
