@@ -1,3 +1,4 @@
+indexed_gzip
 nltk
 omegaconf
 tensorboard

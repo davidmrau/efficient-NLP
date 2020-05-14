@@ -529,10 +529,14 @@ class MSMarcoLM(data.Dataset):
 		return torch.LongTensor(inp)
 
 def get_data_loaders_msmarco(cfg):
-
-	cfg.msmarco_triplets_train = add_before_ending(cfg.msmarco_triplets_train,  '.debug' if cfg.debug else '')
+	
+	if cfg.debug:
+		triples = cfg.msmarco_triplets_train_debug
+	else:
+		triples = cfg.msmarco_triplets_train 
+	print(triples)
 	dataloaders = {}
-	dataset = MSMarcoTrain(cfg.msmarco_triplets_train, cfg.msmarco_docs_train, cfg.msmarco_query_train)
+	dataset = MSMarcoTrain(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train)
 	
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	
@@ -553,15 +557,17 @@ def get_data_loaders_msmarco(cfg):
 
 
 def get_data_loaders_robust(cfg):
-
-	cfg.robust_ranking_results_train = add_before_ending(cfg.robust_ranking_results_train,  '.debug' if cfg.debug else '')
+	if cfg.debug:
+		ranking_results_train = cfg.robust_ranking_results_train_debug
+	else:
+		ranking_results_train = cfg.robust_ranking_results_train
 
 	docs_fi = FileInterface(cfg.robust_docs)
 	queries_fi = FileInterface(cfg.robust_query_train)
-	weak_results_fi = FileInterface(cfg.robust_ranking_results_train)
+	weak_results_fi = FileInterface(ranking_results_train)
 	dataloaders = {}
 
-	dataset_len = offset_dict_len(cfg.robust_ranking_results_train)
+	dataset_len = offset_dict_len(ranking_results_train)
 
 	indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
 	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
