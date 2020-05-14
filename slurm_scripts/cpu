@@ -1,0 +1,12 @@
+#!/bin/bash
+# Set job requirements
+#SBATCH --ntasks=1
+#SBATCH --partition=normal
+#SBATCH --time=24:00:00
+#SBATCH --mem=100G
+
+source slurm_common.sh $1
+
+
+
+
