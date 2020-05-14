@@ -137,7 +137,10 @@ def instantiate_model(cfg):
 		embedding_parameters =	load_glove_embeddings(cfg.glove_embedding_path)
 
 	elif cfg.embedding == 'bert':
-		embedding_parameters = get_pretrained_BERT_embeddings()
+		if cfg.bert_rel:
+			embedding_parameters =	load_glove_embeddings(cfg.bert_relevance_embeddings_path)
+		else:
+			embedding_parameters = get_pretrained_BERT_embeddings()
 	else:
 		if cfg.embedding != "random":
 			raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
