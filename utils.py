@@ -257,7 +257,7 @@ def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):
 
 	split_size = data.size(0) // 3
 	queries, doc1, doc2 = torch.split(data, split_size)
-	queries_len, doc1_len, doc2_len = torch.split(data, split_size)
+	queries_len, doc1_len, doc2_len = torch.split(lengths, split_size)
 
 	number_of_samples_in_batch = queries.size(0)
 
