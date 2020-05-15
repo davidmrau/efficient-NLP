@@ -7,6 +7,7 @@ import multiprocessing
 from collections import defaultdict
 import indexed_gzip as igzip
 
+
 class FileInterface:
 	""" This interface class is used for reading large files, withouth loading them on memory
 
@@ -24,6 +25,7 @@ class FileInterface:
 
 		self.filename = filename
 		self.decode = False
+		offset_dict_path = get_offset_dict_path(filename)
 		# check if filename exists
 		try:
 			# we keep the file always open
@@ -39,9 +41,9 @@ class FileInterface:
 		# check if dictionary pickle exists
 		try:
 				# given an id of an element, this dictionary returns the seek value of the file to the corresponding line
-			self.seek_dict = read_pickle(filename.replace('.gz', '') + '.offset_dict.p')
+			self.seek_dict = read_pickle(offset_dict_path)
 		except:
-			raise IOError(f'File: {filename.replace(".gz", "")}.offset_dict.p not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
+			raise IOError(f'File: {offset_dict_path} not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
 
 		if self.filename in FileInterface.locks:
 			raise ValueError(f'Filename "{self.filename}", is alredy open from another FileInterface instance !!!\nMultiprocessing will not work!')
@@ -54,11 +56,11 @@ class FileInterface:
 		# length of items is equal to the length of the dictionary of seek values
 		return len(self.seek_dict)
 
-	def get(self, id):
+	def get(self, id_):
 
 		with FileInterface.locks[self.filename]:
 			# seek the file to the line that you want to read
-			self.file.seek( self.seek_dict[id] )
+			self.file.seek( self.seek_dict[id_] )
 			# read and return the line
 			line = self.file.readline()
 			if self.decode:
@@ -70,11 +72,11 @@ class FileInterface:
 		return self.get(index).strip().split('\t')
 
 
-	def get_tokenized_element(self, id):
+	def get_tokenized_element(self, id_):
 		""" Used to read one Document OR Query from file, given the
 		"""
 		# return (str) element_id, and numpy array of token ids
-		line = self.get(id)
+		line = self.get(id_)
 		# getting position of '\t' that separates the doc_id and the begining of the token ids
 		delim_pos = line.find('\t')
 		# in case the tokenized of the line is empy, and the line only contains the id, then we return None
@@ -96,6 +98,9 @@ class FileInterface:
 
 
 			line = self.file.readline()
+			
+			if self.decode:
+				line = line.decode()
 
 			requested_q_id = line.split()[0]
 

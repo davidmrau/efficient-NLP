@@ -126,8 +126,12 @@ def file_len(fname):
 		raise IOError(err)
 	return int(result.strip().split()[0])
 
+
+def get_offset_dict_path(filename):
+	return filename.replace('.gz', '') + '.offset_dict.p'
+
 def offset_dict_len(filename):
-	return len(read_pickle(filename + '.offset_dict.p'))
+	return len(read_pickle(get_offset_dict_path(filename)))
 
 def instantiate_model(cfg):
 
@@ -353,7 +357,7 @@ def load_glove_embeddings(path = "data/embeddings/glove.6B.300d.p"):
 	return read_pickle(path)
 
 def l1_loss_fn(repr_):
-	return torch.mean(repr_)
+	return torch.abs(torch.mean(repr_))
 
 def l0_loss(repr_):
 	return (repr_ != 0).float().mean()
