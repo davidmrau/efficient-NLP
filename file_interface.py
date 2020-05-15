@@ -126,7 +126,8 @@ class FileInterface:
 
 				# read next line
 				line = self.file.readline()
-
+				if self.decode:
+					line = line.decode()
 
 		return requested_q_id, results
 				
