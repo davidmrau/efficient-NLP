@@ -17,11 +17,11 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 		writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
 		writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
-
-        telegram_message = f'{mode} task_loss {loss}, l1_loss {l1_loss}, balance_loss {balance_loss} L0_query {l0_q}, L0_docs {l0_docs}, acc {acc}'
-        telegram_message = '${FILE_NAME}\t' + telegram_message
-        if telegram:
-            subprocess.run(["bash telegram.sh", "-c -462467791", telegram_message])
+	
+	telegram_message = f'{mode} task_loss {loss}, l1_loss {l1_loss}, balance_loss {balance_loss} L0_query {l0_q}, L0_docs {l0_docs}, acc {acc}'
+	telegram_message = '${FILE_NAME}\t' + telegram_message
+	if telegram:
+		subprocess.run(["bash telegram.sh", "-c -462467791", telegram_message])
 
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
@@ -234,7 +234,7 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
 		  l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
 		  bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
-		  sparse_dimensions=1000, validate=True, max_samples_per_gpu = 16, n_gpu = 1, telegram=telegram):
+		  sparse_dimensions=1000, validate=True, max_samples_per_gpu = 16, n_gpu = 1, telegram=False):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters

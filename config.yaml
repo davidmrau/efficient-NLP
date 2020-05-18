@@ -2,7 +2,7 @@
 model: 'snrm'
 vocab_size: 30522
 batch_size_train: 16
-batch_size_test: 16
+batch_size_test: 30
 lr: 0.0001
 stopwords: "none"
 remove_unk: False
@@ -61,7 +61,9 @@ msmarco_triplets_train: '${data_path}/msmarco/qidpidtriples.train.full.tsv.gz'
 msmarco_triplets_train_debug: '${data_path}/msmarco/qidpidtriples.train.full.debug.tsv.gz'
 msmarco_ranking_results_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv'
 msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
-robust_ranking_results_train: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.gz'
+#robust_ranking_results_train: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.gz'
+robust_ranking_results_train: "home/davidrau/robust04_AOL_anserini_top_1000_qld_no_stem.gz"
+#robust_ranking_results_train: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.txt'
 robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
 robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
@@ -76,8 +78,8 @@ samples_per_query: -1
 dataset: ''
 trec_eval: 'trec_eval'
 num_folds: 5
-margin: 0
+margin: 1
 sample_j: False
 single_sample: False
-max_samples_per_gpu: -1
 telegram: False
+max_samples_per_gpu: -1
