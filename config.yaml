@@ -78,3 +78,4 @@ margin: 0
 sample_j: False
 single_sample: False
 max_samples_per_gpu: -1
+telegram: False
