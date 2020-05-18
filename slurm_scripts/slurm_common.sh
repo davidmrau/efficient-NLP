@@ -9,7 +9,12 @@ module load cuDNN/7.0.5-CUDA-9.0.176
 module load NCCL/2.0.5-CUDA-9.0.176 
 
 cd ..
-bash telegram.sh "${USER} ${1} ${SLURM_JOBID} Started"
+
+FILE_NAME=$1
+export FILE_NAME
+
+bash telegram.sh "${USER} ${FILE_NAME} ${SLURM_JOBID} Started"
 source slurm_scripts/${1}
-bash telegram.sh "${USER} ${1} ${SLURM_JOBID} Finished"  
+bash telegram.sh "${USER} ${FILE_NAME} ${SLURM_JOBID} Finished"
+
 

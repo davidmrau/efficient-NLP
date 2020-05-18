@@ -12,7 +12,8 @@ def Delu(x):
 
 class BERT_based(torch.nn.Module):
 	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 1000, num_attention_heads = 4, input_length_limit = 150,
-			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, last_layer_norm = True, act_func="relu"):
+			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, last_layer_norm = True,
+			act_func="relu", params_to_copy = {}):
 		super(BERT_based, self).__init__()
 
 		if embedding_parameters is not None:
@@ -62,12 +63,26 @@ class BERT_based(torch.nn.Module):
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
 			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
+
+		# copy all specified parameters
+		for param in params_to_copy:
+
+			param_splitted = param.split(".")
+
+			item = self.encoder.__getattr__(param_splitted[0])
+
+			for p in param_splitted[1: -1]:
+				item  = item.__getattr__(p)
+
+			last_item = param_splitted[-1]
+
+			setattr(item, last_item, params_to_copy[param])
+
 		# the last linear of the model that projects the dense space to sparse space
 		self.sparse_linear = torch.nn.Linear(hidden_size, sparse_dimensions)
 
 		if large_out_biases:
 			self.sparse_linear.bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
-
 
 	def get_cls_token_id(self, ):
 		bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')

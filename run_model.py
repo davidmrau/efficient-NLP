@@ -1,11 +1,12 @@
 import torch
 import numpy as np
+import subprocess
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
 	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches
 
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
-				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
+				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None, telegram=False):
 	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss))
 	if writer:
 		# update tensorboard
@@ -17,10 +18,15 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
 		writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
 
+        telegram_message = f'{mode} task_loss {loss}, l1_loss {l1_loss}, balance_loss {balance_loss} L0_query {l0_q}, L0_docs {l0_docs}, acc {acc}'
+        telegram_message = '${FILE_NAME}\t' + telegram_message
+        if telegram:
+            subprocess.run(["bash telegram.sh", "-c -462467791", telegram_message])
+
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
 			  total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01,
-			  max_samples_per_gpu = 16, n_gpu = 1):
+			  max_samples_per_gpu = 16, n_gpu = 1, telegram=False):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
@@ -133,7 +139,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if samples_trained_ratio > current_log_threshold:
 			# log
 			log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
-						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val)
+						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, telegram=telegram)
 			# update log threshold
 			current_log_threshold = samples_trained_ratio + log_every_ratio
 
@@ -141,7 +147,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	# log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
-						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
+						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer, telegram=telegram)
 	return total_trained_samples, av_total_loss.val.item()
 
 
@@ -228,7 +234,7 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
 		  l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
 		  bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None,
-		  sparse_dimensions=1000, validate=True, max_samples_per_gpu = 16, n_gpu = 1):
+		  sparse_dimensions=1000, validate=True, max_samples_per_gpu = 16, n_gpu = 1, telegram=telegram):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -276,7 +282,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 												 writer,
 												 l1_scalar, balance_scalar, total_trained_samples, device,
 												 optim=optim, samples_per_epoch=samples_per_epoch_train,
-												 log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
+												 log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu, telegram=telegram)
 
 		# evaluation
 		with torch.no_grad():
@@ -288,7 +294,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 				
 				if validate:
 					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
-						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
+						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu, telegram=telegram)
 
 
 				# Run also proper evaluation script
