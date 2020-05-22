@@ -676,3 +676,71 @@ def plot_top_k_analysis(analysis_dict):
 
 
 	plt.show()
+
+
+
+class EmbeddingWeightedAverage(nn.Module):
+	def __init__(self, weights, vocab_size, trainable = True):
+		"""
+		weights : uniform
+				  path_to_file (pickle in the form of tensor.Size(V x 1))
+		"""
+		super(EmbeddingWeightedAverage, self).__init__()
+
+		# if weights are not pointing to a pickle file, and we will initialize them, then the vocab size needs to be given
+		# if (weights == "uniform" or weights == "random") and vocab_size is None:
+		# 	raise ValueError("Since we are initializeing the weights on EmbeddingWeightedAverage, the vocab_size needs to be given!")
+		# else:
+
+		self.weights = torch.nn.Embedding(num_embeddings = vocab_size, embedding_dim = 1)
+
+		if weights == "uniform":
+			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size))
+			# pass
+		elif weights == "random":
+			pass
+		# otherwise it has to be a path of a pickle file with the weights in a pytorch tensor form
+		else:
+			try:
+				weight_values = read_pickle(weights)
+				self.weights.weight = torch.nn.Parameter(weight_values)
+			except:
+				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pikle file: {weights} not accessible!')
+		
+		if trainable == False:
+			self.weights.weight.requires_grad = False
+
+
+
+	def weighted_average(self, input, values, lengths = None, attention_masks = None):
+		"""
+		input shape : Bsz x L
+		values shape  : Bsz x L x hidden
+		lengths shape : Bsz x 1
+		attention_masks: if provided, are of shape Bsx x L. Binary mask version of lenghts
+		"""
+		if attention_masks is None:
+
+			if lengths is None:
+				raise ValueError("EmbeddingWeightedAverage : weighted_average(), attention_masks and lengths cannot be None at the same time!")
+
+			attention_masks = torch.zeros_like(input)
+
+			for i in range(lengths.size(0)):
+				attention_masks[i, : lengths[i].int()] = 1
+
+			if values.is_cuda:
+				attention_masks = attention_masks.cuda()
+
+		attention_masks = attention_masks.float()
+
+		# attention_masks are making sure that we only add the non padded tokens
+		temp_attention_masks = attention_masks.unsqueeze(-1).repeat(1,1,values.size(-1))
+		# weights are extended to fit the size of the embeddings / hidden representation
+		weights = self.weights(input).unsqueeze(-1).repeat(1,1,values.size(-1))
+		# we first calculate the weighted sum
+		weighted_average = (weights * values * temp_attention_masks).sum(dim = 1)
+		# then we avrage the weighted sums according to the lengths of each sample
+		weighted_average = weighted_average / attention_masks.sum(dim = -1).unsqueeze(1)
+
+		return weighted_average
