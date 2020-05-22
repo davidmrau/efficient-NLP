@@ -682,15 +682,11 @@ def plot_top_k_analysis(analysis_dict):
 class EmbeddingWeightedAverage(nn.Module):
 	def __init__(self, weights, vocab_size, trainable = True):
 		"""
-		weights : uniform
+		weights : uniform / random / 
 				  path_to_file (pickle in the form of tensor.Size(V x 1))
+		vocab_size: vocabulary size
 		"""
 		super(EmbeddingWeightedAverage, self).__init__()
-
-		# if weights are not pointing to a pickle file, and we will initialize them, then the vocab size needs to be given
-		# if (weights == "uniform" or weights == "random") and vocab_size is None:
-		# 	raise ValueError("Since we are initializeing the weights on EmbeddingWeightedAverage, the vocab_size needs to be given!")
-		# else:
 
 		self.weights = torch.nn.Embedding(num_embeddings = vocab_size, embedding_dim = 1)
 
