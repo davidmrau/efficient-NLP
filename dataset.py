@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader, IterableDataset
 from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len, split_sizes, split_dataset
 import math
 import random
-from tokenizer import Tokenizer
 
 
 
