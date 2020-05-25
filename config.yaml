@@ -43,7 +43,7 @@ num_of_decimals: 5
 balance_scalar: 0.0
 disable_cuda: False
 seed: 1
-data_path: "data/"
+data_path: "/project/draugpu/data/"
 embedding: 'bert'
 bert_rel: False
 bert_relevance_embeddings_path: '${data_path}/embeddings/bert_relev_embeddings.p'
@@ -62,7 +62,7 @@ msmarco_triplets_train_debug: '${data_path}/msmarco/qidpidtriples.train.full.deb
 msmarco_ranking_results_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv'
 msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
 #robust_ranking_results_train: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.gz'
-robust_ranking_results_train: "home/davidrau/robust04_AOL_anserini_top_1000_qld_no_stem.gz"
+robust_ranking_results_train: "${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem"
 #robust_ranking_results_train: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.txt'
 robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
 robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
