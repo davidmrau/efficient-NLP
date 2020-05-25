@@ -23,7 +23,7 @@ tf:
   pooling_method: 'AVG'
   last_layer_norm: True
   act_func: "relu"
-  load_bert_layers: ''
+  load_bert_layers: '' # for multiple layers add '-' between hidden sizes  eg. ('0-1-4'). [0 are the embeddngs, 1 the first bert_layer etc.]
   load_bert_path: 'default'
 snrm:
   hidden_sizes: '200' # for multiple layers add '-' between hidden sizes  eg. ('100-400-200')
