@@ -159,10 +159,56 @@ def instantiate_model(cfg):
 					 n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)
 
 	elif cfg.model == "tf":
+
+		params_to_copy = {}
+
+		if isinstance(cfg.tf.load_bert_layers, str) and len(cfg.tf.load_bert_layers) != 0:
+			load_bert_layers = str2lst(str(cfg.tf.load_bert_layers))
+		elif isinstance(cfg.tf.load_bert_layers, int):
+			load_bert_layers = [cfg.tf.load_bert_layers]
+		else:
+			load_bert_layers = []
+
+		if len(load_bert_layers) > 0:
+			# load state dictionary of the model that we will copy the paramterers from
+			if cfg.tf.load_bert_path == 'default':
+				model = transformers.BertModel.from_pretrained('bert-base-uncased')
+				model_state_dict = model.state_dict()
+			else:
+				raise ValueError("implement to read bert from file!")
+
+			for layer in load_bert_layers:
+
+				for key in model_state_dict:
+
+					# setting the actual layer index, cause we consider 0 to be embeddings,
+					# so first layer will be represented as 1, but has actual index of 0
+
+					if layer == 0:
+						check_string = 'embeddings'
+
+						# in case we are loading embeddings, including positional embeddings,
+						# we ned to adjust the input length limit, and hidden representation size
+						if "position_embeddings" in key:
+							cfg.tf.input_length_limit = model_state_dict[key].size(0)
+							cfg.tf.hidden_size = model_state_dict[key].size(1)
+					else:
+						check_string = "." + str(int(layer) - 1) + "."
+						# if we are loading at least one bert layer, then we need to copy the number of attention heads
+						cfg.tf.num_attention_heads = model.config.num_attention_heads
+						# also making sure that we have the correct hidden size
+						cfg.tf.hidden_size = model.config.hidden_size
+
+
+
+					if check_string in key:
+						params_to_copy[key] =  torch.nn.Parameter(model_state_dict[key])
+
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 							sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
 							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, pooling_method = cfg.tf.pooling_method,
-							large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func)
+							large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func,
+							params_to_copy = params_to_copy)
 
 	# select device depending on availability and user's setting
 	if not cfg.disable_cuda and torch.cuda.is_available():
@@ -630,3 +676,67 @@ def plot_top_k_analysis(analysis_dict):
 
 
 	plt.show()
+
+
+
+class EmbeddingWeightedAverage(nn.Module):
+	def __init__(self, weights, vocab_size, trainable = True):
+		"""
+		weights : uniform / random / 
+				  path_to_file (pickle in the form of tensor.Size(V x 1))
+		vocab_size: vocabulary size
+		"""
+		super(EmbeddingWeightedAverage, self).__init__()
+
+		self.weights = torch.nn.Embedding(num_embeddings = vocab_size, embedding_dim = 1)
+
+		if weights == "uniform":
+			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size))
+			# pass
+		elif weights == "random":
+			pass
+		# otherwise it has to be a path of a pickle file with the weights in a pytorch tensor form
+		else:
+			try:
+				weight_values = read_pickle(weights)
+				self.weights.weight = torch.nn.Parameter(weight_values)
+			except:
+				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pikle file: {weights} not accessible!')
+		
+		if trainable == False:
+			self.weights.weight.requires_grad = False
+
+
+
+	def weighted_average(self, input, values, lengths = None, attention_masks = None):
+		"""
+		input shape : Bsz x L
+		values shape  : Bsz x L x hidden
+		lengths shape : Bsz x 1
+		attention_masks: if provided, are of shape Bsx x L. Binary mask version of lenghts
+		"""
+		if attention_masks is None:
+
+			if lengths is None:
+				raise ValueError("EmbeddingWeightedAverage : weighted_average(), attention_masks and lengths cannot be None at the same time!")
+
+			attention_masks = torch.zeros_like(input)
+
+			for i in range(lengths.size(0)):
+				attention_masks[i, : lengths[i].int()] = 1
+
+			if values.is_cuda:
+				attention_masks = attention_masks.cuda()
+
+		attention_masks = attention_masks.float()
+
+		# attention_masks are making sure that we only add the non padded tokens
+		temp_attention_masks = attention_masks.unsqueeze(-1).repeat(1,1,values.size(-1))
+		# weights are extended to fit the size of the embeddings / hidden representation
+		weights = self.weights(input).unsqueeze(-1).repeat(1,1,values.size(-1))
+		# we first calculate the weighted sum
+		weighted_average = (weights * values * temp_attention_masks).sum(dim = 1)
+		# then we avrage the weighted sums according to the lengths of each sample
+		weighted_average = weighted_average / attention_masks.sum(dim = -1).unsqueeze(1)
+
+		return weighted_average
