@@ -6,6 +6,18 @@ from transformers import BertTokenizer, BertTokenizerFast
 
 
 
+from stanza.server import CoreNLPClient
+import os
+
+os.environ["CORENLP_HOME"] = '/data/david/lib/stanford-corenlp-full-2016-10-31'
+
+# Import client module
+
+
+
+#client.start()
+#import time; time.sleep(10)
+
 
 
 
@@ -50,7 +62,15 @@ class Tokenizer():
 		self.set_unk_word(remove_unk = remove_unk)
 
 
+		self.client = CoreNLPClient(timeout=150000000, be_quiet=False, annotators=['tokenize','ssplit'], memory='27G', endpoint='http://localhost:9000')
 
+	def stanford_tokenize(text):
+		document = self.client.annotate(text)
+		tokenized = list()
+		for sent in document.sentence:
+			tokenized += [token.word.lower() for token in sent.token]
+		return tokenized
+		
 	def set_unk_word(self, remove_unk):
 
 		if self.tokenizer == "bert":
@@ -118,8 +138,8 @@ class Tokenizer():
 		if self.lower:
 			text = text.lower()
 
-		tokens = word_tokenize(text)
-
+		#tokens = word_tokenize(text)
+		tokens = stanford_tokenize(text)
 		# if there is a specified max len of input to be considered, we enforce it on the token level
 		# as the token level is percieved by nltk.word_tokenize()
 		if self.max_len != -1:
