@@ -176,6 +176,9 @@ def instantiate_model(cfg):
 			else:
 				model = torch.load(cfg.tf.load_bert_path)
 
+			# retrieve the number of heads, according to the loaded model
+			cfg.tf.num_attention_heads = model.config.num_attention_heads
+
 			model_state_dict = model.state_dict()
 
 			# update the number of layers, depending on the layers that need to be copied

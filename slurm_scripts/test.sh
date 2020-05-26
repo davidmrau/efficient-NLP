@@ -2,10 +2,7 @@
 # Set job requirements
 #SBATCH --job-name=test
 #SBATCH --ntasks=1
-#SBATCH --partition=gpu_short
-#SBATCH --time=00:05:00
-#SBATCH --mem=100G
-
+#SBATCH --partition=normal
 
 #SBATCH --mail-type=BEGIN,END
 #SBATCH --mail-user=kondilidisn9@gmail.com
@@ -24,7 +21,7 @@ cd ..
 DATASET='msmarco'
 STOPWORDS='none'
 
-MODEL=bert
+MODEL=tf
 
 EMBEDDINGS="bert"
 L1_SCALARS="0"
@@ -48,9 +45,9 @@ for EMBEDDING in ${EMBEDDINGS}; do
 
 				
 				python3 main.py model=${MODEL} batch_size=${BATCH_SIZE} embedding=${EMBEDDING} sparse_dimensions=${SPARSE_DIMENSION} \
-				l1_scalar=${L1_SCALAR} samples_per_epoch_train=1000 samples_per_epoch_val=128 stopwords=${STOPWORDS} num_epochs=1 num_workers=2 \
-				dataset=${DATASET} load_bert_layers=0-1-2-3-4-5-6-7-8-9-10-11-12-13-14 load_bert_path="experiments_msmarco/lm_batch_8/best_model_cpu.model" \
-				tf.num_of_layers=${TF_LAYER} tf.num_attention_heads=${TF_HEAD} tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL}
+				l1_scalar=${L1_SCALAR} samples_per_epoch_train=1000 samples_per_epoch_val=128 stopwords=${STOPWORDS} num_epochs=1 num_workers=0 \
+				dataset=${DATASET} tf.load_bert_layers=0-1-2-3-4-5-6-7-8-9-10-11-12 tf.load_bert_path="experiments_msmarco/lm_batch_8/best_model_cpu.model" \
+				tf.num_of_layers=2 tf.num_attention_heads=2 tf.hidden_size=${TF_HID_DIM} tf.pooling_method=${TF_POOL} debug=True tf.pooling_method=AVG
 				
 			done
 		done
