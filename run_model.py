@@ -148,7 +148,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
 						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer, telegram=telegram)
-	return total_trained_samples, av_total_loss.val.item()
+	return total_trained_samples, av_total_loss.val.item(), av_acc.val.item()
 
 
 def get_all_reprs(model, dataloader, device):
@@ -278,11 +278,16 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 		# training
 		with torch.enable_grad():
 			model.train()
-			total_trained_samples, _ = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
+			total_trained_samples, _, train_accuracy = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
 												 writer,
 												 l1_scalar, balance_scalar, total_trained_samples, device,
 												 optim=optim, samples_per_epoch=samples_per_epoch_train,
 												 log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu, telegram=telegram)
+
+
+			# in case the model has gone completely wrong, stop training
+			if train_accuracy < 0.3:
+				break
 
 		# evaluation
 		with torch.no_grad():
@@ -293,7 +298,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			else:
 				
 				if validate:
-					_, val_total_loss = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
+					_, val_total_loss, val_accuracy = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
 						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu, telegram=telegram)
 
 
@@ -311,7 +316,6 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 					metric_score = val_total_loss
 				else:
 					metric_score = metric_score
-				
 
 				# check for early stopping
 				if not early_stopper.step(metric_score) :
