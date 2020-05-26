@@ -173,9 +173,16 @@ def instantiate_model(cfg):
 			# load state dictionary of the model that we will copy the paramterers from
 			if cfg.tf.load_bert_path == 'default':
 				model = transformers.BertModel.from_pretrained('bert-base-uncased')
-				model_state_dict = model.state_dict()
 			else:
-				raise ValueError("implement to read bert from file!")
+				model = torch.load(cfg.tf.load_bert_path)
+
+			# retrieve the number of heads, according to the loaded model
+			cfg.tf.num_attention_heads = model.config.num_attention_heads
+
+			model_state_dict = model.state_dict()
+
+			# update the number of layers, depending on the layers that need to be copied
+			cfg.tf.num_of_layers = max( max(load_bert_layers), cfg.tf.num_of_layers)
 
 			for layer in load_bert_layers:
 
@@ -708,35 +715,38 @@ class EmbeddingWeightedAverage(nn.Module):
 
 
 
-	def weighted_average(self, input, values, lengths = None, attention_masks = None):
+	def weighted_average(self, input, values, lengths = None, mask = None):
 		"""
 		input shape : Bsz x L
 		values shape  : Bsz x L x hidden
 		lengths shape : Bsz x 1
-		attention_masks: if provided, are of shape Bsx x L. Binary mask version of lenghts
+		mask: if provided, are of shape Bsx x L. Binary mask version of lenghts
 		"""
-		if attention_masks is None:
+		if mask is None:
 
 			if lengths is None:
-				raise ValueError("EmbeddingWeightedAverage : weighted_average(), attention_masks and lengths cannot be None at the same time!")
+				raise ValueError("EmbeddingWeightedAverage : weighted_average(), mask and lengths cannot be None at the same time!")
 
-			attention_masks = torch.zeros_like(input)
+			mask = torch.zeros_like(input)
 
 			for i in range(lengths.size(0)):
-				attention_masks[i, : lengths[i].int()] = 1
+				mask[i, : lengths[i].int()] = 1
 
 			if values.is_cuda:
-				attention_masks = attention_masks.cuda()
+				mask = mask.cuda()
 
-		attention_masks = attention_masks.float()
+		mask = mask.float()
 
-		# attention_masks are making sure that we only add the non padded tokens
-		temp_attention_masks = attention_masks.unsqueeze(-1).repeat(1,1,values.size(-1))
+		# calculate the weight of each term
+		weights = self.weights(input)
+		# normalize the weights
+		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=-1)
 		# weights are extended to fit the size of the embeddings / hidden representation
-		weights = self.weights(input).unsqueeze(-1).repeat(1,1,values.size(-1))
+		weights = weights.unsqueeze(-1).repeat(1,1,values.size(-1))
+		# mask are making sure that we only add the non padded tokens
+		mask = mask.unsqueeze(-1).repeat(1,1,values.size(-1))
 		# we first calculate the weighted sum
-		weighted_average = (weights * values * temp_attention_masks).sum(dim = 1)
-		# then we avrage the weighted sums according to the lengths of each sample
-		weighted_average = weighted_average / attention_masks.sum(dim = -1).unsqueeze(1)
+		weighted_average = (weights * values * mask).sum(dim = 1)
 
 		return weighted_average
+
