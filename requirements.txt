@@ -8,3 +8,4 @@ tensorflow
 transformers
 seaborn
 matplotlib
+stanza
