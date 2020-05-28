@@ -812,8 +812,9 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 		if 'out of memory' in str(e):
 
 			# print("Dynamically calculated max_samples_per_gpu == ", bsz - 1)
+			optim.zero_grad()
 			torch.cuda.empty_cache()
-			return bsz - 1
+			return bsz - 3
 
 		else:
 			raise e

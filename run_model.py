@@ -122,10 +122,16 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			if optim != None:
 				total_loss.backward()
 
+			if next(model.parameters()).is_cuda:
+				torch.cuda.empty_cache()
+			
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.step()
 			optim.zero_grad()
+
+		if next(model.parameters()).is_cuda:
+			torch.cuda.empty_cache()
 
 		# get pogress ratio
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
@@ -301,8 +307,6 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 					_, val_total_loss, val_task_loss, val_l1_loss, val_l0_q, val_l0_docs, val_acc = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
 						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
 
-# train_av_total_loss, train_av_l1_loss, train_av_l0_q, train_av_l0_docs, train_av_acc
-
 					if telegram:
 						telegram_message = f'Validation:\nTotal loss {round(val_total_loss, 4)}\nTrain task_loss {round(val_task_loss, 4)}\nl1_loss {round(val_l1_loss, 4)}\nL0_query {round(val_l0_q, 4)}\nL0_docs {round(val_l0_docs, 4)}\nacc {round(val_acc, 4)}'
 						telegram_message = model_folder + '\n' + telegram_message
@@ -312,6 +316,10 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
 																	total_trained_samples, metric, writer=writer)
 	
+				if telegram:
+					telegram_message = model_folder + '\n' + f'Test Metric Score:\n{metric_score}'
+					subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
+
 				# plot stats
 				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
 				plot_histogram_of_latent_terms(model_folder, q_repr, 'query')
