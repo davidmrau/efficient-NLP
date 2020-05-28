@@ -6,7 +6,7 @@ from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogr
 import os.path
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
-				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None, telegram=False):
+				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
 	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss))
 	if writer:
 		# update tensorboard
@@ -18,15 +18,10 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
 		writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
 	
-	telegram_message = f'{mode} task_loss {loss}, l1_loss {l1_loss}, balance_loss {balance_loss} L0_query {l0_q}, L0_docs {l0_docs}, acc {acc}'
-	telegram_message = '${FILE_NAME}\t' + telegram_message
-	if telegram:
-		subprocess.run(["bash", "telegram.sh", "-c -462467791", telegram_message])
-
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
 			  total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01,
-			  max_samples_per_gpu = 16, n_gpu = 1, telegram=False):
+			  max_samples_per_gpu = 16, n_gpu = 1):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
 
 	Returns
@@ -139,7 +134,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if samples_trained_ratio > current_log_threshold:
 			# log
 			log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
-						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, telegram=telegram)
+						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val)
 			# update log threshold
 			current_log_threshold = samples_trained_ratio + log_every_ratio
 
@@ -147,9 +142,9 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	# log_progress(writer, mode, total_trained_samples, cur_trained_samples, samples_per_epoch, loss, l1_loss,
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
-						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer, telegram=telegram)
+						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
 	
-	return total_trained_samples, av_total_loss.val.item(), av_acc.val.item()
+	return total_trained_samples, av_total_loss.val.item(), av_loss.val.item(), av_l1_loss.val.item(), av_l0_q.val.item(), av_l0_docs.val.item(), av_acc.val.item()
 
 
 def get_all_reprs(model, dataloader, device):
@@ -279,15 +274,19 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 		# training
 		with torch.enable_grad():
 			model.train()
-			total_trained_samples, _ , train_accuracy = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
-												 writer,
+			total_trained_samples, train_total_loss, train_task_loss, train_l1_loss, train_l0_q, train_l0_docs, train_acc = run_epoch(model, 'train', 
+												 dataloaders, batch_iterator_train, loss_fn, epoch, writer,
 												 l1_scalar, balance_scalar, total_trained_samples, device,
 												 optim=optim, samples_per_epoch=samples_per_epoch_train,
-												 log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu, telegram=telegram)
+												 log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
 
+			telegram_message = f'Train:\nTotal loss {round(train_total_loss, 4)}\nTrain task_loss {round(train_task_loss, 4)}\nl1_loss {round(train_l1_loss, 4)}\nL0_query {round(train_l0_q, 4)}\nL0_docs {round(train_l0_docs, 4)}\nacc {round(train_acc, 4)}'
+			telegram_message = model_folder + '\n' + telegram_message
+			if telegram:
+				subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
 
 			# in case the model has gone completely wrong, stop training
-			if train_accuracy < 0.3:
+			if train_acc < 0.3:
 				break
 
 		# evaluation
@@ -299,9 +298,15 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			else:
 				
 				if validate:
-					_, val_total_loss, val_accuracy = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
-						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu, telegram=telegram)
+					_, val_total_loss, val_task_loss, val_l1_loss, val_l0_q, val_l0_docs, val_acc = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
+						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
 
+# train_av_total_loss, train_av_l1_loss, train_av_l0_q, train_av_l0_docs, train_av_acc
+
+					if telegram:
+						telegram_message = f'Validation:\nTotal loss {round(val_total_loss, 4)}\nTrain task_loss {round(val_task_loss, 4)}\nl1_loss {round(val_l1_loss, 4)}\nL0_query {round(val_l0_q, 4)}\nL0_docs {round(val_l0_docs, 4)}\nacc {round(val_acc, 4)}'
+						telegram_message = model_folder + '\n' + telegram_message
+						subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
 
 				# Run also proper evaluation script
 				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
@@ -317,6 +322,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 					metric_score = val_total_loss
 				else:
 					metric_score = metric_score
+
 
 				# check for early stopping
 				if not early_stopper.step(metric_score) :
