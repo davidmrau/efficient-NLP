@@ -3,7 +3,7 @@ import numpy as np
 import subprocess
 from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
 	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches
-
+import os.path
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
 				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None, telegram=False):
@@ -21,7 +21,7 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 	telegram_message = f'{mode} task_loss {loss}, l1_loss {l1_loss}, balance_loss {balance_loss} L0_query {l0_q}, L0_docs {l0_docs}, acc {acc}'
 	telegram_message = '${FILE_NAME}\t' + telegram_message
 	if telegram:
-		subprocess.run(["bash telegram.sh", "-c -462467791", telegram_message])
+		subprocess.run(["bash", "telegram.sh", "-c -462467791", telegram_message])
 
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
@@ -148,6 +148,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
 						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer, telegram=telegram)
+	
 	return total_trained_samples, av_total_loss.val.item(), av_acc.val.item()
 
 
@@ -278,7 +279,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 		# training
 		with torch.enable_grad():
 			model.train()
-			total_trained_samples, _, train_accuracy = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
+			total_trained_samples, _ , train_accuracy = run_epoch(model, 'train', dataloaders, batch_iterator_train, loss_fn, epoch,
 												 writer,
 												 l1_scalar, balance_scalar, total_trained_samples, device,
 												 optim=optim, samples_per_epoch=samples_per_epoch_train,
@@ -324,9 +325,10 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 					torch.save(model, f'{model_folder}/best_model.model')
 				
 
+	best_model_file_path = f'{model_folder}/best_model.model'
 
-	if not bottleneck_run:
+	if not bottleneck_run and os.path.isfile(best_model_file_path) :
 		# load best model
-		model = torch.load(f'{model_folder}/best_model.model')
+		model = torch.load(best_model_file_path)
 
 	return model, early_stopper.best, total_trained_samples

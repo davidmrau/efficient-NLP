@@ -750,3 +750,71 @@ class EmbeddingWeightedAverage(nn.Module):
 
 		return weighted_average
 
+
+def create_random_batch(bsz, max_len):
+	input = torch.randint(0, 2, (bsz * 3, max_len))
+
+	lengths = torch.tensor([max_len - 1 for i in range(bsz * 3)])
+
+
+	targets = torch.randint(0, 2, (bsz,1))
+
+	return input, lengths, targets
+
+
+def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
+
+	bsz = 1
+
+	try:
+
+		while True :
+
+			data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
+
+			# print(data.size())
+			# data, lengths = data.to(model.device), lengths.to(model.device), 
+
+
+			# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
+			logits = model(data.to(device), lengths.to(device))
+			# moving targets also to the appropriate device
+			targets = targets.to(device)
+
+				# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+			split_size = logits.size(0) // 3
+			q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+
+			# performing inner products
+			dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+			dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+			
+			# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
+			# so we need to unsqueeze
+			if bsz == 1:
+				dot_q_d1 = dot_q_d1.unsqueeze(0)
+				dot_q_d2 = dot_q_d2.unsqueeze(0)
+
+			# calculating loss
+			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
+
+			# calculate l1 loss
+			l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+
+			loss.backward()
+			optim.step()
+			optim.zero_grad()
+
+			bsz += 1
+
+
+	except RuntimeError as e:
+		if 'out of memory' in str(e):
+
+			# print("Dynamically calculated max_samples_per_gpu == ", bsz - 1)
+			torch.cuda.empty_cache()
+			return bsz - 1
+
+		else:
+			raise e
+			

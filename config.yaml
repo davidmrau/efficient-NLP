@@ -43,7 +43,7 @@ num_of_decimals: 5
 balance_scalar: 0.0
 disable_cuda: False
 seed: 1
-data_path: "/project/draugpu/data/"
+data_path: "data/"
 embedding: 'bert'
 bert_rel: False
 bert_relevance_embeddings_path: '${data_path}/embeddings/bert_relev_embeddings.p'

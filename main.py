@@ -9,9 +9,8 @@ from omegaconf import OmegaConf
 from dataset import get_data_loaders_robust, get_data_loaders_msmarco
 import shutil
 import numpy as np
-from utils import get_model_folder_name, _getThreads, instantiate_model
+from utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu
 from metrics import MRR, MAPTrec
-from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths
 from torch.utils.tensorboard import SummaryWriter
 import random
 
@@ -20,9 +19,6 @@ def exp(cfg):
 	torch.manual_seed(cfg.seed)
 	np.random.seed(cfg.seed)
 	random.seed(cfg.seed)
-
-	# printing params
-	print(cfg.pretty())
 
 	if cfg.bottleneck_run:
 		print("!! RUNNING bottleneck CHECK !!")
@@ -33,7 +29,6 @@ def exp(cfg):
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
 	model, device, n_gpu = instantiate_model(cfg)
-
 
 	# set seeds
 	torch.manual_seed(cfg.seed)
@@ -62,10 +57,12 @@ def exp(cfg):
 	if cfg.dataset == 'msmarco':
 		dataloaders = get_data_loaders_msmarco(cfg)
 		metric = MAPTrec(cfg.trec_eval, cfg.msmarco_qrel_test, cfg.max_rank, add_params='-l 2')
+		max_len = 150
 		#metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
 	elif cfg.dataset == 'robust04':
 		dataloaders = get_data_loaders_robust(cfg)
 		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
+		max_len = 1500
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
@@ -75,7 +72,23 @@ def exp(cfg):
 
 	# initialize optimizer
 	optim = Adam(model.parameters(), lr=cfg.lr)
-	print('Start training...')
+
+
+
+	# if max_samples_per_gpu is not set (-1), then dynamically calculate it
+	if cfg.max_samples_per_gpu == -1:
+		cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len)
+		print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
+
+	cfg.batch_size_test = n_gpu * 3 * cfg.max_samples_per_gpu
+
+	print('Printing Parameters...')
+	# printing params
+	print(cfg.pretty())
+	# save config
+	OmegaConf.save(cfg, f'{cfg.model_folder}/config.yaml')
+
+	print('Starting training...')
 	# train the model
 	model, metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
@@ -141,8 +154,6 @@ if __name__ == "__main__":
 	print("Training :", model_folder)
 	os.makedirs(temp_model_folder, exist_ok=True)
 
-	# save config
-	OmegaConf.save(cfg, f'{temp_model_folder}/config.yaml')
 	# set model_folder
 	cfg.model_folder = temp_model_folder
 
