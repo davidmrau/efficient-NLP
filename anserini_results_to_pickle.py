@@ -18,7 +18,7 @@ def create_query_ids_list_and_their_results_dictionary(filename, delimiter=' '):
 	"""
 
 	q_idx_to_score_line_seek_dict = {}
-	query_ids = []
+	# query_ids = []
 
 	query_index = 0
 
@@ -50,10 +50,10 @@ def create_query_ids_list_and_their_results_dictionary(filename, delimiter=' '):
 			if q_id != prev_q_id:
 
 				if len(results) > 0:
-					query_ids.append(prev_q_id)
+					# query_ids.append(prev_q_id)
 
 
-					q_idx_to_score_line_seek_dict[query_index - 1] = results
+					q_idx_to_score_line_seek_dict[prev_q_id] = results
 
 				results = [(doc_id, score)]
 
@@ -69,11 +69,11 @@ def create_query_ids_list_and_their_results_dictionary(filename, delimiter=' '):
 			# seek_value = file.tell()
 			line = file.readline()
 
-	query_ids.append(prev_q_id)
-	q_idx_to_score_line_seek_dict[query_index - 1] = results
+	# query_ids.append(prev_q_id)
+	q_idx_to_score_line_seek_dict[prev_q_id] = results
 
 
-	return [query_ids, q_idx_to_score_line_seek_dict]
+	return q_idx_to_score_line_seek_dict
 
 
 parser = argparse.ArgumentParser()
@@ -92,14 +92,16 @@ extracted_results = create_query_ids_list_and_their_results_dictionary(in_fname,
 
 p.dump(extracted_results, open(out_fname, 'wb'))
 
-# offset_dict = p.load(open(out_fname, 'rb'))
+offset_dict = p.load(open(out_fname, 'rb'))
 
-# query_ids, q_idx_to_score_line_seek_dict = offset_dict
 
-# print(query_ids)
+print(offset_dict)
+# q_idx_to_score_line_seek_dict = offset_dict
+
+# # print(query_ids)
 
 # for k in q_idx_to_score_line_seek_dict:
-# 	print(k, query_ids[k])
+# 	print(k)
 # 	results = q_idx_to_score_line_seek_dict[k]
 # 	for re in results:
 # 		print(re)
