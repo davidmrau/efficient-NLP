@@ -84,7 +84,7 @@ args = parser.parse_args()
 
 in_fname = args.fname
 delimiter = args.delimiter
-out_fname = in_fname + 'extracted_results.pickle'
+out_fname = in_fname + '.extracted_results.pickle'
 
 
 extracted_results = create_query_ids_list_and_their_results_dictionary(in_fname, delimiter)
