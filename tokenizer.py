@@ -2,13 +2,13 @@ import argparse
 import os
 from nltk import word_tokenize
 import pickle
-from transformers import BertTokenizer, BertTokenizerFast
+#from transformers import BertTokenizer, BertTokenizerFast
 
 
 
-from stanza.server import CoreNLPClient
 import os
-
+from stanza.server import CoreNLPClient
+#import corenlp
 os.environ["CORENLP_HOME"] = '/data/david/lib/stanford-corenlp-full-2016-10-31'
 
 # Import client module
@@ -62,9 +62,9 @@ class Tokenizer():
 		self.set_unk_word(remove_unk = remove_unk)
 
 
-		self.client = CoreNLPClient(timeout=150000000, be_quiet=False, annotators=['tokenize','ssplit'], memory='27G', endpoint='http://localhost:9000')
+		self.client = CoreNLPClient(timeout=150000000, max_char_length=450000, be_quiet=True, annotators=['tokenize','ssplit'], memory='27G', endpoint='http://localhost:9000', threads=12)
 
-	def stanford_tokenize(text):
+	def stanford_tokenize(self, text):
 		document = self.client.annotate(text)
 		tokenized = list()
 		for sent in document.sentence:
@@ -139,7 +139,7 @@ class Tokenizer():
 			text = text.lower()
 
 		#tokens = word_tokenize(text)
-		tokens = stanford_tokenize(text)
+		tokens = self.stanford_tokenize(text[:100000])
 		# if there is a specified max len of input to be considered, we enforce it on the token level
 		# as the token level is percieved by nltk.word_tokenize()
 		if self.max_len != -1:
