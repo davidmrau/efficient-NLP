@@ -1,15 +1,13 @@
-fileId=1CYIu5InPucyEAr_77xVI8-xNGFdy4Vic
-fileName=data.tar.gz
-curl -sc cookie "https://drive.google.com/uc?export=download&id=${fileId}" > /dev/null
-code="$(awk '/_warning_/ {print $NF}' cookie)"  
-curl -Lb cookie "https://drive.google.com/uc?export=download&confirm=${code}&id=${fileId}" -o ${fileName} 
-
-rm cookie
-
+#!/bin/bash
 chmod u+x ../telegram.sh
 # download data
-tar -xzvf data.tar.gz
-mv data ../
-rm data.tar.gz
 
+DOWNLOAD_FOLDER=../data/
+PREFIX=https://rijsbergen.hum.uva.nl/david/
+DOWNLOAD_FILE=download_file_list
+
+while read file;do
+
+	wget ${PREFIX}${file} -P $DOWNLOAD_FOLDER 
+done < $DOWNLOAD_FILE
 pip3 install -r ../requirements.txt --user
