@@ -77,7 +77,7 @@ class SNRM(nn.Module):
 		# we do not apply dropout on the last layer
 		out = self.linears[-1](out)
 
-		#out= self.relu(out)
+		out= self.relu(out)
 
 
 		# batch x max_length  - (n-1)x out_size
