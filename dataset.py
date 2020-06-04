@@ -350,32 +350,34 @@ class WeakSupervision(IterableDataset):
 			if query is None:
 				continue
 
-			# make sure that there are not any empty documents on the retrieved documents list (query_results)
-			# since we are reading the documents we are also saving their contents in memory as an extra item in the final tupples
-			non_empty_query_results_with_content = []
-			for doc_id, score in query_results:
-				document_content = self.documents.get_tokenized_element(doc_id)
-				if document_content is not None:
-					# updating list with non empy_documents, and also adding the content of the document ot the tupple
-					non_empty_query_results_with_content.append((doc_id, score, document_content))
-			query_results = non_empty_query_results_with_content
-
 			# skip queries that do not have the necessary nuber of results 
 			if len(query_results) < self.min_results:
 				continue
 
 			# reassuring that negative results are not among the weak scorer results, by creting a set with all relevant ids
 			if self.strong_negatives:
-				relevant_doc_ids_set = {doc_id for doc_id , _, _ in query_results }
+				relevant_doc_ids_set = {doc_id for doc_id , _ in query_results }
 
 			#  if we are generating exactly one relevant sample for each query (and one negative)
 			if self.single_sample:
 
 				# sample candidates
-				candidates = self.sampler_function(scores_list = query_results, n = 2)
+				candidate_indices = self.sampler_function(scores_list = query_results, n = 2, return_indices = True)
 
-				# yield triplet of relevants
-				yield self.generate_triplet(query, candidates)
+				doc1_id, score1 = query_results[candidate_indices[0]]
+				doc2_id, score2 = query_results[candidate_indices[1]]
+
+				doc1 = self.documents.get_tokenized_element(doc1_id)
+				doc2 = self.documents.get_tokenized_element(doc2_id)
+
+				candidates = [(doc1_id, score1, doc1), (doc2_id, score2, doc2)]
+
+				if (doc1 is not None) and (doc2 is not None):
+					# yield triplet of relevants
+					yield self.generate_triplet(query, candidates)
+
+				else:
+					continue
 
 				# get the first of the candidates in order to be matched with a random negative document
 				result1 = candidates[0]
@@ -392,6 +394,17 @@ class WeakSupervision(IterableDataset):
 			#  if we are generating all combinations from samples_per_query candidates with all the candidates samples
 			# (plus 1 negative sample for each of the afforementioned samples)
 			else:
+
+				# make sure that there are not any empty documents on the retrieved documents list (query_results)
+				# since we are reading the documents we are also saving their contents in memory as an extra item in the final tupples
+				non_empty_query_results_with_content = []
+				for doc_id, score in query_results:
+					document_content = self.documents.get_tokenized_element(doc_id)
+					if document_content is not None:
+						# updating list with non empy_documents, and also adding the content of the document ot the tupple
+						non_empty_query_results_with_content.append((doc_id, score, document_content))
+				query_results = non_empty_query_results_with_content
+
 
 				# inb case we will end up using all the candidaes to create combinations
 				if self.samples_per_query == -1 or len(query_results) <= self.samples_per_query :
