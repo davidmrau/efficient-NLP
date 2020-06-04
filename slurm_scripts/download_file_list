@@ -2,6 +2,7 @@ data/embeddings/bert_relev_embeddings.p
 data/embeddings/glove.6B.300d.p
 data/embeddings/glove.6B.300d_word2idx_dict.p
 data/robust04/robust04_AOL_anserini_top_1000_qld_no_stem
+data/robust04/robust04_AOL_anserini_top_1000_qld_no_stem.offset_dict.p
 data/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt
 data/robust04/robust04_raw_docs.num_query_glove_stop_lucene_remove_unk_max_len_1500.tsv
 data/robust04/robust04_raw_docs.num_query_glove_stop_lucene_remove_unk_max_len_1500.tsv.offset_dict.p
