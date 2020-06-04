@@ -1,4 +1,4 @@
-BATCH_SIZE='256'
+BATCH_SIZE='32'
 
 DATASET='robust04'
 STOPWORDS='lucene'

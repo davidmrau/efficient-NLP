@@ -4,7 +4,7 @@
 #SBATCH --partition=gpu_shared
 #SBATCH --gres=gpu:1
 #SBATCH --time=120:00:00
-#SBATCH --mem=100G
+#SBATCH --mem=250G
 
 source slurm_common.sh $1
 

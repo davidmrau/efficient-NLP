@@ -9,7 +9,9 @@ import pickle
 import os
 from stanza.server import CoreNLPClient
 #import corenlp
-os.environ["CORENLP_HOME"] = '/data/david/lib/stanford-corenlp-full-2016-10-31'
+
+os.environ["CORENLP_HOME"] = 'lib/stanford-corenlp-full-2016-10-31'
+
 
 # Import client module
 
@@ -217,7 +219,7 @@ def tokenize(args):
 
 				for count, line in enumerate(in_f):
 
-					if count % 100000 == 0 and count != 0:
+					if count % 1000 == 0 and count != 0:
 						print(f'lines read: {count}')
 
 					spl = line.strip().split(args.delimiter, 1)

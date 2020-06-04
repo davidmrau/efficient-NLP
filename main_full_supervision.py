@@ -18,7 +18,11 @@ import random
 import warnings 
 warnings.filterwarnings("ignore")
 
-def exp(cfg):
+def exp(cfg, temp_model_folder, completed_model_folder):
+
+
+
+
 	# set seeds
 	torch.manual_seed(cfg.seed)
 	np.random.seed(cfg.seed)
@@ -74,7 +78,37 @@ def exp(cfg):
 	print('Start training...')
 	metric_scores = list()
 	fold_count = 0
-	for indices_train, indices_test in folds:
+	for i, (indices_train, indices_test) in enumerate(folds):
+
+		completed_model_folder += str(i)
+		temp_model_folder += str(i)
+		print("Complete Model Path: ", completed_model_folder)
+		if os.path.isdir(completed_model_folder):
+
+			if cfg.bottleneck_run:
+
+				while(os.path.isdir(completed_model_folder)):
+					model_folder +=  "."
+					completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
+					temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
+			else:
+				print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
+				exit()
+
+		elif os.path.isdir(temp_model_folder):
+			print("Incomplete experiment directory found :\n", temp_model_folder)
+			shutil.rmtree(temp_model_folder)
+			print("Deleted it and starting from scratch.")
+
+		print("Training :", model_folder)
+		os.makedirs(temp_model_folder, exist_ok=True)
+
+		# save config
+		OmegaConf.save(cfg, f'{temp_model_folder}/config.yaml')
+		# set model_folder
+		cfg.model_folder = temp_model_folder
+
+
 		fold_count += 1
 		print(f'Running fold {fold_count}')
 
@@ -101,6 +135,10 @@ def exp(cfg):
 
 	writer.add_scalar(f'Av {metric.name} Supervised', np.mean(metric_scores), 0)
 
+	# after the training is done, we remove the temp prefix from the dir name
+	print("Training completed! Changing from temporary name to final name.")
+	print("--------------------------------------------------------------------------------------")
+	os.renames(temp_model_folder, completed_model_folder)
 
 if __name__ == "__main__":
 	# getting command line arguments
@@ -134,35 +172,7 @@ if __name__ == "__main__":
 
 	temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
 
-	print("Complete Model Path: ", completed_model_folder)
-	if os.path.isdir(completed_model_folder):
+	
+	exp(cfg, temp_model_folder, completed_model_folder)
 
-		if cfg.bottleneck_run:
 
-			while(os.path.isdir(completed_model_folder)):
-				model_folder +=  "."
-				completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
-				temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
-		else:
-			print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
-			exit()
-
-	elif os.path.isdir(temp_model_folder):
-		print("Incomplete experiment directory found :\n", temp_model_folder)
-		shutil.rmtree(temp_model_folder)
-		print("Deleted it and starting from scratch.")
-
-	print("Training :", model_folder)
-	os.makedirs(temp_model_folder, exist_ok=True)
-
-	# save config
-	OmegaConf.save(cfg, f'{temp_model_folder}/config.yaml')
-	# set model_folder
-	cfg.model_folder = temp_model_folder
-
-	exp(cfg)
-
-	# after the training is done, we remove the temp prefix from the dir name
-	print("Training completed! Changing from temporary name to final name.")
-	print("--------------------------------------------------------------------------------------")
-	os.renames(temp_model_folder, completed_model_folder)
