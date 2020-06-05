@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 from dataset import get_data_loaders_robust, get_data_loaders_msmarco
 import shutil
 import numpy as np
-from utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu
+from utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu, load_model
 from metrics import MRR, MAPTrec
 from torch.utils.tensorboard import SummaryWriter
 import random
@@ -29,6 +29,10 @@ def exp(cfg):
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
 	model, device, n_gpu = instantiate_model(cfg)
+
+	# load model
+	if cfg.load:
+		model = load_model(cfg, cfg.load, device)
 
 	# set seeds
 	torch.manual_seed(cfg.seed)
@@ -106,16 +110,31 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	cfg_load = OmegaConf.load(f'config.yaml')
+	if not cl_cfg.load:
+		cfg_load = OmegaConf.load(f'config.yaml')
+		# create model string, depending on the model
+	else:
+		cfg_load = OmegaConf.load(f'{cl_cfg.load}/config.yaml')
+
+			
+	
+	
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
-	if not cfg.dataset:
-		raise ValueError('No Dataset chosen!')
-	# create model string, depending on the model
-	if not cl_cfg.model_folder:
+
+	if cl_cfg.load:
+		model_folder = cl_cfg.load
+		model_folder += f'_FT_{cl_cfg.dataset}'
+	elif not cl_cfg.model_folder:
 		model_folder = get_model_folder_name(cfg)
 	else:
 		model_folder = cl_cfg.model_folder
+
+
+	
+	if not cfg.dataset:
+		raise ValueError('No Dataset chosen!')
+		
 	if cl_cfg.add:	
 		model_folder += f'_{cl_cfg.add}'
 

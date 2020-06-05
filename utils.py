@@ -20,6 +20,7 @@ from snrm import SNRM
 import random
 
 
+
 #
 # from https://gist.github.com/stefanonardo/693d96ceb2f531fa05db530f3e21517d
 # Thanks!
@@ -818,4 +819,21 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 		else:
 			raise e
-			
+
+
+
+
+def load_model(cfg, load_model_folder, device):
+
+	model_old = torch.load(load_model_folder + '/best_model.model', map_location=device)
+
+	if isinstance(model_old, torch.nn.DataParallel):
+		model_old = model_old.module
+
+	state_dict = model_old.state_dict()
+
+	model, device, n_gpu = instantiate_model(cfg)
+
+	model.load_state_dict(state_dict)
+
+	return model
