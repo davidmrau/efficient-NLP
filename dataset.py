@@ -9,6 +9,31 @@ import math
 import random
 
 
+class Sequential(IterableDataset):
+	def __init__(self, fname, tokenize=False, min_len=5):
+
+		# open file
+		self.file_ = open(fname, 'r')
+		self.tokenize = tokenize
+		self.min_len = min_len
+		self.tokenizer = Tokenizer(tokenizer = 'glove', max_len = 150, stopwords='lucene', remove_unk = True, unk_words_filename=None)
+
+	def __iter__(self):
+			for line in self.file_:
+				# getting position of '\t' that separates the doc_id and the begining of the token ids
+				delim_pos = line.find('\t')
+				# extracting the id
+				id_ = line[:delim_pos]
+				# extracting the token_ids and creating a numpy array
+				if self.tokenize:
+					tokens_list = self.tokenizer.encode(line[delim_pos+1:])
+				else:
+					tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
+
+				if len(tokens_list) < self.min_len:
+					tokens_list = np.pad(tokens_list, (0, self.min_len - len(tokens_list)))
+
+				yield [id_, tokens_list]
 
 class StrongData(IterableDataset):
 	def __init__(self, strong_results, documents_fi, queries, target, indices=None):

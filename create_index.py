@@ -1,9 +1,10 @@
-from dataset import MSMarcoSequential
+from dataset import Sequential
 import torch
 from inverted_index import InvertedIndex
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
-
+from utils import collate_fn_padd_single
+from torch.utils.data import DataLoader
 
 
 # usage: create_index.py model_folder=FOLDER_TO_MODEL
@@ -17,15 +18,17 @@ def create_index(cfg):
 		   device = torch.device('cpu')
 
 	# open file
-	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.docs_file, cfg.batch_size).batch_generator()
+	dataset = Sequential(cfg.docs_file, tokenize=cfg.tokenize, min_len=cfg.snrm.n)
+	dataloader =  DataLoader(dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
+	
 
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
+	ii = InvertedIndex(parent_dir=cfg.model, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 	# initialize the index
 	print('Initializing index')
 	ii.initialize_index()
-
-	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
+	
+	model = load_model(cfg, cfg.model, device)
 	with torch.no_grad():
 		model.eval()
 		print('Creating index')
@@ -43,7 +46,7 @@ def create_index(cfg):
 		#
 
 		count = 0
-		for batch_ids, batch_data, batch_lengths in ms_batch_generator:
+		for batch_ids, batch_data, batch_lengths in dataloader:
 			# print(batch_data)
 			if count % 1000 == 0:
 				print(f'{count} batches processed')
@@ -65,8 +68,8 @@ def create_index(cfg):
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
-	if not cl_cfg.model_folder or not cl_cfg.docs_file :
-		raise ValueError("usage: create_index.py model_folder=MODEL_FOLDER docs_file=PATH_TO_DOCS_FILE (in dataset_path)")
+	if not cl_cfg.model_folder or not cl_cfg.docs_file or not cl_cfg.batch_size :
+		raise ValueError("usage: create_index.py model=MODEL_FOLDER docs_file=PATH_TO_DOCS_FILE batch_size=BATCH_SIZE")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
