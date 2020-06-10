@@ -1,11 +1,12 @@
-from dataset import MSMarcoSequential
+from dataset import Sequential
 import torch
 
 from inverted_index import InvertedIndex
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
 import os
-from ms_marco_eval import compute_metrics_from_files
+from utils import collate_fn_padd_single, load_model
+from torch.utils.data import DataLoader
 
 """ Load an pre-built inverted index and run online inference (for test set)
 """
@@ -26,7 +27,10 @@ def online_inference(cfg):
 	# Initialize an Inverted Index object
 	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 
-	ms_batch_generator = MSMarcoSequential(cfg.dataset_path + cfg.query_file, cfg.batch_size).batch_generator()
+	# open file
+	dataset = Sequential(cfg.query_file, tokenize=cfg.tokenize, min_len=cfg.snrm.n)
+	dataloader =  DataLoader(dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
+
 
 	model = torch.load(cfg.model_folder + '/best_model.model', map_location=device)
 	with torch.no_grad():
@@ -48,21 +52,13 @@ def online_inference(cfg):
 
 		results_file.close()
 		results_file_trec.close()
-		metrics = compute_metrics_from_files(path_to_reference = cfg.dataset_path + cfg.qrels, path_to_candidate = results_file_path)
-
-		metrics_file = open(os.path.join(cfg.model_folder + '/metrics.' + cfg.query_file, w))
-
-		for metric in metrics:
-			metrics_file_path.write(f'{metric}:\t{metrics[metric]}\n')
-
-		metrics_file.close()
 
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.qrels:
-		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER query_file=QUERY_FILE qrels=QRELS")
+	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.batch_size or cl_cfg.tokenize == None:
+		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER query_file=QUERY_FILE batch_size=BATCH_SIZE tokenize=True|False")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
