@@ -3,7 +3,7 @@ import torch
 from inverted_index import InvertedIndex
 from torch.nn.utils.rnn import pad_sequence
 from omegaconf import OmegaConf
-from utils import collate_fn_padd_single
+from utils import collate_fn_padd_single, load_model
 from torch.utils.data import DataLoader
 
 
@@ -20,15 +20,15 @@ def create_index(cfg):
 	# open file
 	dataset = Sequential(cfg.docs_file, tokenize=cfg.tokenize, min_len=cfg.snrm.n)
 	dataloader =  DataLoader(dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
-	
+
 
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(parent_dir=cfg.model, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
+	ii = InvertedIndex(parent_dir=cfg.model_path, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 	# initialize the index
 	print('Initializing index')
 	ii.initialize_index()
-	
-	model = load_model(cfg, cfg.model, device)
+
+	model = load_model(cfg, cfg.model_path, device)
 	with torch.no_grad():
 		model.eval()
 		print('Creating index')
@@ -68,10 +68,10 @@ def create_index(cfg):
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
-	if not cl_cfg.model_folder or not cl_cfg.docs_file or not cl_cfg.batch_size :
-		raise ValueError("usage: create_index.py model=MODEL_FOLDER docs_file=PATH_TO_DOCS_FILE batch_size=BATCH_SIZE")
+	if not cl_cfg.model_path or not cl_cfg.docs_file or not cl_cfg.batch_size or cl_cfg.tokenize == None:
+		raise ValueError("usage: create_index.py model_path=MODEL_FOLDER_PATH docs_file=PATH_TO_DOCS_FILE batch_size=BATCH_SIZE tokenize=True|False")
 	# getting model config
-	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
+	cfg_load = OmegaConf.load(f'{cl_cfg.model_path}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 	create_index(cfg)

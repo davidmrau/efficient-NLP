@@ -65,7 +65,7 @@ class EarlyStopping(object):
 
 		if mode not in {'min', 'max'}:
 			raise ValueError('mode ' + mode + ' is unknown!')
-	
+
 		if mode == 'min':
 			self.is_better = lambda a, best: a < best - (best * min_delta / 100)
 		if mode == 'max':
@@ -222,14 +222,17 @@ def instantiate_model(cfg):
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
 		# move model to device
-		model = model.to(device=device)
 		n_gpu = torch.cuda.device_count()
-		if n_gpu > 1:
-			print("Using", n_gpu, "GPUs!")
-			model = nn.DataParallel(model)
 	else:
 		device = torch.device('cpu')
 		n_gpu = 1
+
+
+	if n_gpu > 1:
+		print("Using", n_gpu, "GPUs!")
+		model = nn.DataParallel(model)
+		
+	model = model.to(device=device)
 
 	return model, device, n_gpu
 
@@ -690,7 +693,7 @@ def plot_top_k_analysis(analysis_dict):
 class EmbeddingWeightedAverage(nn.Module):
 	def __init__(self, weights, vocab_size, trainable = True):
 		"""
-		weights : uniform / random / 
+		weights : uniform / random /
 				  path_to_file (pickle in the form of tensor.Size(V x 1))
 		vocab_size: vocabulary size
 		"""
@@ -710,7 +713,7 @@ class EmbeddingWeightedAverage(nn.Module):
 				self.weights.weight = torch.nn.Parameter(weight_values)
 			except:
 				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pikle file: {weights} not accessible!')
-		
+
 		if trainable == False:
 			self.weights.weight.requires_grad = False
 
@@ -774,7 +777,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 			data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
 
 			# print(data.size())
-			# data, lengths = data.to(model.device), lengths.to(model.device), 
+			# data, lengths = data.to(model.device), lengths.to(model.device),
 
 
 			# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
@@ -789,7 +792,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 			# performing inner products
 			dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
 			dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-			
+
 			# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 			# so we need to unsqueeze
 			if bsz == 1:

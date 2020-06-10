@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, IterableDataset
 from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len, split_sizes, split_dataset
 import math
 import random
-
+from tokenizer import Tokenizer
 
 class Sequential(IterableDataset):
 	def __init__(self, fname, tokenize=False, min_len=5):
@@ -101,7 +101,7 @@ class StrongData(IterableDataset):
 		return (random_doc_id, 0, document_content)
 
 	def __iter__(self):
-		for index in self.indices: 
+		for index in self.indices:
 			q_id, query_results = self.strong_results_file.read_all_results_of_query_index(index, top_k_per_query = -1)
 			rel_docs, non_rel_docs = list(), list()
 
@@ -111,7 +111,7 @@ class StrongData(IterableDataset):
 				else:
 					non_rel_docs.append(el)
 
-			rel_docs_set = {doc_id for doc_id, score in rel_docs}	
+			rel_docs_set = {doc_id for doc_id, score in rel_docs}
 
 			for d1_id, score_1 in rel_docs:
 				if np.random.random() > 0.5:
@@ -119,12 +119,12 @@ class StrongData(IterableDataset):
 						d2_id, d2_score = non_rel_docs.pop()
 						content_2 = self.documents.get_tokenized_element(d2_id)
 						result_2 = (d2_id, d2_score, content_2)
-						
+
 					else:
 						result_2 = self.sample_negative_document_result(rel_docs_set)
 				else:
 					result_2 = self.sample_negative_document_result(rel_docs_set)
-	
+
 				# after tokenizing / preprocessing, some queries/documents have empty content.
 				# If any of these are among 3 the selected ones, then we do not create this triplet sample
 				# In that case, we return None, as soon as possible, so that other file reading operations can be avoided
@@ -141,7 +141,7 @@ class StrongData(IterableDataset):
 					temp = result_1
 					result_1 = result_2
 					result_2 = temp
-				
+
 				target = self.target_function(result_1, result_2)
 				yield [query, result_1[2], result_2[2]], target
 
@@ -233,7 +233,7 @@ class RankingResultsTest:
 		tokenized_ids = self.id2text.get_tokenized_element(id_)
 		if tokenized_ids is None:
 			return None
-		
+
 		if len(tokenized_ids) < self.min_len:
 			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
 		return tokenized_ids
@@ -263,7 +263,7 @@ class RankingResultsTest:
 
 
 				tokens_list = self.get_text(id_)
-				
+
 				if tokens_list is not None and id_ not in batch_ids and curr_q_id not in self.indices:
 
 					batch_ids.append(id_)
@@ -273,7 +273,7 @@ class RankingResultsTest:
 				prev_q_id = curr_q_id
 
 				self.line = self.ranking_results.readline()
-			
+
 			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
 			if len(batch_data) < 1:
 				return
@@ -375,7 +375,7 @@ class WeakSupervision(IterableDataset):
 			if query is None:
 				continue
 
-			# skip queries that do not have the necessary nuber of results 
+			# skip queries that do not have the necessary nuber of results
 			if len(query_results) < self.min_results:
 				continue
 
@@ -438,7 +438,7 @@ class WeakSupervision(IterableDataset):
 					candidate_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
 					candidate_indices.sort()
 
-				# generating a sample for each combination of i_th candidate with j_th candidate, without duplicates 
+				# generating a sample for each combination of i_th candidate with j_th candidate, without duplicates
 				for i in candidate_indices:
 					# if we do not request sampling, or there are not enough results to sample from, then we use all of them
 					if (self.sample_j == False) or (self.samples_per_query == -1) or (len(query_results) <= self.samples_per_query):
@@ -454,7 +454,7 @@ class WeakSupervision(IterableDataset):
 							# yield triplet of relevants
 							candidate1 = query_results[i]
 							candidate2 = query_results[j]
-							
+
 							yield self.generate_triplet(query, [candidate1, candidate2])
 
 							# yield triplet of irrelevants
@@ -566,17 +566,17 @@ class MSMarcoLM(data.Dataset):
 		return torch.LongTensor(inp)
 
 def get_data_loaders_msmarco(cfg):
-	
+
 	if cfg.debug:
 		triples = cfg.msmarco_triplets_train_debug
 	else:
-		triples = cfg.msmarco_triplets_train 
+		triples = cfg.msmarco_triplets_train
 	print(triples)
 	dataloaders = {}
 	dataset = MSMarcoTrain(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train)
-	
+
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
-	
+
 	dataloaders['train'] = DataLoader(train_dataset,
 	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset,
@@ -628,12 +628,12 @@ def get_data_loaders_robust(cfg):
 	return dataloaders
 
 def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi):
-	
+
 
 	dataloaders = {}
 
 	# calculate train and validation size according to train_val_ratio
-	
+
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 	query_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, query_fi, cfg.batch_size_test, indices=indices_test, is_query=True)
