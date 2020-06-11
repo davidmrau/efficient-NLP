@@ -1,7 +1,1 @@
-#!/bin/sh
-#SBATCH --job-name=train_snrm
-#SBATCH --nodes=1
-#SBATCH -p gpu_shared 
-#SBATCH --time=4:00:00
-cd ..
-python3 create_index.py model_folder=experiments/model_snrm_l1_scalar_1_lr_0.0001_drop_0.2_emb_bert_batch_size_64_debug_False/ docs_file=msmarco-passagetest2019-top1000_43.tsv.d_id_doc.tokenized_uniq.tsv
+python3 create_index.py docs_file='data/robust04/robust04_raw_docs.num_query_glove_stop_lucene_remove_unk_max_len_1500.tsv' batch_size=2 model_path='experiments_robust04/Dev...robust04_l1_0.1_margin_1_Emb_glove_Sparse_5000_bsz_16_lr_0.0001_SNRM_n-gram_cnn_100-300_sample_uniform_target_binary_full_supervision/' tokenize=False
