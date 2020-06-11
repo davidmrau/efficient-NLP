@@ -21,7 +21,7 @@ tf:
   input_length_limit: 150
   # the method that the hidden states over all sequence steps are being aggregated {CLS, AVG, MAX}
   pooling_method: 'AVG'
-  last_layer_norm: True
+  layer_norm: True
   act_func: "relu"
   load_bert_layers: '' # for multiple layers add '-' between hidden sizes  eg. ('0-1-4'). [0 are the embeddngs, 1 the first bert_layer etc.]
   load_bert_path: 'default'

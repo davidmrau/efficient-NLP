@@ -12,7 +12,7 @@ def Delu(x):
 
 class BERT_based(torch.nn.Module):
 	def __init__(self, hidden_size = 256, num_of_layers = 2, sparse_dimensions = 1000, num_attention_heads = 4, input_length_limit = 150,
-			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, last_layer_norm = True,
+			vocab_size = 30522, embedding_parameters = None, pooling_method = "CLS", large_out_biases = False, layer_norm = True,
 			act_func="relu", params_to_copy = {}):
 		super(BERT_based, self).__init__()
 
@@ -44,7 +44,7 @@ class BERT_based(torch.nn.Module):
 		config = transformers.BertConfig(vocab_size = vocab_size, hidden_size = hidden_size, num_hidden_layers = num_of_layers,
 										num_attention_heads = num_attention_heads, intermediate_size = intermediate_size, max_position_embeddings = input_length_limit)
 		# Initialize the Bert-like encoder
-		if last_layer_norm:
+		if layer_norm:
 			self.encoder = transformers.BertModel(config)
 		else:
 			self.encoder = BertModelNoOutLayerNorm(config)
