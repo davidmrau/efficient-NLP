@@ -60,7 +60,7 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.input or not cl_cfg.tokenize:
+	if not cl_cfg.model_folder or not cl_cfg.input or cl_cfg.tokenize == None:
 		raise ValueError("usage: get_slr.py model_folder=MODEL_FOLDER input=INPUT_PATH tokenize=True|False")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
