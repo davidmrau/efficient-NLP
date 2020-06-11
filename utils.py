@@ -215,7 +215,7 @@ def instantiate_model(cfg):
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 							sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
 							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, pooling_method = cfg.tf.pooling_method,
-							large_out_biases = cfg.large_out_biases, last_layer_norm = cfg.tf.last_layer_norm, act_func = cfg.tf.act_func,
+							large_out_biases = cfg.large_out_biases, layer_norm = cfg.tf.layer_norm, act_func = cfg.tf.act_func,
 							params_to_copy = params_to_copy)
 
 	# select device depending on availability and user's setting
@@ -619,8 +619,8 @@ def get_model_folder_name(cfg):
 
 			model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}_ACT_{cfg.tf.act_func}"
 
-			if cfg.tf.last_layer_norm == False:
-				model_string += "_no_last_layer_norm"
+			if cfg.tf.layer_norm == False:
+				model_string += "_no_layer_norm"
 			if cfg.balance_scalar != 0:
 				model_string += f'bal_{cfg.balance_scalar}'
 		elif cfg.model == "snrm":

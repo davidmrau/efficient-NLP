@@ -340,15 +340,15 @@ class BertOutput(nn.Module):
 		self.is_last_layer = is_last_layer
 
 		self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
-		if self.is_last_layer == False:
-			self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+		# if self.is_last_layer == False:
+		# 	self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 		self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
 	def forward(self, hidden_states, input_tensor):
 		hidden_states = self.dense(hidden_states)
 		hidden_states = self.dropout(hidden_states)
-		if self.is_last_layer == False:
-			hidden_states = self.LayerNorm(hidden_states + input_tensor)
+		# if self.is_last_layer == False:
+		# 	hidden_states = self.LayerNorm(hidden_states + input_tensor)
 		return hidden_states
 
 
