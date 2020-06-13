@@ -39,10 +39,11 @@ def online_inference(cfg):
 		results_file = open(results_file_path, 'w')
 		results_file_trec = open(results_file_path_trec, 'w')
 		count = 0
-		for batch_ids, batch_data, batch_lengths in ms_batch_generator:
+		for batch_ids, batch_data, batch_lengths in dataloader:
 			# print(batch_data)
+			print(batch_ids)
 			logits = model(batch_data.to(device), batch_lengths.to(device))
-			results = ii.get_scores(batch_ids, logits.cpu(), top_results = cfg.top_results, max_candidates_per_posting_list = cfg.max_candidates_per_posting_list)
+			results = ii.get_scores(batch_ids, logits.cpu(), top_results = cfg.top_results, max_candidates_per_posting_list = cfg.max_posting)
 			if count % 1 == 0:
 				print(count, ' batches processed')
 			for query_id, result_list in results:
@@ -57,9 +58,10 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.batch_size or cl_cfg.tokenize == None or not cl_cfg.index_folder:
-		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER index_folder=INDEX_FOLDER query_file=QUERY_FILE batch_size=BATCH_SIZE tokenize=True|False")
+	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.batch_size or cl_cfg.tokenize == None or not cl_cfg.index_folder or not cl_cfg.max_posting:
+		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER index_folder=INDEX_FOLDER query_file=QUERY_FILE batch_size=BATCH_SIZE tokenize=True|False max_posting=-1")
 
+	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 	online_inference(cfg)
