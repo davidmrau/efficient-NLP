@@ -1,17 +1,12 @@
-from dataset import MSMarcoSequential, MSMarcoSequentialDev
-import torch
-import pickle
-from torch.nn.utils.rnn import pad_sequence
-from omegaconf import OmegaConf
-import os
-from utils import write_ranking, write_ranking_trec, write_pickle
-import numpy as np
-from ms_marco_eval import compute_metrics_from_files
-import matplotlib
-import matplotlib.pyplot as plt
-import seaborn as sns
-from dataset import get_data_loaders
 from collections import defaultdict
+
+import matplotlib
+import torch
+from dataset import MSMarcoSequential
+from ms_marco_eval import compute_metrics_from_files
+from omegaconf import OmegaConf
+from utils import write_ranking, write_pickle
+
 # from inference import get_repr
 matplotlib.use('Agg')
 

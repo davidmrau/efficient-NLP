@@ -1,13 +1,13 @@
 
-from torch.utils import data
-from utils import *
-from fake_data import *
-from file_interface import FileInterface
-from torch.utils.data import DataLoader, IterableDataset
-from utils import collate_fn_padd_triples, add_before_ending, collate_fn_padd_single, offset_dict_len, split_by_len, split_sizes, split_dataset
-import math
 import random
-from tokenizer import Tokenizer
+import torch
+from enlp.tokenizer import Tokenizer
+from torch.utils import data
+from torch.utils.data import DataLoader, IterableDataset
+import numpy as np
+from enlp.file_interface import FileInterface
+from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset
+
 
 class Sequential(IterableDataset):
 	def __init__(self, fname, tokenize=False, min_len=5):
@@ -358,7 +358,6 @@ class WeakSupervision(IterableDataset):
 		# get document content from tupples
 		doc1 = candidates[0][2]
 		doc2 = candidates[1][2]
-
 		return [query, doc1, doc2], target
 
 

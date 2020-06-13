@@ -1,15 +1,18 @@
-from dataset import RankingResultsTest
+
+import matplotlib
 import torch
 from omegaconf import OmegaConf
-from utils import write_ranking, write_ranking_trec, plot_histogram_of_latent_terms, \
-	plot_ordered_posting_lists_lengths, load_model
 
-from run_model import test
-import matplotlib
-from file_interface import FileInterface
 matplotlib.use('Agg')
-from metrics import MRR, MAPTrec
 import os
+
+
+from enlp.utils import write_ranking, write_ranking_trec, plot_histogram_of_latent_terms, \
+	plot_ordered_posting_lists_lengths, load_model
+from enlp.metrics import MRR, MAPTrec
+from enlp.file_interface import FileInterface
+from enlp.run_model import test
+from enlp.dataset import RankingResultsTest
 
 """ Run online inference (for test set) without inverted index
 """
@@ -64,7 +67,7 @@ def inference(cfg):
                                                  0, metric=metric, writer=None)
 
 	ranking_file_path = f'{cfg.model_folder}/re_ranking'
-	
+
 	write_ranking(scores, q_ids, ranking_file_path)
 	write_ranking_trec(scores, q_ids, ranking_file_path +'.trec')
 	plot_ordered_posting_lists_lengths(cfg.model_folder, q_reprs, 'query')
@@ -74,7 +77,7 @@ def inference(cfg):
 
 
 	print(f'{qrels_base} {metric.name}:\t{metric_score}\n')
-	
+
 	metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
 	with open(metrics_file_path, 'w') as out:
 		out.write(f'{qrels_base} {metric.name}:\t{metric_score}\n')

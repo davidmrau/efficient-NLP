@@ -1,9 +1,12 @@
-import torch
-import numpy as np
-import subprocess
-from utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
-	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches
 import os.path
+import subprocess
+
+import numpy as np
+import torch
+
+from enlp.utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
+	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches
+
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
 				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):

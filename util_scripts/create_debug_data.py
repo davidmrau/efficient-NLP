@@ -1,8 +1,8 @@
-from utils import *
+import pickle
+
 import hydra
 from hydra import utils
-import os
-import pickle
+from utils import *
 
 
 @hydra.main(config_path='config.yaml')

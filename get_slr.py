@@ -1,10 +1,11 @@
+import numpy as np
 import torch
 from omegaconf import OmegaConf
-from utils import load_model, collate_fn_padd_single
-from torch.utils.data import DataLoader, IterableDataset
-from tokenizer import Tokenizer
-import numpy as np
-from dataset import Sequential
+from torch.utils.data import DataLoader
+
+from enlp.dataset import Sequential
+from enlp.utils import load_model, collate_fn_padd_single
+
 """ Run online inference (for test set) without inverted index
 """
 
@@ -32,11 +33,11 @@ def slr(cfg):
 			reprs.append(repr_.detach().cpu().numpy())
 			ids += batch_ids_d
 		reprs = np.vstack(reprs)
-		
+
 		out_name = f'{cfg.input}_reprs.tsv'
 
 		with open(out_name, 'w') as out:
-		
+
 			for id_, repr_ in zip(ids, reprs):
 				repr_str = ' '.join([str(r) for r in repr_])
 				out.write(f'{id_}\t{repr_str}\n')

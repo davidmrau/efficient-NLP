@@ -1,11 +1,10 @@
-import numpy as np
 import torch
-
 import transformers
-
-
-from bert_no_layer_norm import BertModelNoOutLayerNorm
 from transformers.activations import gelu, gelu_new
+
+from enlp.bert_no_layer_norm import BertModelNoOutLayerNorm
+from transformers import BertTokenizerFast
+import math
 
 def Delu(x):
 	return x * 0.5 * (1 + torch.erf(x / math.sqrt(0.3)))

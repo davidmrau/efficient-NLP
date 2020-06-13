@@ -1,31 +1,15 @@
 import argparse
-import os
-from nltk import word_tokenize
 import pickle
-#from transformers import BertTokenizer, BertTokenizerFast
-
-
+from transformers import BertTokenizerFast
+import nltk
 
 import os
-from stanza.server import CoreNLPClient
-#import corenlp
-
-os.environ["CORENLP_HOME"] = 'lib/stanford-corenlp-full-2016-10-31'
-
-
-# Import client module
-
-
-
-#client.start()
-#import time; time.sleep(10)
-
 
 
 
 class Tokenizer():
 
-	def __init__(self, tokenizer="bert", max_len=-1, stopwords="lucene", remove_unk = True, word2index_path = "data/embeddings/glove.6B.300d_word2idx_dict.p",
+	def __init__(self, tokenizer="bert", max_len=-1, stopwords="lucene", remove_unk = True, dicts_path = "data/embeddings/",
 					lower_case=True, unk_words_filename = None):
 		"""
 		Stopwords:
@@ -46,7 +30,8 @@ class Tokenizer():
 			self.bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
 
 		if self.tokenizer == "glove":
-			self.glove_word2idx = pickle.load(open(word2index_path, 'rb'))
+			self.glove_word2idx = pickle.load(open(dicts_path + 'glove.6B.300d_word2idx_dict.p', 'rb'))
+			self.glove_idx2word = pickle.load(open(dicts_path + 'glove.6B.300d_idx2word_dict.p', 'rb'))
 
 		self.max_len = max_len
 
@@ -62,9 +47,6 @@ class Tokenizer():
 		self.set_stopword_ids_list(stopwords = stopwords)
 
 		self.set_unk_word(remove_unk = remove_unk)
-
-
-		self.client = CoreNLPClient(timeout=150000000, max_char_length=450000, be_quiet=True, annotators=['tokenize','ssplit'], memory='27G', endpoint='http://localhost:9000', threads=12)
 
 	def stanford_tokenize(self, text):
 		document = self.client.annotate(text)
@@ -140,8 +122,8 @@ class Tokenizer():
 		if self.lower:
 			text = text.lower()
 
-		#tokens = word_tokenize(text)
-		tokens = self.stanford_tokenize(text[:100000])
+		tokens = nltk.word_tokenize(text)
+		#tokens = self.stanford_tokenize(text[:100000])
 		# if there is a specified max len of input to be considered, we enforce it on the token level
 		# as the token level is percieved by nltk.word_tokenize()
 		if self.max_len != -1:
@@ -159,24 +141,12 @@ class Tokenizer():
 
 
 
-
-
-	def have_glove_word2idx(self, idx2word_path = "data/embeddings/glove.6B.300d_idx2word_dict.p"):
-		# make sure that we have constracted a id2word mapping
-		if not hasattr(self, "glove_idx2word"):
-			# If not, then we build it once 
-			self.glove_idx2word = pickle.load(open(idx2word_path, 'rb'))
-
-
 	def decode(self, word_ids):
 
 		if self.tokenizer == "bert":
 			return self.bert_tokenizer.decode(word_ids)
 
 		if self.tokenizer == "glove":
-
-			self.have_glove_word2idx()
-
 			# translate into words in a string split by ' ' and return it
 			return ' '.join(self.glove_idx2word[word_id] for word_id in word_ids)
 
@@ -186,7 +156,6 @@ class Tokenizer():
 		if self.tokenizer == "bert":
 			return self.bert_tokenizer.decode(word_id)
 		if self.tokenizer == "glove":
-			self.have_glove_word2idx()
 			return self.glove_idx2word[word_id]
 
 
@@ -208,7 +177,7 @@ def tokenize(args):
 		unk_words_filename = out_fname + "_unk_words"
 
 	tokenizer = Tokenizer(tokenizer = args.tokenizer, max_len = args.max_len, stopwords=args.stopwords,
-							remove_unk = args.remove_unk, word2index_path = args.word2index_path, unk_words_filename = unk_words_filename)
+							remove_unk = args.remove_unk, embeddings_path = args.embeddings_path, unk_words_filename = unk_words_filename)
 
 	empty_ids_filename = out_fname + "_empty_ids"
 
@@ -259,7 +228,7 @@ if __name__ == "__main__":
 	parser.add_argument('--delimiter', type=str, default='\t')
 	parser.add_argument('--input_file', type=str)
 	parser.add_argument('--max_len', default=-1, type=int)
-	parser.add_argument('--word2index_path', type=str, default='data/embeddings/glove.6B.300d_word2idx_dict.p')
+	parser.add_argument('--dicts_path', type=str, default='data/embeddings/')
 	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove'}")
 	parser.add_argument('--stopwords', type=str, default="none", help = "{'none','lucene', 'some/path/file'}")
 	parser.add_argument('--remove_unk', action='store_true')

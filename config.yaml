@@ -1,6 +1,6 @@
 # choose which model to use {tf : Transformer (BERT-like) / snrm : SNRM}
 model: 'snrm'
-vocab_size: 30522
+vocab_size: 400002
 batch_size_train: 16
 batch_size_test: 30
 lr: 0.0001
@@ -30,7 +30,7 @@ snrm:
   n: 5
   dropout_p: 0.2
   n_gram_model: "cnn" # cnn or bert, defining the way that the n gram is being aggregated
-  embedding_dim: 768
+  embedding_dim: 300
 debug: False
 max_rank: 1000
 experiments_dir: "experiments_${dataset}"

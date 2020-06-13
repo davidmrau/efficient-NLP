@@ -1,18 +1,21 @@
 
-from torch import nn
-from run_model import run
-from torch.optim import Adam
 import os
-import torch
-from datetime import datetime
-from omegaconf import OmegaConf
-from dataset import get_data_loaders_robust, get_data_loaders_msmarco
-import shutil
-import numpy as np
-from utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu, load_model
-from metrics import MRR, MAPTrec
-from torch.utils.tensorboard import SummaryWriter
 import random
+import shutil
+from datetime import datetime
+
+import numpy as np
+import torch
+from omegaconf import OmegaConf
+from torch import nn
+from torch.optim import Adam
+from torch.utils.tensorboard import SummaryWriter
+
+from enlp.dataset import get_data_loaders_robust, get_data_loaders_msmarco
+from enlp.metrics import MAPTrec
+from enlp.run_model import run
+from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu, load_model
+
 
 def exp(cfg):
 	# set seeds
@@ -116,9 +119,9 @@ if __name__ == "__main__":
 	else:
 		cfg_load = OmegaConf.load(f'{cl_cfg.load}/config.yaml')
 
-			
-	
-	
+
+
+
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 
@@ -131,11 +134,11 @@ if __name__ == "__main__":
 		model_folder = cl_cfg.model_folder
 
 
-	
+
 	if not cfg.dataset:
 		raise ValueError('No Dataset chosen!')
-		
-	if cl_cfg.add:	
+
+	if cl_cfg.add:
 		model_folder += f'_{cl_cfg.add}'
 
 	if cfg.debug:

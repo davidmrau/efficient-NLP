@@ -7,10 +7,9 @@ Creation Date : 06/12/2018
 Last Modified : 4/09/2019
 Authors : Daniel Campos <dacamp@microsoft.com>, Rutger van Haasteren <ruvanh@microsoft.com>
 """
-import sys
-import statistics
-
 from collections import Counter
+
+import sys
 
 
 def load_reference_from_stream(f):

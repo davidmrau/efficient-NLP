@@ -1,6 +1,6 @@
-from inverted_index import InvertedIndex
 import numpy as np
 import torch
+from inverted_index import InvertedIndex
 
 
 def get_sparse_representation(num_docs, dim=1000, sparsity_ratio=0.9):

@@ -6,9 +6,6 @@
 
 
 import sys
-import json
-import re
-
 
 fname = sys.argv[1]
 

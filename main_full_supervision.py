@@ -1,22 +1,25 @@
-
-from torch import nn
-from run_model import run
-from torch.optim import Adam
 import os
-import torch
-from datetime import datetime
-from omegaconf import OmegaConf
-from dataset import get_data_loaders_robust_strong
-import shutil
-import numpy as np
-from utils import get_model_folder_name, _getThreads, instantiate_model, gen_folds
-from metrics import MRR, MAPTrec
-from utils import plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths, offset_dict_len
-from torch.utils.tensorboard import SummaryWriter
-from file_interface import FileInterface
 import random
-import warnings 
+import shutil
+import warnings
+from datetime import datetime
+
+import numpy as np
+import torch
+from omegaconf import OmegaConf
+from torch import nn
+from torch.optim import Adam
+from torch.utils.tensorboard import SummaryWriter
+
 warnings.filterwarnings("ignore")
+
+
+from enlp.file_interface import FileInterface
+from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, gen_folds
+from enlp.metrics import MAPTrec
+from enlp.utils import offset_dict_len
+from enlp.run_model import run
+from enlp.dataset import get_data_loaders_robust_strong
 
 def exp(cfg, temp_model_folder, completed_model_folder):
 
@@ -69,7 +72,7 @@ def exp(cfg, temp_model_folder, completed_model_folder):
 
 	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 
-	folds = gen_folds(dataset_len, cfg.num_folds)	
+	folds = gen_folds(dataset_len, cfg.num_folds)
 
 	docs_fi = FileInterface(cfg.robust_docs)
 	query_fi = FileInterface(cfg.robust_query_test)
@@ -172,7 +175,5 @@ if __name__ == "__main__":
 
 	temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
 
-	
+
 	exp(cfg, temp_model_folder, completed_model_folder)
-
-

@@ -1,12 +1,13 @@
-from dataset import Sequential
-import torch
 
-from inverted_index import InvertedIndex
-from torch.nn.utils.rnn import pad_sequence
-from omegaconf import OmegaConf
 import os
-from utils import collate_fn_padd_single, load_model
+
+import torch
+from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
+
+from enlp.dataset import Sequential
+from enlp.inverted_index import InvertedIndex
+from enlp.utils import collate_fn_padd_single
 
 """ Load an pre-built inverted index and run online inference (for test set)
 """

@@ -1,15 +1,17 @@
 import os
-import shutil
-import torch
-from threading import Thread
-from collections import defaultdict
 import pickle
+import shutil
+from collections import defaultdict
+from threading import Thread
+
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 matplotlib.use('Agg')
-from utils import read_pickle
 import multiprocessing
+
+from enlp.utils import read_pickle
 
 # class for inverted index
 class InvertedIndex:

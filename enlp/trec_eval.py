@@ -1,5 +1,7 @@
 import subprocess
+
 import sys
+
 
 class TrecEval(object):
 	def __init__(self, trec_eval_path):

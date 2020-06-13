@@ -1,7 +1,11 @@
-from ms_marco_eval import compute_metrics_from_files
+
 import tempfile
-from utils import write_ranking, write_ranking_trec
-from trec_eval import TrecEval
+
+from enlp.ms_marco_eval import compute_metrics_from_files
+
+from enlp.trec_eval import TrecEval
+from enlp.utils import write_ranking, write_ranking_trec
+
 
 class Metric(object):
 

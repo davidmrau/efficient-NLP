@@ -1,11 +1,8 @@
-from utils import *
-import numpy as np
-
-
 import multiprocessing
 
-from collections import defaultdict
 import indexed_gzip as igzip
+import numpy as np
+from enlp.utils import get_offset_dict_path, read_pickle
 
 
 class FileInterface:

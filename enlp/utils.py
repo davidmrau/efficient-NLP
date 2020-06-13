@@ -1,26 +1,25 @@
 
-import torch
-from torch import nn
-from torch.nn.utils.rnn import pad_sequence
-import numpy as np
-import os
-import json
-import pickle
 import csv
+import json
+import os
+import pickle
+import random
 import subprocess
-import transformers
+
+import math
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
-matplotlib.use('Agg')
-import math
 import sys
-from bert_based import BERT_based
-from snrm import SNRM
-import random
+import torch
+import transformers
+from torch import nn
+from torch.nn.utils.rnn import pad_sequence
 
-
-
+from enlp.bert_based import BERT_based
+from enlp.snrm import SNRM
+matplotlib.use('Agg')
 #
 # from https://gist.github.com/stefanonardo/693d96ceb2f531fa05db530f3e21517d
 # Thanks!
@@ -139,11 +138,11 @@ def instantiate_model(cfg):
 	print('Initializing model...')
 
 	if cfg.embedding == 'glove':
-		embedding_parameters =	load_glove_embeddings(cfg.glove_embedding_path)
+		embedding_parameters = load_glove_embeddings(cfg.glove_embedding_path)
 
 	elif cfg.embedding == 'bert':
 		if cfg.bert_rel:
-			embedding_parameters =	load_glove_embeddings(cfg.bert_relevance_embeddings_path)
+			embedding_parameters = load_glove_embeddings(cfg.bert_relevance_embeddings_path)
 		else:
 			embedding_parameters = get_pretrained_BERT_embeddings()
 	else:
@@ -826,18 +825,19 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 
 
-def load_model(cfg, load_model_folder, device):
 
+def load_model(cfg, load_model_folder, device, state_dict=False):
+	cfg.embedding = 'random'
 	model, device, n_gpu = instantiate_model(cfg)
-	
-	model_old = torch.load(load_model_folder + '/best_model.model', map_location=device)
+	if not state_dict:
+		model_old = torch.load(load_model_folder + '/best_model.model', map_location=device)
 
-	if isinstance(model, torch.nn.DataParallel) and not isinstance(model_old, torch.nn.DataParallel):
-		model_old = torch.nn.DataParallel(model_old)
+		if isinstance(model_old, torch.nn.DataParallel):
+			model_old = model_old.module
 
-	state_dict = model_old.state_dict()
-
-
-	model.load_state_dict(state_dict)
+		state_dict = model_old.state_dict()
+		model.load_state_dict(state_dict)
+	else:
+		model.load_state_dict(torch.load(load_model_folder + '/best_model_state_dict.model'))
 
 	return model

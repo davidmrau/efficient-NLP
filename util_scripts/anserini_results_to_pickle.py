@@ -6,9 +6,8 @@
 ## saves the dict under file_name.offset_dict.p
 #####
 
-import sys
-import pickle as p
 import argparse
+import pickle as p
 
 
 def create_query_ids_list_and_their_results_dictionary(filename, delimiter=' '):
