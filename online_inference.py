@@ -25,7 +25,7 @@ def online_inference(cfg):
 	results_file_path = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file)
 	results_file_path_trec = os.path.join(cfg.model_folder + '/ranking_results_online.' + cfg.query_file + '.trec')
 	# Initialize an Inverted Index object
-	ii = InvertedIndex(parent_dir=cfg.model_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
+	ii = InvertedIndex(parent_dir=cfg.index_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 
 	# open file
 	dataset = Sequential(cfg.query_file, tokenize=cfg.tokenize, min_len=cfg.snrm.n)
@@ -57,10 +57,9 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.batch_size or cl_cfg.tokenize == None:
-		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER query_file=QUERY_FILE batch_size=BATCH_SIZE tokenize=True|False")
-	# getting model config
-	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
+	if not cl_cfg.model_folder or not cl_cfg.query_file or not cl_cfg.batch_size or cl_cfg.tokenize == None or not cl_cfg.index_folder:
+		raise ValueError("usage: online_inference.py model_folder=MODEL_FOLDER index_folder=INDEX_FOLDER query_file=QUERY_FILE batch_size=BATCH_SIZE tokenize=True|False")
+
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 	online_inference(cfg)
