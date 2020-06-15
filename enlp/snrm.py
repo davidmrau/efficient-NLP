@@ -8,6 +8,8 @@ class SNRM(nn.Module):
 	def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, embedding_dim, vocab_size, dropout_p, n_gram_model = 'cnn', large_out_biases = False):
 		super(SNRM, self).__init__()
 
+		self.model_type = "point-wise"
+		
 		self.n = n
 		self.hidden_sizes = hidden_sizes
 		self.sparse_dimensions = sparse_dimensions

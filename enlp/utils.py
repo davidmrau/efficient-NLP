@@ -11,8 +11,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import torch
+import torch.nn as nn
+from torch.nn.utils.rnn import pad_sequence
+
 import sys
-from snrm import SNRM
 import random
 from enlp.rank_model import RankModel
 from enlp.bert_based import BERT_based
@@ -700,7 +703,7 @@ def plot_top_k_analysis(analysis_dict):
 class EmbeddingWeightedAverage(nn.Module):
 	def __init__(self, weights, vocab_size, trainable = True):
 		"""
-		weights : uniform / random /
+		weights : uniform / random / 
 				  path_to_file (pickle in the form of tensor.Size(V x 1))
 		vocab_size: vocabulary size
 		"""
@@ -720,7 +723,7 @@ class EmbeddingWeightedAverage(nn.Module):
 				self.weights.weight = torch.nn.Parameter(weight_values)
 			except:
 				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pikle file: {weights} not accessible!')
-
+		
 		if trainable == False:
 			self.weights.weight.requires_grad = False
 
@@ -760,6 +763,7 @@ class EmbeddingWeightedAverage(nn.Module):
 		weighted_average = (weights * values * mask).sum(dim = 1)
 
 		return weighted_average
+
 
 
 def create_random_batch(bsz, max_len):
