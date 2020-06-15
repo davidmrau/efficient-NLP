@@ -1,0 +1,78 @@
+import numpy as np
+import torch
+import torch.nn as nn
+
+
+from enlp.embedding_weighted_average import EmbeddingWeightedAverage
+
+class RankModel(nn.Module):
+
+	def __init__(self, hidden_sizes, embedding_parameters, embedding_dim, vocab_size, dropout_p, weights, trainable_weights):
+		super(RankModel, self).__init__()
+
+		self.model_type = "pair-wise"
+
+		self.hidden_sizes = hidden_sizes
+
+		# load or randomly initialize embeddings according to parameters
+		if embedding_parameters is None:
+			self.embedding_dim = embedding_dim
+			self.vocab_size = vocab_size
+			self.embedding = torch.nn.Embedding(vocab_size, embedding_dim)
+			# set embeddings for model
+		else:
+			self.embedding = nn.Embedding.from_pretrained(embedding_parameters, freeze=False)
+			self.embedding_dim = embedding_parameters.size(1)
+			self.vocab_size = embedding_parameters.size(0)
+
+		self.weighted_average = EmbeddingWeightedAverage(weights = weights, vocab_size = self.vocab_size, trainable = trainable_weights) # (weights, vocab_size, trainable = True)
+
+		# create module list
+		self.linears = nn.ModuleList()
+		self.relu = nn.ReLU()
+		self.drop = nn.Dropout(p=dropout_p)
+		self.tanh = nn.Tanh()
+
+		self.linears.append( nn.Linear(in_features=self.embedding_dim * 2, out_features=hidden_sizes[0]))
+
+		for k in range(len(hidden_sizes)-1):
+			self.linears.append( nn.Linear(in_features=hidden_sizes[k], out_features=hidden_sizes[k+1]))
+
+		self.linears.append( nn.Linear(in_features=hidden_sizes[-1], out_features=1))
+
+
+	def forward(self, input, lengths):
+
+		# get embeddings of all inputs
+		out = self.embedding(input)
+
+		# calculate weighted average embedding for all inputs
+		weight_averaged = self.weighted_average.weighted_average(input = input, values = out,  lengths = lengths)
+
+		split_size = weight_averaged.size(0) // 3
+		queries, doc1, doc2 = torch.split(weight_averaged, split_size)
+
+		# concatenating representations of queries and doc1s
+		q_d_1 = torch.cat([queries ,doc1], dim = 1)
+		# concatenating representations of queries and doc1s
+		q_d_2 = torch.cat([queries ,doc2], dim = 1)
+
+		# concatenating joint representations of (quries_docs1 , queries_docs2)
+		q_d = torch.cat([q_d_1, q_d_2], dim =0)
+
+		# getting scores of joint q_d representation
+		for i in range(len(self.linears)-1):
+			q_d = self.linears[i](q_d)
+			q_d = self.relu(q_d)
+			q_d = self.drop(q_d)
+
+		# we do not apply dropout on the last layer
+		q_d = self.linears[-1](q_d)
+
+		q_d = self.tanh(q_d)
+
+		# splitting ranking scores for doc_1s and doc_2s
+		split_size = q_d.size(0) // 2
+		q_d_1, q_d_2 = torch.split(q_d, split_size)
+
+		return q_d_1, q_d_2

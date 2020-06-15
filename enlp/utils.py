@@ -699,7 +699,6 @@ def plot_top_k_analysis(analysis_dict):
 	plt.show()
 
 
-
 class EmbeddingWeightedAverage(nn.Module):
 	def __init__(self, weights, vocab_size, trainable = True):
 		"""
@@ -712,17 +711,18 @@ class EmbeddingWeightedAverage(nn.Module):
 		self.weights = torch.nn.Embedding(num_embeddings = vocab_size, embedding_dim = 1)
 
 		if weights == "uniform":
-			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size))
+			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size,1))
 			# pass
 		elif weights == "random":
 			pass
 		# otherwise it has to be a path of a pickle file with the weights in a pytorch tensor form
 		else:
 			try:
-				weight_values = read_pickle(weights)
-				self.weights.weight = torch.nn.Parameter(weight_values)
+				weight_values = pickle.load(open(weights, 'rb'))
+				# print(weight_values.size())
+				self.weights.weight = torch.nn.Parameter(weight_values.unsqueeze(-1))
 			except:
-				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pikle file: {weights} not accessible!')
+				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pickle file: {weights} not accessible!')
 		
 		if trainable == False:
 			self.weights.weight.requires_grad = False
@@ -749,20 +749,22 @@ class EmbeddingWeightedAverage(nn.Module):
 			if values.is_cuda:
 				mask = mask.cuda()
 
-		mask = mask.float()
-
+		mask = mask.unsqueeze(-1).float()
 		# calculate the weight of each term
 		weights = self.weights(input)
+
 		# normalize the weights
 		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=-1)
+
 		# weights are extended to fit the size of the embeddings / hidden representation
-		weights = weights.unsqueeze(-1).repeat(1,1,values.size(-1))
+		weights = weights.repeat(1,1,values.size(-1))
 		# mask are making sure that we only add the non padded tokens
-		mask = mask.unsqueeze(-1).repeat(1,1,values.size(-1))
+		mask = mask.repeat(1,1,values.size(-1))
 		# we first calculate the weighted sum
 		weighted_average = (weights * values * mask).sum(dim = 1)
 
 		return weighted_average
+
 
 
 
