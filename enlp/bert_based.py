@@ -15,6 +15,9 @@ class BERT_based(torch.nn.Module):
 			act_func="relu", params_to_copy = {}):
 		super(BERT_based, self).__init__()
 
+		
+		self.model_type = "point-wise"
+
 		if embedding_parameters is not None:
 			# adjust hidden size and vocab size
 			hidden_size = embedding_parameters.size(1)

@@ -82,34 +82,53 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			# update the total number of trained samples
 			total_trained_samples += minibatch_samples_number
 
-			# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
-			logits = model(data.to(device), lengths.to(device))
-			# moving targets also to the appropriate device
-			targets = targets.to(device)
+			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
-			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-			split_size = logits.size(0) // 3
-			q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+			if model.model_type == "point-wise":
+				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
+				logits = model(data, lengths)
+				# moving targets also to the appropriate device
+				# targets = targets.to(device)
 
-			# performing inner products
-			dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-			dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-			
-			# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
-			# so we need to unsqueeze
-			if minibatch_samples_number == 1:
-				dot_q_d1 = dot_q_d1.unsqueeze(0)
-				dot_q_d2 = dot_q_d2.unsqueeze(0)
+				# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+				split_size = logits.size(0) // 3
+				q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+
+				# performing inner products
+				dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+				dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+				
+				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
+				# so we need to unsqueeze
+				if minibatch_samples_number == 1:
+					dot_q_d1 = dot_q_d1.unsqueeze(0)
+					dot_q_d2 = dot_q_d2.unsqueeze(0)
+
+
+				# calculate l1 loss
+				l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+				# calculate balance loss
+				balance_loss = balance_loss_fn(logits, device)
+				# calculating L0 loss
+				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+
+
+			elif model.model_type == "pair-wise":
+				dot_q_d1, dot_q_d2 = model(data, lengths)
+
+
+				# calculate l1 loss
+				l1_loss = torch.tensor(0)
+				# calculate balance loss
+				balance_loss = torch.tensor(0)
+				# calculating L0 loss
+				l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
+
+			else:
+				raise ValueError('Model\'s property "model_type", is not set properly.\nIt has to be either "point-wise" or "pair-wise".')
 
 			# calculating loss
 			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
-
-			# calculate l1 loss
-			l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
-			# calculate balance loss
-			balance_loss = balance_loss_fn(logits, device)
-			# calculating L0 loss
-			l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
 			# calculating classification accuracy (whether the correct document was classified as more relevant)
 			acc = (((dot_q_d1 > dot_q_d2).float() == targets).float() + (

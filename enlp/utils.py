@@ -12,11 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 import sys
-import torch
-import transformers
-from torch import nn
-from torch.nn.utils.rnn import pad_sequence
-
+from snrm import SNRM
+import random
+from enlp.rank_model import RankModel
 from enlp.bert_based import BERT_based
 from enlp.snrm import SNRM
 matplotlib.use('Agg')
@@ -157,6 +155,11 @@ def instantiate_model(cfg):
 					 sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=embedding_parameters,
 					 embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
 					 n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)
+
+	elif cfg.model == "rank":
+		model = RankModel(hidden_sizes = str2lst(str(cfg.rank_model.hidden_sizes)), embedding_parameters = embedding_parameters,
+			embedding_dim = cfg.rank_model.embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
+			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
 
 	elif cfg.model == "tf":
 
@@ -625,6 +628,11 @@ def get_model_folder_name(cfg):
 		elif cfg.model == "snrm":
 			model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
 
+		elif cfg.model =="rank":
+			trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
+			weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
+			model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
+
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)
 
@@ -775,34 +783,77 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 			data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
 
-			# print(data.size())
-			# data, lengths = data.to(model.device), lengths.to(model.device),
+
+			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
 
-			# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
-			logits = model(data.to(device), lengths.to(device))
-			# moving targets also to the appropriate device
-			targets = targets.to(device)
+			# # forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
+			# logits = model(data, lengths)
+
+			# 	# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+			# split_size = logits.size(0) // 3
+			# q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+
+			# # performing inner products
+			# dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+			# dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+
+			# # if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
+			# # so we need to unsqueeze
+			# if bsz == 1:
+			# 	dot_q_d1 = dot_q_d1.unsqueeze(0)
+			# 	dot_q_d2 = dot_q_d2.unsqueeze(0)
+
+			# # calculate l1 loss
+			# l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+
+
+
+
+			if model.model_type == "point-wise":
+				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
+				logits = model(data, lengths)
 
 				# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-			split_size = logits.size(0) // 3
-			q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+				split_size = logits.size(0) // 3
+				q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
-			# performing inner products
-			dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-			dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+				# performing inner products
+				dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+				dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+				
+				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
+				# so we need to unsqueeze
+				if bsz == 1:
+					dot_q_d1 = dot_q_d1.unsqueeze(0)
+					dot_q_d2 = dot_q_d2.unsqueeze(0)
 
-			# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
-			# so we need to unsqueeze
-			if bsz == 1:
-				dot_q_d1 = dot_q_d1.unsqueeze(0)
-				dot_q_d2 = dot_q_d2.unsqueeze(0)
+				# calculate l1 loss
+				l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+				# calculate balance loss
+				balance_loss = balance_loss_fn(logits, device)
+				# calculating L0 loss
+				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+
+
+			elif model.model_type == "pair-wise":
+				dot_q_d1, dot_q_d2 = model(data, lengths)
+
+
+				# calculate l1 loss
+				l1_loss = 0
+				# calculate balance loss
+				balance_loss = 0
+				# calculating L0 loss
+				l0_q, l0_docs = 0, 0
+
+
+			# print(dot_q_d1.size())
+			# print(dot_q_d2.size())
+			# print(targets.size())
 
 			# calculating loss
 			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
-
-			# calculate l1 loss
-			l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
 
 			loss.backward()
 			optim.step()
