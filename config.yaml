@@ -68,6 +68,7 @@ robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
 robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt.strong_triples'
+weak_min_results: 2
 sampler: 'uniform'
 target: 'binary'
 top_k_per_query: -1

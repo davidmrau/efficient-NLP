@@ -5,3 +5,5 @@ experiments/*
 data/*
 *.DS_store
 temp/*
+experiments_msmarco/*
+experiments_robust04/*
