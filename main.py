@@ -104,11 +104,6 @@ def exp(cfg):
 	max_samples_per_gpu = cfg.max_samples_per_gpu, n_gpu = n_gpu, telegram=cfg.telegram)
 
 
-
-
-
-
-
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
