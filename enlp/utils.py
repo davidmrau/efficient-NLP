@@ -815,8 +815,18 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 
 
+			# if the model provides an indipendednt representation for the input (query/doc)
+			# if isinstance(model, BERT_based) or isinstance(model, SNRM):
 
-			if model.model_type == "point-wise":
+
+
+
+			if isinstance(model, torch.nn.DataParallel):
+				model_type = model.module.model_type
+			else:
+				model_type = model.model_type
+
+			if model_type == "point-wise":
 				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
 				logits = model(data, lengths)
 
@@ -841,8 +851,11 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				# calculating L0 loss
 				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
+			elif model_type == "pair-wise":
 
-			elif model.model_type == "pair-wise":
+			# # if the model provides a score for a document and a query
+			# elif isinstance(model, RankModel):
+
 				dot_q_d1, dot_q_d2 = model(data, lengths)
 
 
@@ -852,6 +865,9 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				balance_loss = 0
 				# calculating L0 loss
 				l0_q, l0_docs = 0, 0
+
+			else:
+				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
 
 			# print(dot_q_d1.size())

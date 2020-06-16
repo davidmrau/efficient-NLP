@@ -84,7 +84,15 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
-			if model.model_type == "point-wise":
+
+			if isinstance(model, torch.nn.DataParallel):
+				model_type = model.module.model_type
+			else:
+				model_type = model.model_type
+
+			# if the model provides an indipendednt representation for the input (query/doc)
+			if model_type == "point-wise":
+
 				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
 				logits = model(data, lengths)
 				# moving targets also to the appropriate device
@@ -112,10 +120,10 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				# calculating L0 loss
 				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
+			# if the model provides a score for a document and a query
+			elif model_type == "pair-wise":
 
-			elif model.model_type == "pair-wise":
 				dot_q_d1, dot_q_d2 = model(data, lengths)
-
 
 				# calculate l1 loss
 				l1_loss = torch.tensor(0)
@@ -125,7 +133,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
 
 			else:
-				raise ValueError('Model\'s property "model_type", is not set properly.\nIt has to be either "point-wise" or "pair-wise".')
+				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
 			# calculating loss
 			loss = loss_fn(dot_q_d1, dot_q_d2, targets)

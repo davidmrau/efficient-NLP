@@ -9,7 +9,7 @@ class SNRM(nn.Module):
 		super(SNRM, self).__init__()
 
 		self.model_type = "point-wise"
-		
+
 		self.n = n
 		self.hidden_sizes = hidden_sizes
 		self.sparse_dimensions = sparse_dimensions
@@ -25,7 +25,6 @@ class SNRM(nn.Module):
 			self.embedding = nn.Embedding.from_pretrained(embedding_parameters, freeze=False)
 			self.embedding_dim = embedding_parameters.size(1)
 			self.vocab_size = embedding_parameters.size(0)
-
 
 		if n_gram_model == 'cnn':
 			self.conv = nn.Conv1d(self.embedding_dim, hidden_sizes[0], n , stride=1) #input, hidden, filter, stride
