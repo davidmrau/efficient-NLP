@@ -606,8 +606,8 @@ class BertModelNoOutLayerNorm(BertPreTrainedModel):
 		self.embeddings = BertEmbeddings(config)
 		self.encoder = BertEncoder(config)
 		self.pooler = BertPooler(config)
-		
-		self.model_type = "point-wise"
+
+		self.model_type = "representation-based"
 
 		self.init_weights()
 

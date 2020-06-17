@@ -10,7 +10,7 @@ class RankModel(nn.Module):
 	def __init__(self, hidden_sizes, embedding_parameters, embedding_dim, vocab_size, dropout_p, weights, trainable_weights):
 		super(RankModel, self).__init__()
 
-		self.model_type = "pair-wise"
+		self.model_type = "interaction-based"
 
 		self.hidden_sizes = hidden_sizes
 
@@ -47,18 +47,9 @@ class RankModel(nn.Module):
 		out = self.embedding(input)
 
 		# calculate weighted average embedding for all inputs
-		weight_averaged = self.weighted_average.weighted_average(input = input, values = out,  lengths = lengths)
+		weight_averaged = self.weighted_average(input = input, values = out,  lengths = lengths)
 
-		split_size = weight_averaged.size(0) // 3
-		queries, doc1, doc2 = torch.split(weight_averaged, split_size)
-
-		# concatenating representations of queries and doc1s
-		q_d_1 = torch.cat([queries ,doc1], dim = 1)
-		# concatenating representations of queries and doc1s
-		q_d_2 = torch.cat([queries ,doc2], dim = 1)
-
-		# concatenating joint representations of (quries_docs1 , queries_docs2)
-		q_d = torch.cat([q_d_1, q_d_2], dim =0)
+		q_d = weight_averaged
 
 		# getting scores of joint q_d representation
 		for i in range(len(self.linears)-1):
@@ -69,10 +60,6 @@ class RankModel(nn.Module):
 		# we do not apply dropout on the last layer
 		q_d = self.linears[-1](q_d)
 
-		q_d = self.tanh(q_d)
+		score = self.tanh(q_d)
 
-		# splitting ranking scores for doc_1s and doc_2s
-		split_size = q_d.size(0) // 2
-		q_d_1, q_d_2 = torch.split(q_d, split_size)
-
-		return q_d_1, q_d_2
+		return score

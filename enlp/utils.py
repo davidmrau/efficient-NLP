@@ -796,41 +796,12 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
-
-			# # forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
-			# logits = model(data, lengths)
-
-			# 	# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-			# split_size = logits.size(0) // 3
-			# q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
-
-			# # performing inner products
-			# dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-			# dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-
-			# # if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
-			# # so we need to unsqueeze
-			# if bsz == 1:
-			# 	dot_q_d1 = dot_q_d1.unsqueeze(0)
-			# 	dot_q_d2 = dot_q_d2.unsqueeze(0)
-
-			# # calculate l1 loss
-			# l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
-
-
-
-			# if the model provides an indipendednt representation for the input (query/doc)
-			# if isinstance(model, BERT_based) or isinstance(model, SNRM):
-
-
-
-
 			if isinstance(model, torch.nn.DataParallel):
 				model_type = model.module.model_type
 			else:
 				model_type = model.model_type
 
-			if model_type == "point-wise":
+			if model_type == "representation-based":
 				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
 				logits = model(data, lengths)
 
@@ -855,7 +826,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				# calculating L0 loss
 				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
-			elif model_type == "pair-wise":
+			elif model_type == "interaction-based":
 
 			# # if the model provides a score for a document and a query
 			# elif isinstance(model, RankModel):

@@ -16,7 +16,7 @@ class BERT_based(torch.nn.Module):
 		super(BERT_based, self).__init__()
 
 
-		self.model_type = "point-wise"
+		self.model_type = "representation-based"
 
 		if embedding_parameters is not None:
 			# adjust hidden size and vocab size

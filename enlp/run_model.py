@@ -20,7 +20,7 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 		writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
 		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
 		writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
-	
+
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l1_scalar, balance_scalar,
 			  total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01,
@@ -91,7 +91,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				model_type = model.model_type
 
 			# if the model provides an indipendednt representation for the input (query/doc)
-			if model_type == "point-wise":
+			if model_type == "representation-based":
 
 				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
 				logits = model(data, lengths)
@@ -105,7 +105,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				# performing inner products
 				dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
 				dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-				
+
 				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 				# so we need to unsqueeze
 				if minibatch_samples_number == 1:
@@ -121,9 +121,17 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
 			# if the model provides a score for a document and a query
-			elif model_type == "pair-wise":
+			elif model_type == "interaction-based":
 
-				dot_q_d1, dot_q_d2 = model(data, lengths)
+				# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+				split_size = data.size(0) // 3
+				q_repr, doc1, doc2 = torch.split(data, split_size)
+
+				q_d_1 = torch.cat([q_repr ,doc1], dim = 1)
+				q_d_2 = torch.cat([q_repr ,doc2], dim = 1)
+
+				dot_q_d1 = model(q_d_1, lengths)
+				dot_q_d2 = model(q_d_2, lengths)
 
 				# calculate l1 loss
 				l1_loss = torch.tensor(0)
@@ -154,7 +162,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			if next(model.parameters()).is_cuda:
 				torch.cuda.empty_cache()
-			
+
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
 			optim.step()
@@ -179,18 +187,19 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	# balance_loss, total_loss, l0_q, l0_docs, acc)
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
 						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
-	
+
 	return total_trained_samples, av_total_loss.val.item(), av_loss.val.item(), av_l1_loss.val.item(), av_l0_q.val.item(), av_l0_docs.val.item(), av_acc.val.item()
 
 
-def get_all_reprs(model, dataloader, device):
+def get_single_representation(model, dataloader, device):
 	av_l1_loss, av_l0 = Average(), Average()
 	with torch.no_grad():
 		model.eval()
 		reprs = list()
 		ids = list()
 		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			repr_ = model(batch_data_d.to(device), batch_lengths_d.to(device))
+			data, lengths = data.to(device), lengths.to(device)
+			repr_ = model(batch_data_d, batch_lengths_d)
 			reprs.append(repr_.detach().cpu().numpy())
 			ids += batch_ids_d
 			l1, l0 = l1_loss_fn(repr_), l0_loss(repr_)
@@ -223,26 +232,23 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	return scores
 
 
-def test(model, mode, data_loaders, device, max_rank, total_trained_samples, metric, reset=True, writer=None):
-	query_batch_generator, docs_batch_generator = data_loaders[mode]
+def scores_representation_based(model, dataloaders, device, writer, max_rank, total_trained_samples, reset, plot=True):
+	query_batch_generator, docs_batch_generator = dataloaders
+
+	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
+	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
 
 	if reset:
 		docs_batch_generator.reset()
 		query_batch_generator.reset()
 
-	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
-	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
-		
 	while True:
-
 		# if return has len == 0 then break
-		d_repr, d_ids, l0_docs, l1_loss_docs = get_all_reprs(model, docs_batch_generator, device)
-		q_repr, q_ids_q, l0_q, l1_loss_q = get_all_reprs(model, query_batch_generator, device)
+		d_repr, d_ids, l0_docs, l1_loss_docs = get_single_representation(model, docs_batch_generator, device)
+		q_repr, q_ids_q, l0_q, l1_loss_q = get_single_representation(model, query_batch_generator, device)
 		if q_repr is None or d_repr is None:
 			break
-		
 		scores += get_scores(d_repr, d_ids, q_repr, max_rank)
-
 		q_ids += q_ids_q
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
@@ -250,17 +256,55 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 		d_reprs.append(np.concatenate(d_repr, 0))
 		q_reprs.append(q_repr[0])
 
-	metric_score = metric.score(scores, q_ids)
+	if plot:
+		# plot stats
+		plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
+		plot_histogram_of_latent_terms(model_folder, q_repr, 'query')
+		plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
+		plot_histogram_of_latent_terms(model_folder, d_repr, 'docs')
 
 	if writer != None:
 		writer.add_scalar(f'{mode}_l1_loss', av_l1_loss.val , total_trained_samples)
-
 		writer.add_scalar(f'{mode}_L0_query', av_l0_query.val, total_trained_samples)
 		writer.add_scalar(f'{mode}_L0_docs', av_l0_docs.val, total_trained_samples)
 
+	return scores, q_ids
+
+def scores_interaction_based(model, dataloader, device):
+	with torch.no_grad():
+		model.eval()
+		scores, q_ids = list(), list()
+		for ids, data, lengths in dataloader:
+			data, batch_lengths_d = data.to(device), lengths.to(device)
+			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+			split_size = data.size(0) // 2
+			split_size = data.size(0) // 2
+			q_ids, doc_ids = torch.split(data, split_size)
+			q_d = torch.cat([q_repr ,doc], dim = 1)
+			score = model(q_d.to(device), lengths.to(device))
+			score.append(score.detach().cpu().numpy())
+			q_ids += q_ids
+	return scores, q_ids
+
+
+
+def test(model, mode, data_loaders, device, max_rank, total_trained_samples, metric, reset=True, writer=None):
+	if isinstance(model, torch.nn.DataParallel):
+		model_type = model.module.model_type
+	else:
+		model_type = model.model_type
+	# if the model provides an indipendednt representation for the input (query/doc)
+	if model_type == "representation-based":
+		scores, q_ids = scores_representation_based(model, dataloaders[mode], device, writer, max_rank, total_trained_samples, reset, plot=True)
+	elif model_type == "interaction-based":
+		scores, q_ids = scores_interaction_based(model, dataloaders[mode], device)
+
+	metric_score = metric.score(scores, q_ids)
+
+	if writer:
 		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 	print(f'{mode} -  {metric.name}: {metric_score}')
-	return scores, q_reprs, d_reprs, q_ids, d_ids, metric_score
+	return scores, q_ids, d_ids, metric_score
 
 
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
@@ -310,7 +354,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 		# training
 		with torch.enable_grad():
 			model.train()
-			total_trained_samples, train_total_loss, train_task_loss, train_l1_loss, train_l0_q, train_l0_docs, train_acc = run_epoch(model, 'train', 
+			total_trained_samples, train_total_loss, train_task_loss, train_l1_loss, train_l0_q, train_l0_docs, train_acc = run_epoch(model, 'train',
 												 dataloaders, batch_iterator_train, loss_fn, epoch, writer,
 												 l1_scalar, balance_scalar, total_trained_samples, device,
 												 optim=optim, samples_per_epoch=samples_per_epoch_train,
@@ -332,7 +376,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			if bottleneck_run:
 				break
 			else:
-				
+
 				if validate:
 					_, val_total_loss, val_task_loss, val_l1_loss, val_l0_q, val_l0_docs, val_acc = run_epoch(model, 'val', dataloaders, batch_iterator_val, loss_fn, epoch, writer, l1_scalar, balance_scalar, total_trained_samples, device,
 						optim=None, samples_per_epoch=samples_per_epoch_val, log_every_ratio=log_every_ratio, max_samples_per_gpu = max_samples_per_gpu, n_gpu = n_gpu)
@@ -343,18 +387,12 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 						subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
 
 				# Run also proper evaluation script
-				_, q_repr, d_repr, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
+				_, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
 																	total_trained_samples, metric, writer=writer)
-	
+
 				if telegram:
 					telegram_message = model_folder + '\n' + f'Test Metric Score:\n{metric_score}'
 					subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
-
-				# plot stats
-				plot_ordered_posting_lists_lengths(model_folder, q_repr, 'query')
-				plot_histogram_of_latent_terms(model_folder, q_repr, 'query')
-				plot_ordered_posting_lists_lengths(model_folder, d_repr, 'docs')
-				plot_histogram_of_latent_terms(model_folder, d_repr, 'docs')
 
 				if validate:
 					metric_score = val_total_loss
@@ -366,13 +404,6 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 				if not early_stopper.step(metric_score) :
 					print(f'Best model at current epoch {epoch}, av value: {metric_score}')
 					# save best model so far to file
-					torch.save(model, f'{model_folder}/best_model.model')
-				
+					torch.save(model.state_dict(), f'{model_folder}/best_model.model')
 
-	best_model_file_path = f'{model_folder}/best_model.model'
-
-	if not bottleneck_run and os.path.isfile(best_model_file_path) :
-		# load best model
-		model = torch.load(best_model_file_path)
-
-	return model, early_stopper.best, total_trained_samples
+	return early_stopper.best, total_trained_samples

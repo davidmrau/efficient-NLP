@@ -5,7 +5,7 @@ import pickle
 class EmbeddingWeightedAverage(nn.Module):
 	def __init__(self, weights, vocab_size, trainable = True):
 		"""
-		weights : uniform / random / 
+		weights : uniform / random /
 				  path_to_file (pickle in the form of tensor.Size(V x 1))
 		vocab_size: vocabulary size
 		"""
@@ -26,13 +26,13 @@ class EmbeddingWeightedAverage(nn.Module):
 				self.weights.weight = torch.nn.Parameter(weight_values.unsqueeze(-1))
 			except:
 				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pickle file: {weights} not accessible!')
-		
+
 		if trainable == False:
 			self.weights.weight.requires_grad = False
 
 
 
-	def weighted_average(self, input, values, lengths = None, mask = None):
+	def forward(self, input, values, lengths = None, mask = None):
 		"""
 		input shape : Bsz x L
 		values shape  : Bsz x L x hidden

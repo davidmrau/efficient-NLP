@@ -63,7 +63,7 @@ def inference(cfg):
 
 	cfg.model_folder += f'/{qrels_base}/'
 	os.makedirs(cfg.model_folder, exist_ok=True)
-	scores, q_reprs, d_reprs, q_ids, d_ids, metric_score = test(model, 'test', dataloaders, device, cfg.max_rank,
+	scores, q_ids, d_ids, metric_score = test(model, 'test', dataloaders, device, cfg.max_rank,
                                                  0, metric=metric, writer=None)
 
 	ranking_file_path = f'{cfg.model_folder}/re_ranking'
