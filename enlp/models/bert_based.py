@@ -2,7 +2,7 @@ import torch
 import transformers
 from transformers.activations import gelu, gelu_new
 
-from enlp.bert_no_layer_norm import BertModelNoOutLayerNorm
+from enlp.models.bert_no_layer_norm import BertModelNoOutLayerNorm
 from transformers import BertTokenizerFast
 import math
 
@@ -15,7 +15,7 @@ class BERT_based(torch.nn.Module):
 			act_func="relu", params_to_copy = {}):
 		super(BERT_based, self).__init__()
 
-		
+
 		self.model_type = "point-wise"
 
 		if embedding_parameters is not None:

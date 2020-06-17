@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 
-from enlp.embedding_weighted_average import EmbeddingWeightedAverage
+from enlp.models.embedding_weighted_average import EmbeddingWeightedAverage
 
 class RankModel(nn.Module):
 
