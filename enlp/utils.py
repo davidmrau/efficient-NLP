@@ -17,9 +17,9 @@ from torch.nn.utils.rnn import pad_sequence
 
 import sys
 import random
-from enlp.rank_model import RankModel
-from enlp.bert_based import BERT_based
-from enlp.snrm import SNRM
+from enlp.models.rank_model import RankModel
+from enlp.models.bert_based import BERT_based
+from enlp.models.snrm import SNRM
 matplotlib.use('Agg')
 #
 # from https://gist.github.com/stefanonardo/693d96ceb2f531fa05db530f3e21517d
@@ -236,7 +236,7 @@ def instantiate_model(cfg):
 	if n_gpu > 1:
 		print("Using", n_gpu, "GPUs!")
 		model = nn.DataParallel(model)
-		
+
 	model = model.to(device=device)
 
 	return model, device, n_gpu
@@ -706,7 +706,7 @@ def plot_top_k_analysis(analysis_dict):
 class EmbeddingWeightedAverage(nn.Module):
 	def __init__(self, weights, vocab_size, trainable = True):
 		"""
-		weights : uniform / random / 
+		weights : uniform / random /
 				  path_to_file (pickle in the form of tensor.Size(V x 1))
 		vocab_size: vocabulary size
 		"""
@@ -727,7 +727,7 @@ class EmbeddingWeightedAverage(nn.Module):
 				self.weights.weight = torch.nn.Parameter(weight_values.unsqueeze(-1))
 			except:
 				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pickle file: {weights} not accessible!')
-		
+
 		if trainable == False:
 			self.weights.weight.requires_grad = False
 
@@ -841,7 +841,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				# performing inner products
 				dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
 				dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
-				
+
 				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 				# so we need to unsqueeze
 				if bsz == 1:
