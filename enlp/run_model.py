@@ -189,30 +189,28 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 def get_rerank_representations(model, dataloader, device):
 	av_l1_loss_q, av_l0_q, av_l1_loss_d, av_l0_d = Average(), Average(), Average(), Average()
-	reprs_q, ids_q, reprs_d, ids_d = list(), list(), list(), list()	
-		
-	with torch.no_grad():
-		model.eval()
-		for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			data_q, length_q, batch_data_d, batch_lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)	
-			repr_d = model(batch_data_d, batch_lengths_d)
-			reprs_d.append(repr_d.detach().cpu().numpy())
-			ids_d += batch_ids_d
-			l1_d, l0_d = l1_loss_fn(repr_d), l0_loss(repr_d)
-			av_l1_loss_d.step(l1_d), av_l0_d.step(l0_d)
-			
-			# we want to return each query only once for all ranked documents for this query
-			if len(reprs_q) == 0:
-				repr_q = model(data_q, length_q)
-				reprs_q.append(repr_q.detach().cpu().numpy())
-				ids_q += id_q
-				l1_q, l0_q = l1_loss_fn(repr_q), l0_loss(repr_q)
-				av_l1_loss_q.step(l1_q), av_l0_q.step(l0_q)
-		
-		if len(reprs) > 0:
-			return reprs_q, ids_q, av_l0_q.val.item(), av_l1_loss_q.val.item(), reprs_d, ids_d, av_l0_d.val.item(), av_l1_loss_d.val.item()
-		else:
-			return None, None, None, None, None, None, None, None
+	reprs_q, ids_q, reprs_d, ids_d = list(), list(), list(), list()
+
+	for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+		data_q, length_q, batch_data_d, batch_lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
+		repr_d = model(batch_data_d, batch_lengths_d)
+		reprs_d.append(repr_d.detach().cpu().numpy())
+		ids_d += batch_ids_d
+		l1_d, l0_d = l1_loss_fn(repr_d), l0_loss(repr_d)
+		av_l1_loss_d.step(l1_d), av_l0_d.step(l0_d)
+
+		# we want to return each query only once for all ranked documents for this query
+		if len(reprs_q) == 0:
+			repr_q = model(data_q, length_q)
+			reprs_q.append(repr_q.detach().cpu().numpy())
+			ids_q += id_q
+			l1_q, l0_q = l1_loss_fn(repr_q), l0_loss(repr_q)
+			av_l1_loss_q.step(l1_q), av_l0_q.step(l0_q)
+
+	if len(reprs) > 0:
+		return reprs_q, ids_q, av_l0_q.val.item(), av_l1_loss_q.val.item(), reprs_d, ids_d, av_l0_d.val.item(), av_l1_loss_d.val.item()
+	else:
+		return None, None, None, None, None, None, None, None
 
 
 def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank):
@@ -275,24 +273,23 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 def scores_interaction_based(model, dataloader, device, reset):
 
 	scores, q_ids = list(), list()
-	
+
 	if reset:
 		dataloader.reset()
 
-	with torch.no_grad():
-		model.eval()
-		for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			data_q, length_q, data_d, lengths_d  = data_q.to(device), length_q.to(device), data_d.to(device), lengths_d.to(device)	
-			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+	for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+		data_q, length_q, data_d, lengths_d  = data_q.to(device), length_q.to(device), data_d.to(device), lengths_d.to(device)
+		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 
-			# repeate query for each document
-			n_repeat = data_d.shape[0]
-			data_q = data_q.repeat(n_repeat,1)
-			lengths_q = length_q.repeat(n_repeat,1)
+		# repeate query for each document
+		n_repeat = data_d.shape[0]
+		data_q = data_q.repeat(n_repeat,1)
+		lengths_q = length_q.repeat(n_repeat,1)
 
-			score = model(data_q, data_d, lengths_q, lengths_d)
-			score.append(score.detach().cpu().numpy())
-			q_ids += q_ids
+		score = model(data_q, data_d, lengths_q, lengths_d)
+		score.append(score.detach().cpu().numpy())
+		q_ids += q_ids
+
 	return scores, q_ids
 
 
