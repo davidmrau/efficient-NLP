@@ -8,6 +8,8 @@ import numpy as np
 from enlp.file_interface import FileInterface
 from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset
 
+from torch.nn.utils.rnn import pad_sequence
+
 
 class Sequential(IterableDataset):
 	def __init__(self, fname, tokenize=False, min_len=5):
@@ -174,31 +176,8 @@ class MSMarcoTrain(data.Dataset):
 		else:
 			return [query, doc2, doc1], -1
 
+class RankingResultsTest_leg:
 
-class MSMarcoSequential(IterableDataset):
-	def __init__(self, fname):
-
-		# open file
-		self.file_ = open(fname, 'r')
-
-	def __iter__(self):
-		self.file_.seek(0)
-		for line in self.file_:
-			# getting position of '\t' that separates the doc_id and the begining of the token ids
-			delim_pos = line.find('\t')
-			# extracting the id
-			id_ = line[:delim_pos]
-			# extracting the token_ids and creating a numpy array
-			tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
-
-			yield [id_, tokens_list]
-
-
-
-
-
-
-class RankingResultsTest:
 	def __init__(self, ranking_results, id2text, batch_size, is_query, min_len=5, indices=None):
 		# open file
 		self.batch_size = batch_size
@@ -215,6 +194,7 @@ class RankingResultsTest:
 		else:
 			self.id2text = FileInterface(id2text)
 		self.stop = False
+		self.index = -1
 
 	def reset(self):
 		self.ranking_results.seek(0)
@@ -257,18 +237,18 @@ class RankingResultsTest:
 				if curr_q_id != prev_q_id:
 					prev_q_id = curr_q_id
 					self.stop = True
+					self.index += 1
 					break
 				# extracting the token_ids and creating a numpy array
 
 
 
-				tokens_list = self.get_text(id_)
 
-				if tokens_list is not None and id_ not in batch_ids and curr_q_id not in self.indices:
-
-					batch_ids.append(id_)
-
-					batch_data.append(torch.IntTensor(tokens_list))
+				if id_ not in batch_ids and self.index in self.indices:
+					tokens_list = self.get_text(id_)
+					if tokens_list is not None:
+						batch_ids.append(id_)
+						batch_data.append(torch.IntTensor(tokens_list))
 
 				prev_q_id = curr_q_id
 
@@ -281,6 +261,103 @@ class RankingResultsTest:
 			batch_data = pad_sequence(batch_data,1).long()
 
 			yield batch_ids, batch_data, batch_lengths
+
+
+class RankingResultsTest:
+
+	def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None):
+		# open file
+		self.batch_size = batch_size
+
+		if isinstance(ranking_results, FileInterface):
+			self.ranking_results = ranking_results
+		else:
+			self.ranking_results = open(ranking_results, 'r')
+		self.min_len = min_len
+		self.indices = indices if indices else []
+		if isinstance(id2query, FileInterface):
+			self.id2query = id2query
+		else:
+			self.id2query = FileInterface(id2query)
+
+		if isinstance(id2doc, FileInterface):
+			self.id2doc = id2doc
+		else:
+			self.id2doc = FileInterface(id2doc)
+
+		self.stop = False
+		self.index = -1
+
+	def reset(self):
+		self.ranking_results.seek(0)
+		self.line = None
+		return self
+
+
+	def get_id(self, line):
+		spl = line.split(' ')
+		q_id = str(spl[0].strip())
+		d_id = str(spl[2].strip())
+		return q_id, d_id
+
+	def get_tokenized(self, id_, id2tokens):
+		tokenized_ids = id2tokens.get_tokenized_element(id_)
+		if tokenized_ids is None:
+			return None
+
+		if len(tokenized_ids) < self.min_len:
+			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
+		return tokenized_ids
+
+	def batch_generator(self):
+
+		if self.line is None:
+			self.line = self.ranking_results.readline()
+
+		prev_q_id, _ = self.get_id(self.line)
+		self.stop = False
+
+		while self.line and not self.stop:
+			# read a number of lines equal to batch_size
+			d_batch_ids = []
+			d_batch_data = []
+			while (self.line and ( len(d_batch_ids) < self.batch_size) ):
+
+				curr_q_id, doc_id = self.get_id(self.line)
+				if curr_q_id != prev_q_id:
+					prev_q_id = curr_q_id
+					self.stop = True
+					self.index += 1
+					break
+				# extracting the token_ids and creating a numpy array
+
+
+
+				# if index of queries to load is provided check if query index is indices
+				if self.index in self.indices:
+					doc = self.get_tokenized(doc_id, self.id2doc)
+					if doc is not None:
+						d_batch_ids.append(doc_id)
+						d_batch_data.append(torch.IntTensor(doc))
+
+				prev_q_id = curr_q_id
+
+
+				self.line = self.ranking_results.readline()
+
+			query = self.get_tokenized(curr_q_id, self.id2query)	
+			q_data = [torch.IntTensor(query)]
+			q_id = [curr_q_id]
+			d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
+			q_length = torch.FloatTensor([len(q) for q in q_data])
+	
+			if len(d_batch_data) < 1:
+				return
+			#padd data along axis 1
+			d_batch_data = pad_sequence(d_batch_data,1).long()
+			q_data = pad_sequence(q_data,1).long()
+
+			yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
 
 
 class WeakSupervision(IterableDataset):
@@ -637,7 +714,5 @@ def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, qu
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
-	query_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, query_fi, cfg.batch_size_test, indices=indices_test, is_query=True)
-	docs_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, indices=indices_test, is_query=False)
-	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test)
 	return dataloaders

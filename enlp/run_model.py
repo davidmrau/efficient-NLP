@@ -103,14 +103,14 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
 				# performing inner products
-				dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-				dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+				score_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+				score_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
 
 				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 				# so we need to unsqueeze
 				if minibatch_samples_number == 1:
-					dot_q_d1 = dot_q_d1.unsqueeze(0)
-					dot_q_d2 = dot_q_d2.unsqueeze(0)
+					score_q_d1 = score_q_d1.unsqueeze(0)
+					score_q_d2 = score_q_d2.unsqueeze(0)
 
 
 				# calculate l1 loss
@@ -122,16 +122,12 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			# if the model provides a score for a document and a query
 			elif model_type == "interaction-based":
-
-				# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 				split_size = data.size(0) // 3
 				q_repr, doc1, doc2 = torch.split(data, split_size)
+				lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
+				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
+				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
 
-				q_d_1 = torch.cat([q_repr ,doc1], dim = 1)
-				q_d_2 = torch.cat([q_repr ,doc2], dim = 1)
-
-				dot_q_d1 = model(q_d_1, lengths)
-				dot_q_d2 = model(q_d_2, lengths)
 
 				# calculate l1 loss
 				l1_loss = torch.tensor(0)
@@ -144,11 +140,11 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
 			# calculating loss
-			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
+			loss = loss_fn(score_q_d1, score_q_d2, targets)
 
 			# calculating classification accuracy (whether the correct document was classified as more relevant)
-			acc = (((dot_q_d1 > dot_q_d2).float() == targets).float() + (
-					(dot_q_d2 > dot_q_d1).float() == targets * -1).float()).mean()
+			acc = (((score_q_d1 > score_q_d2).float() == targets).float() + (
+					(score_q_d2 > score_q_d1).float() == targets * -1).float()).mean()
 
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
@@ -191,26 +187,35 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 	return total_trained_samples, av_total_loss.val.item(), av_loss.val.item(), av_l1_loss.val.item(), av_l0_q.val.item(), av_l0_docs.val.item(), av_acc.val.item()
 
 
-def get_single_representation(model, dataloader, device):
-	av_l1_loss, av_l0 = Average(), Average()
+def get_rerank_representations(model, dataloader, device):
+	av_l1_loss_q, av_l0_q, av_l1_loss_d, av_l0_d = Average(), Average(), Average(), Average()
+	reprs_q, ids_q, reprs_d, ids_d = list(), list(), list(), list()	
+		
 	with torch.no_grad():
 		model.eval()
-		reprs = list()
-		ids = list()
-		for batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			data, lengths = data.to(device), lengths.to(device)
-			repr_ = model(batch_data_d, batch_lengths_d)
-			reprs.append(repr_.detach().cpu().numpy())
-			ids += batch_ids_d
-			l1, l0 = l1_loss_fn(repr_), l0_loss(repr_)
-			av_l1_loss.step(l1), av_l0.step(l0)
+		for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+			data_q, length_q, batch_data_d, batch_lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)	
+			repr_d = model(batch_data_d, batch_lengths_d)
+			reprs_d.append(repr_d.detach().cpu().numpy())
+			ids_d += batch_ids_d
+			l1_d, l0_d = l1_loss_fn(repr_d), l0_loss(repr_d)
+			av_l1_loss_d.step(l1_d), av_l0_d.step(l0_d)
+			
+			# we want to return each query only once for all ranked documents for this query
+			if len(reprs_q) == 0:
+				repr_q = model(data_q, length_q)
+				reprs_q.append(repr_q.detach().cpu().numpy())
+				ids_q += id_q
+				l1_q, l0_q = l1_loss_fn(repr_q), l0_loss(repr_q)
+				av_l1_loss_q.step(l1_q), av_l0_q.step(l0_q)
+		
 		if len(reprs) > 0:
-			return reprs, ids, av_l0.val.item(), av_l1_loss.val.item()
+			return reprs_q, ids_q, av_l0_q.val.item(), av_l1_loss_q.val.item(), reprs_d, ids_d, av_l0_d.val.item(), av_l1_loss_d.val.item()
 		else:
-			return None, None, None, None
+			return None, None, None, None, None, None, None, None
 
 
-def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
+def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	scores = list()
 	for batch_q_repr in q_reprs:
 		batch_len = len(batch_q_repr)
@@ -232,23 +237,20 @@ def get_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 	return scores
 
 
-def scores_representation_based(model, dataloaders, device, writer, max_rank, total_trained_samples, reset, plot=True):
-	query_batch_generator, docs_batch_generator = dataloaders
+def scores_representation_based(model, dataloader, device, writer, max_rank, total_trained_samples, reset, plot=True):
 
 	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
 	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
 
 	if reset:
-		docs_batch_generator.reset()
-		query_batch_generator.reset()
+		dataloader.reset()
 
 	while True:
 		# if return has len == 0 then break
-		d_repr, d_ids, l0_docs, l1_loss_docs = get_single_representation(model, docs_batch_generator, device)
-		q_repr, q_ids_q, l0_q, l1_loss_q = get_single_representation(model, query_batch_generator, device)
+		q_repr, q_ids, l0_q, l1_loss_q, d_repr, d_ids, l0_docs, l1_loss_docs = get_rerank_representations(model, data_loader, device)
 		if q_repr is None or d_repr is None:
 			break
-		scores += get_scores(d_repr, d_ids, q_repr, max_rank)
+		scores += get_dot_scores(d_repr, d_ids, q_repr, max_rank)
 		q_ids += q_ids_q
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
@@ -270,18 +272,25 @@ def scores_representation_based(model, dataloaders, device, writer, max_rank, to
 
 	return scores, q_ids
 
-def scores_interaction_based(model, dataloader, device):
+def scores_interaction_based(model, dataloader, device, reset):
+
+	scores, q_ids = list(), list()
+	
+	if reset:
+		dataloader.reset()
+
 	with torch.no_grad():
 		model.eval()
-		scores, q_ids = list(), list()
-		for ids, data, lengths in dataloader:
-			data, batch_lengths_d = data.to(device), lengths.to(device)
+		for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+			data_q, length_q, data_d, lengths_d  = data_q.to(device), length_q.to(device), data_d.to(device), lengths_d.to(device)	
 			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-			split_size = data.size(0) // 2
-			split_size = data.size(0) // 2
-			q_ids, doc_ids = torch.split(data, split_size)
-			q_d = torch.cat([q_repr ,doc], dim = 1)
-			score = model(q_d.to(device), lengths.to(device))
+
+			# repeate query for each document
+			n_repeat = data_d.shape[0]
+			data_q = data_q.repeat(n_repeat,1)
+			lengths_q = length_q.repeat(n_repeat,1)
+
+			score = model(data_q, data_d, lengths_q, lengths_d)
 			score.append(score.detach().cpu().numpy())
 			q_ids += q_ids
 	return scores, q_ids
@@ -297,7 +306,7 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 	if model_type == "representation-based":
 		scores, q_ids = scores_representation_based(model, dataloaders[mode], device, writer, max_rank, total_trained_samples, reset, plot=True)
 	elif model_type == "interaction-based":
-		scores, q_ids = scores_interaction_based(model, dataloaders[mode], device)
+		scores, q_ids = scores_interaction_based(model, dataloaders[mode], device, reset)
 
 	metric_score = metric.score(scores, q_ids)
 
@@ -368,11 +377,11 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			# in case the model has gone completely wrong, stop training
 			if train_acc < 0.3:
 				break
+				print('Ending training train because train accurracy is < 0.3!')
 
 		# evaluation
 		with torch.no_grad():
 			model.eval()
-
 			if bottleneck_run:
 				break
 			else:
@@ -387,6 +396,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 						subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
 
 				# Run also proper evaluation script
+				print('Running test: ')
 				_, q_ids, _, metric_score = test(model, 'test', dataloaders, device, max_rank,
 																	total_trained_samples, metric, writer=writer)
 

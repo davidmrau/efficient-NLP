@@ -703,73 +703,6 @@ def plot_top_k_analysis(analysis_dict):
 	plt.show()
 
 
-class EmbeddingWeightedAverage(nn.Module):
-	def __init__(self, weights, vocab_size, trainable = True):
-		"""
-		weights : uniform / random /
-				  path_to_file (pickle in the form of tensor.Size(V x 1))
-		vocab_size: vocabulary size
-		"""
-		super(EmbeddingWeightedAverage, self).__init__()
-
-		self.weights = torch.nn.Embedding(num_embeddings = vocab_size, embedding_dim = 1)
-
-		if weights == "uniform":
-			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size,1))
-			# pass
-		elif weights == "random":
-			pass
-		# otherwise it has to be a path of a pickle file with the weights in a pytorch tensor form
-		else:
-			try:
-				weight_values = pickle.load(open(weights, 'rb'))
-				# print(weight_values.size())
-				self.weights.weight = torch.nn.Parameter(weight_values.unsqueeze(-1))
-			except:
-				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pickle file: {weights} not accessible!')
-
-		if trainable == False:
-			self.weights.weight.requires_grad = False
-
-
-
-	def weighted_average(self, input, values, lengths = None, mask = None):
-		"""
-		input shape : Bsz x L
-		values shape  : Bsz x L x hidden
-		lengths shape : Bsz x 1
-		mask: if provided, are of shape Bsx x L. Binary mask version of lenghts
-		"""
-		if mask is None:
-
-			if lengths is None:
-				raise ValueError("EmbeddingWeightedAverage : weighted_average(), mask and lengths cannot be None at the same time!")
-
-			mask = torch.zeros_like(input)
-
-			for i in range(lengths.size(0)):
-				mask[i, : lengths[i].int()] = 1
-
-			if values.is_cuda:
-				mask = mask.cuda()
-
-		mask = mask.unsqueeze(-1).float()
-		# calculate the weight of each term
-		weights = self.weights(input)
-
-		# normalize the weights
-		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=-1)
-
-		# weights are extended to fit the size of the embeddings / hidden representation
-		weights = weights.repeat(1,1,values.size(-1))
-		# mask are making sure that we only add the non padded tokens
-		mask = mask.repeat(1,1,values.size(-1))
-		# we first calculate the weighted sum
-		weighted_average = (weights * values * mask).sum(dim = 1)
-
-		return weighted_average
-
-
 
 
 def create_random_batch(bsz, max_len):
@@ -788,7 +721,6 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 	bsz = 1
 
 	try:
-
 		while True :
 
 			data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
@@ -810,14 +742,14 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
 				# performing inner products
-				dot_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-				dot_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+				score_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+				score_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
 
 				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
 				# so we need to unsqueeze
 				if bsz == 1:
-					dot_q_d1 = dot_q_d1.unsqueeze(0)
-					dot_q_d2 = dot_q_d2.unsqueeze(0)
+					score_q_d1 = score_q_d1.unsqueeze(0)
+					score_q_d2 = score_q_d2.unsqueeze(0)
 
 				# calculate l1 loss
 				l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
@@ -830,9 +762,12 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 			# # if the model provides a score for a document and a query
 			# elif isinstance(model, RankModel):
-
-				dot_q_d1, dot_q_d2 = model(data, lengths)
-
+								# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+				split_size = data.size(0) // 3
+				q_repr, doc1, doc2 = torch.split(data, split_size)
+				lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
+				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
+				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
 
 				# calculate l1 loss
 				l1_loss = 0
@@ -845,12 +780,12 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
 
-			# print(dot_q_d1.size())
-			# print(dot_q_d2.size())
+			# print(score_q_d1.size())
+			# print(score_q_d2.size())
 			# print(targets.size())
 
 			# calculating loss
-			loss = loss_fn(dot_q_d1, dot_q_d2, targets)
+			loss = loss_fn(score_q_d1, score_q_d2, targets)
 
 			loss.backward()
 			optim.step()

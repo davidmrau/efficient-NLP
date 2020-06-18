@@ -20,8 +20,8 @@ from enlp.metrics import MAPTrec
 from enlp.utils import offset_dict_len
 from enlp.run_model import run
 from enlp.dataset import get_data_loaders_robust_strong
-
-def exp(cfg, temp_model_folder, completed_model_folder):
+import pickle as p
+def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 
 
@@ -73,7 +73,7 @@ def exp(cfg, temp_model_folder, completed_model_folder):
 	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 
 	folds = gen_folds(dataset_len, cfg.num_folds)
-
+	p.dump(folds, open(f'{temp_model_folder_general}_folds.p', 'wb'))
 	docs_fi = FileInterface(cfg.robust_docs)
 	query_fi = FileInterface(cfg.robust_query_test)
 	ranking_results_fi = FileInterface(cfg.robust_ranking_results_strong)
@@ -81,10 +81,11 @@ def exp(cfg, temp_model_folder, completed_model_folder):
 	print('Start training...')
 	metric_scores = list()
 	fold_count = 0
+
 	for i, (indices_train, indices_test) in enumerate(folds):
 
-		completed_model_folder += str(i)
-		temp_model_folder += str(i)
+		completed_model_folder = completed_model_folder_general + '/'+ str(i)
+		temp_model_folder = temp_model_folder_general + '/' + str(i)
 		print("Complete Model Path: ", completed_model_folder)
 		if os.path.isdir(completed_model_folder):
 
@@ -103,7 +104,7 @@ def exp(cfg, temp_model_folder, completed_model_folder):
 			shutil.rmtree(temp_model_folder)
 			print("Deleted it and starting from scratch.")
 
-		print("Training :", model_folder)
+		print("Training :", completed_model_folder)
 		os.makedirs(temp_model_folder, exist_ok=True)
 
 		# save config
@@ -127,7 +128,9 @@ def exp(cfg, temp_model_folder, completed_model_folder):
 		optim = Adam(model.parameters(), lr=cfg.lr)
 
 		dataloaders = get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi)
-
+		data = dataloaders['test']
+		data.reset()
+		
 		metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 								   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 								   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
@@ -136,12 +139,12 @@ def exp(cfg, temp_model_folder, completed_model_folder):
 
 		metric_scores.append(metric_score)
 
-	writer.add_scalar(f'Av {metric.name} Supervised', np.mean(metric_scores), 0)
+		os.renames(temp_model_folder, completed_model_folder)
+	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised', np.mean(metric_scores), 0)
 
 	# after the training is done, we remove the temp prefix from the dir name
 	print("Training completed! Changing from temporary name to final name.")
 	print("--------------------------------------------------------------------------------------")
-	os.renames(temp_model_folder, completed_model_folder)
 
 if __name__ == "__main__":
 	# getting command line arguments
@@ -174,6 +177,5 @@ if __name__ == "__main__":
 	completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
 
 	temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
-
-
+	cfg.model_folder = completed_model_folder
 	exp(cfg, temp_model_folder, completed_model_folder)

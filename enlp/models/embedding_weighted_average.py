@@ -32,9 +32,9 @@ class EmbeddingWeightedAverage(nn.Module):
 
 
 
-	def forward(self, input, values, lengths = None, mask = None):
+	def forward(self, inp, values, lengths = None, mask = None):
 		"""
-		input shape : Bsz x L
+		inp shape : Bsz x L
 		values shape  : Bsz x L x hidden
 		lengths shape : Bsz x 1
 		mask: if provided, are of shape Bsx x L. Binary mask version of lenghts
@@ -44,7 +44,7 @@ class EmbeddingWeightedAverage(nn.Module):
 			if lengths is None:
 				raise ValueError("EmbeddingWeightedAverage : weighted_average(), mask and lengths cannot be None at the same time!")
 
-			mask = torch.zeros_like(input)
+			mask = torch.zeros_like(inp)
 
 			for i in range(lengths.size(0)):
 				mask[i, : lengths[i].int()] = 1
@@ -54,7 +54,7 @@ class EmbeddingWeightedAverage(nn.Module):
 
 		mask = mask.unsqueeze(-1).float()
 		# calculate the weight of each term
-		weights = self.weights(input)
+		weights = self.weights(inp)
 
 		# normalize the weights
 		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=-1)
@@ -88,13 +88,13 @@ class EmbeddingWeightedAverage(nn.Module):
 # # embeddings.weight = torch.nn.Parameter(torch.ones(10,5) )
 
 # # print(embeddings.weight)
-# input = torch.tensor([[1,3,0], [2,3,5], [6,0,0]])
+# inp = torch.tensor([[1,3,0], [2,3,5], [6,0,0]])
 # lengths = torch.tensor([2,3,1])
-# values = embeddings(input)
+# values = embeddings(inp)
 
 # # print(values)
 
-# out = em.weighted_average(input, values, lengths)
+# out = em.weighted_average(inp, values, lengths)
 
 # print(out.size())
 

@@ -41,15 +41,20 @@ class RankModel(nn.Module):
 		self.linears.append( nn.Linear(in_features=hidden_sizes[-1], out_features=1))
 
 
-	def forward(self, input, lengths):
+	def forward(self, q_repr, doc, lengths_q, lengths_d):
+		
 
-		# get embeddings of all inputs
-		out = self.embedding(input)
+		inp = torch.cat([q_repr, doc])
+		lengths = torch.cat([lengths_q, lengths_d])
+		# get embeddings of all inps
+		out = self.embedding(inp)
 
-		# calculate weighted average embedding for all inputs
-		weight_averaged = self.weighted_average(input = input, values = out,  lengths = lengths)
-
-		q_d = weight_averaged
+		# calculate weighted average embedding for all inps
+		weight_averaged = self.weighted_average(inp, out,  lengths = lengths)
+		
+		split_size = weight_averaged.size(0) // 2
+		q, d = torch.split(weight_averaged, split_size)
+		q_d =  torch.cat([q, d], dim=1)
 
 		# getting scores of joint q_d representation
 		for i in range(len(self.linears)-1):
