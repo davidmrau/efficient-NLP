@@ -73,19 +73,19 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 
 	folds = gen_folds(dataset_len, cfg.num_folds)
-	p.dump(folds, open(f'{temp_model_folder_general}_folds.p', 'wb'))
 	docs_fi = FileInterface(cfg.robust_docs)
 	query_fi = FileInterface(cfg.robust_query_test)
 	ranking_results_fi = FileInterface(cfg.robust_ranking_results_strong)
 
 	print('Start training...')
 	metric_scores = list()
-	fold_count = 0
+	fold_count = -1
 
 	for i, (indices_train, indices_test) in enumerate(folds):
 
-		completed_model_folder = completed_model_folder_general + '/'+ str(i)
-		temp_model_folder = temp_model_folder_general + '/' + str(i)
+		fold_count += 1
+		completed_model_folder = f'{completed_model_folder_general}/{i}/'
+		temp_model_folder = f'{temp_model_folder_general}/{i}/'
 		print("Complete Model Path: ", completed_model_folder)
 		if os.path.isdir(completed_model_folder):
 
@@ -104,7 +104,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 			shutil.rmtree(temp_model_folder)
 			print("Deleted it and starting from scratch.")
 
-		print("Training :", completed_model_folder)
+		print("Training :", temp_model_folder)
 		os.makedirs(temp_model_folder, exist_ok=True)
 
 		# save config
@@ -113,7 +113,6 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		cfg.model_folder = temp_model_folder
 
 
-		fold_count += 1
 		print(f'Running fold {fold_count}')
 
 		# initialize model according to params (SNRM or BERT-like Transformer Encoder)
@@ -140,8 +139,9 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		metric_scores.append(metric_score)
 
 		os.renames(temp_model_folder, completed_model_folder)
-	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised', np.mean(metric_scores), 0)
+	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised', np.mean(metric_scores), 0).close()
 
+	p.dump(folds, open(f'{compled_model_folder_general}/folds.p', 'wb'))
 	# after the training is done, we remove the temp prefix from the dir name
 	print("Training completed! Changing from temporary name to final name.")
 	print("--------------------------------------------------------------------------------------")

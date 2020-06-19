@@ -86,6 +86,21 @@ class Average(object):
 		else:
 			self.val = self.val + (x - self.val) / self.count
 
+
+def padd_tensor(sequences, max_len):
+    """
+    :param sequences: list of tensors
+    :return:
+    """
+    num = len(sequences)
+    out_dims = (num, max_len, *sequences[0].shape[1:])
+    out_tensor = sequences[0].data.new(*out_dims).fill_(0)
+    for i, tensor in enumerate(sequences):
+        length = tensor.size(0)
+        out_tensor[i, :length] = tensor
+    return out_tensor
+
+
 def split_sizes(dataset_len, train_val_ratio):
 	return [math.floor(dataset_len*train_val_ratio), math.ceil(dataset_len*(1-train_val_ratio))]
 

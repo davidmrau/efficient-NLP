@@ -24,9 +24,9 @@ class RankModel(nn.Module):
 			self.embedding = nn.Embedding.from_pretrained(embedding_parameters, freeze=False)
 			self.embedding_dim = embedding_parameters.size(1)
 			self.vocab_size = embedding_parameters.size(0)
-
+		
 		self.weighted_average = EmbeddingWeightedAverage(weights = weights, vocab_size = self.vocab_size, trainable = trainable_weights) # (weights, vocab_size, trainable = True)
-
+		print(weights)
 		# create module list
 		self.linears = nn.ModuleList()
 		self.relu = nn.ReLU()
@@ -41,14 +41,13 @@ class RankModel(nn.Module):
 		self.linears.append( nn.Linear(in_features=hidden_sizes[-1], out_features=1))
 
 
-	def forward(self, q_repr, doc, lengths_q, lengths_d):
-		
+	def forward(self, q, doc, lengths_q, lengths_d):
 
-		inp = torch.cat([q_repr, doc])
+		inp = torch.cat([q, doc])
 		lengths = torch.cat([lengths_q, lengths_d])
 		# get embeddings of all inps
 		out = self.embedding(inp)
-
+		print(inp.max())
 		# calculate weighted average embedding for all inps
 		weight_averaged = self.weighted_average(inp, out,  lengths = lengths)
 		

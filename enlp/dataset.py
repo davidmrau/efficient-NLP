@@ -6,7 +6,7 @@ from torch.utils import data
 from torch.utils.data import DataLoader, IterableDataset
 import numpy as np
 from enlp.file_interface import FileInterface
-from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset
+from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor
 
 from torch.nn.utils.rnn import pad_sequence
 
@@ -194,7 +194,6 @@ class RankingResultsTest_leg:
 		else:
 			self.id2text = FileInterface(id2text)
 		self.stop = False
-		self.index = -1
 
 	def reset(self):
 		self.ranking_results.seek(0)
@@ -286,11 +285,12 @@ class RankingResultsTest:
 			self.id2doc = FileInterface(id2doc)
 
 		self.stop = False
-		self.index = -1
+		self.index = 0
 
 	def reset(self):
 		self.ranking_results.seek(0)
 		self.line = None
+		self.index = 0
 		return self
 
 
@@ -311,11 +311,12 @@ class RankingResultsTest:
 
 	def batch_generator(self):
 
+		self.stop = False
+		
 		if self.line is None:
 			self.line = self.ranking_results.readline()
 
 		prev_q_id, _ = self.get_id(self.line)
-		self.stop = False
 
 		while self.line and not self.stop:
 			# read a number of lines equal to batch_size
@@ -326,14 +327,15 @@ class RankingResultsTest:
 				curr_q_id, doc_id = self.get_id(self.line)
 				if curr_q_id != prev_q_id:
 					prev_q_id = curr_q_id
-					self.stop = True
 					self.index += 1
-					break
+					if len(d_batch_data) > 0:
+						self.stop = True
+						break
 				# extracting the token_ids and creating a numpy array
 
 
 
-				# if index of queries to load is provided check if query index is indices
+				# if index of queries to load is provided check if query index is indices	
 				if self.index in self.indices:
 					doc = self.get_tokenized(doc_id, self.id2doc)
 					if doc is not None:
@@ -352,11 +354,11 @@ class RankingResultsTest:
 			q_length = torch.FloatTensor([len(q) for q in q_data])
 	
 			if len(d_batch_data) < 1:
+				print('Empty batch!')
 				return
 			#padd data along axis 1
 			d_batch_data = pad_sequence(d_batch_data,1).long()
-			q_data = pad_sequence(q_data,1).long()
-
+			q_data = padd_tensor(q_data, d_batch_data.shape[1]).long()
 			yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
 
 

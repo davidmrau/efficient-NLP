@@ -24,6 +24,7 @@ class EmbeddingWeightedAverage(nn.Module):
 				weight_values = pickle.load(open(weights, 'rb'))
 				# print(weight_values.size())
 				self.weights.weight = torch.nn.Parameter(weight_values.unsqueeze(-1))
+				print(self.weights.weight.shape)
 			except:
 				raise IOError(f'(EmbeddingWeightedAverage) Loading weights from pickle file: {weights} not accessible!')
 

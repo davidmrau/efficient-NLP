@@ -125,6 +125,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				split_size = data.size(0) // 3
 				q_repr, doc1, doc2 = torch.split(data, split_size)
 				lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
+				print(q_repr.shape, lengths_q.shape, doc1.shape, lengths_d1.shape)
 				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
 				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
 
@@ -191,7 +192,7 @@ def get_rerank_representations(model, dataloader, device):
 	av_l1_loss_q, av_l0_q, av_l1_loss_d, av_l0_d = Average(), Average(), Average(), Average()
 	reprs_q, ids_q, reprs_d, ids_d = list(), list(), list(), list()
 
-	for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+	for id_q, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
 		data_q, length_q, batch_data_d, batch_lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
 		repr_d = model(batch_data_d, batch_lengths_d)
 		reprs_d.append(repr_d.detach().cpu().numpy())
@@ -273,21 +274,20 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 def scores_interaction_based(model, dataloader, device, reset):
 
 	scores, q_ids = list(), list()
-
 	if reset:
 		dataloader.reset()
-
-	for id_q, data_q, lenght_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-		data_q, length_q, data_d, lengths_d  = data_q.to(device), length_q.to(device), data_d.to(device), lengths_d.to(device)
+	for id_q, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
+		data_q, length_q, batch_data_d, lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
 		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 
 		# repeate query for each document
-		n_repeat = data_d.shape[0]
-		data_q = data_q.repeat(n_repeat,1)
-		lengths_q = length_q.repeat(n_repeat,1)
-
-		score = model(data_q, data_d, lengths_q, lengths_d)
-		score.append(score.detach().cpu().numpy())
+		print(batch_data_d.shape, batch_lengths_d.shape)
+		n_repeat = batch_data_d.shape[0]
+		batch_data_q = data_q.repeat(n_repeat,1)
+		lengths_q = length_q.repeat(n_repeat)
+		print(batch_data_q.shape, lengths_q.shape)
+		score = model(batch_data_q, batch_data_d, lengths_q, batch_lengths_d)
+		scores.append(score.detach().cpu().numpy())
 		q_ids += q_ids
 
 	return scores, q_ids
@@ -301,9 +301,13 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 		model_type = model.model_type
 	# if the model provides an indipendednt representation for the input (query/doc)
 	if model_type == "representation-based":
-		scores, q_ids = scores_representation_based(model, dataloaders[mode], device, writer, max_rank, total_trained_samples, reset, plot=True)
+		scores, q_ids = scores_representation_based(model, data_loaders[mode], device, writer, max_rank, total_trained_samples, reset, plot=True)
 	elif model_type == "interaction-based":
-		scores, q_ids = scores_interaction_based(model, dataloaders[mode], device, reset)
+		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset)
+	else:
+		raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
+
+	print(q_ids)
 
 	metric_score = metric.score(scores, q_ids)
 
@@ -373,14 +377,16 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 
 			# in case the model has gone completely wrong, stop training
 			if train_acc < 0.3:
-				break
 				print('Ending training train because train accurracy is < 0.3!')
+				#break
 
 		# evaluation
 		with torch.no_grad():
 			model.eval()
 			if bottleneck_run:
+				print('Bottleneck run, stopping now!')
 				break
+				
 			else:
 
 				if validate:
