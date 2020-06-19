@@ -208,7 +208,7 @@ def get_rerank_representations(model, dataloader, device):
 			l1_q, l0_q = l1_loss_fn(repr_q), l0_loss(repr_q)
 			av_l1_loss_q.step(l1_q), av_l0_q.step(l0_q)
 
-	if len(reprs) > 0:
+	if len(reprs_d) > 0:
 		return reprs_q, ids_q, av_l0_q.val.item(), av_l1_loss_q.val.item(), reprs_d, ids_d, av_l0_d.val.item(), av_l1_loss_d.val.item()
 	else:
 		return None, None, None, None, None, None, None, None
@@ -246,11 +246,11 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 
 	while True:
 		# if return has len == 0 then break
-		q_repr, q_ids, l0_q, l1_loss_q, d_repr, d_ids, l0_docs, l1_loss_docs = get_rerank_representations(model, data_loader, device)
+		q_repr, q_ids, l0_q, l1_loss_q, d_repr, d_ids, l0_docs, l1_loss_docs = get_rerank_representations(model, dataloader, device)
 		if q_repr is None or d_repr is None:
 			break
 		scores += get_dot_scores(d_repr, d_ids, q_repr, max_rank)
-		q_ids += q_ids_q
+		q_ids += q_ids
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
 		av_l1_loss.step((l1_loss_q + l1_loss_docs)/ 2)
