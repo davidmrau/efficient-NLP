@@ -594,10 +594,8 @@ def get_data_loaders_msmarco(cfg):
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
-	queries_fi = FileInterface(cfg.msmarco_query_test)
-	docs_fi = FileInterface(cfg.msmarco_docs_test)
 
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, queries_fi, docs_fi, cfg.batch_size_test)
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, cfg.batch_size_test)
 
 	return dataloaders
 
@@ -632,7 +630,7 @@ def get_data_loaders_robust(cfg):
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, queries_fi, docs_fi, cfg.batch_size_test)
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, cfg.robust_query_test , docs_fi, cfg.batch_size_test)
 
 	return dataloaders
 
