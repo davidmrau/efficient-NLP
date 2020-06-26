@@ -1,9 +1,12 @@
 Inverted_Indices/*
+slurm-*.out
 __pycache__/*
 *.pyc
 experiments/*
 data/*
-*.DS_store
+*.swp
+._*
+*.DS_Store
 temp/*
 .idea/*
 experiments_msmarco/*
