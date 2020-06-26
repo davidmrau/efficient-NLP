@@ -12,13 +12,13 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 class Sequential(IterableDataset):
-	def __init__(self, fname, tokenize=False, min_len=5):
+	def __init__(self, fname, tokenize=False, min_len=5, max_len=150, stopwords='lucene', tokenizer='glove', remove_unk=True):
 
 		# open file
 		self.file_ = open(fname, 'r')
 		self.tokenize = tokenize
 		self.min_len = min_len
-		self.tokenizer = Tokenizer(tokenizer = 'glove', max_len = 150, stopwords='lucene', remove_unk = True, unk_words_filename=None)
+		self.tokenizer = Tokenizer(tokenizer = tokenizer, max_len = max_len, stopwords=stopwords, remove_unk = remove_unk, unk_words_filename=None)
 
 	def __iter__(self):
 			for line in self.file_:
