@@ -273,7 +273,7 @@ class RankingResultsTest:
 		else:
 			self.ranking_results = open(ranking_results, 'r')
 		self.min_len = min_len
-		self.indices = indices if indices else []
+		self.indices = indices
 		if isinstance(id2query, FileInterface):
 			self.id2query = id2query
 		else:
@@ -312,55 +312,65 @@ class RankingResultsTest:
 	def batch_generator(self):
 
 		self.stop = False
-		
-		if self.line is None:
-			self.line = self.ranking_results.readline()
-
-		prev_q_id, _ = self.get_id(self.line)
-
-		while self.line and not self.stop:
+		file_pos = self.ranking_results.tell()
+		line = self.ranking_results.readline()
+		if len(line) < 1:
+			print('Read empty line, assuming file end.')
+			return
+		curr_q_id, _ = self.get_id(line)
+		self.ranking_results.seek(file_pos)
+		started_query = False
+		while not self.stop:
 			# read a number of lines equal to batch_size
 			d_batch_ids = []
 			d_batch_data = []
-			while (self.line and ( len(d_batch_ids) < self.batch_size) ):
+			while len(d_batch_ids) <= self.batch_size:
+				prev_q_id = curr_q_id
+				file_pos = self.ranking_results.tell()
+				line = self.ranking_results.readline()
+				if len(line) < 1:
+					break
+				curr_q_id, doc_id = self.get_id(line)
 
-				curr_q_id, doc_id = self.get_id(self.line)
 				if curr_q_id != prev_q_id:
-					prev_q_id = curr_q_id
 					self.index += 1
-					if len(d_batch_data) > 0:
-						self.stop = True
-						break
+
+				#print('-line', line.strip())
+				#print('curr_id', curr_q_id, 'index', self.index)
+				#print('prev_id', prev_q_id)
+				if self.indices is not None:
+					if self.index not in self.indices:		
+						#print('>>', line, 'index', self.index)
+						continue
+				if curr_q_id != prev_q_id and started_query:
+					#print('break new q_id', line)
+					self.stop = True
+					self.ranking_results.seek(file_pos)
+					break
+			
 				# extracting the token_ids and creating a numpy array
 
 
-
 				# if index of queries to load is provided check if query index is indices	
-				if self.index in self.indices:
-					doc = self.get_tokenized(doc_id, self.id2doc)
-					if doc is not None:
-						d_batch_ids.append(doc_id)
-						d_batch_data.append(torch.IntTensor(doc))
-
-				prev_q_id = curr_q_id
-
-
-				self.line = self.ranking_results.readline()
-
-			query = self.get_tokenized(curr_q_id, self.id2query)	
-			q_data = [torch.IntTensor(query)]
-			q_id = [curr_q_id]
-			d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
-			q_length = torch.FloatTensor([len(q) for q in q_data])
-	
+				doc = self.get_tokenized(doc_id, self.id2doc)
+				if doc is not None:
+					d_batch_ids.append(doc_id)
+					d_batch_data.append(torch.IntTensor(doc))
+					#print('+', line)
+					started_query = True
+					q_id = [curr_q_id]
 			if len(d_batch_data) < 1:
 				print('Empty batch!')
 				return
+			query = self.get_tokenized(q_id[-1], self.id2query)	
+			q_data = [torch.IntTensor(query)]
+			d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
+			q_length = torch.FloatTensor([len(q) for q in q_data])
+
 			#padd data along axis 1
 			d_batch_data = pad_sequence(d_batch_data,1).long()
 			q_data = padd_tensor(q_data, d_batch_data.shape[1]).long()
 			yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
-
 
 class WeakSupervision(IterableDataset):
 	def __init__(self, weak_results_fi, documents_fi, queries_fi, top_k_per_query=-1, sampler = 'uniform', target='binary',
@@ -701,9 +711,7 @@ def get_data_loaders_robust(cfg):
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
-	query_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, cfg.robust_query_test, cfg.batch_size_test, is_query=True)
-	docs_batch_generator = RankingResultsTest(cfg.robust_ranking_results_test, docs_fi, cfg.batch_size_test, is_query=False)
-	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, queries_fi, docs_fi, cfg.batch_size_test)
 
 	return dataloaders
 

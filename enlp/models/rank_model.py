@@ -47,7 +47,6 @@ class RankModel(nn.Module):
 		lengths = torch.cat([lengths_q, lengths_d])
 		# get embeddings of all inps
 		out = self.embedding(inp)
-		print(inp.max())
 		# calculate weighted average embedding for all inps
 		weight_averaged = self.weighted_average(inp, out,  lengths = lengths)
 		
