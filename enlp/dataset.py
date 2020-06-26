@@ -149,15 +149,21 @@ class StrongData(IterableDataset):
 
 class MSMarcoTrain(data.Dataset):
 
-	def __init__(self, triplets_path, documents_path, queries_path):
+	def __init__(self, triplets_path, id2docs, id2query):
 
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
+		if isinstance(id2query, FileInterface):
+			self.id2query = id2query
+		else:
+			self.id2query = FileInterface(id2query)
 
-		# "open" documents file
-		self.documents = FileInterface(documents_path)
-		# "open" queries file
-		self.queries = FileInterface(queries_path)
+
+
+		if isinstance(id2doc, FileInterface):
+			self.id2doc = id2doc
+		else:
+			self.id2doc = FileInterface(id2doc)
 
 
 	def __len__(self):
@@ -167,99 +173,14 @@ class MSMarcoTrain(data.Dataset):
 
 		q_id, d1_id, d2_id = self.triplets.get_triplet(index)
 
-		query = self.queries.get_tokenized_element(q_id)
-		doc1 = self.documents.get_tokenized_element(d1_id)
-		doc2 = self.documents.get_tokenized_element(d2_id)
+		query = self.id2query.get_tokenized_element(q_id)
+		doc1 = self.id2doc.get_tokenized_element(d1_id)
+		doc2 = self.id2doc.get_tokenized_element(d2_id)
 
 		if np.random.random() > 0.5:
 			return [query, doc1, doc2], 1
 		else:
 			return [query, doc2, doc1], -1
-
-class RankingResultsTest_leg:
-
-	def __init__(self, ranking_results, id2text, batch_size, is_query, min_len=5, indices=None):
-		# open file
-		self.batch_size = batch_size
-
-		if isinstance(ranking_results, FileInterface):
-			self.ranking_results = ranking_results
-		else:
-			self.ranking_results = open(ranking_results, 'r')
-		self.is_query = is_query
-		self.min_len = min_len
-		self.indices = indices if indices else []
-		if isinstance(id2text, FileInterface):
-			self.id2text = id2text
-		else:
-			self.id2text = FileInterface(id2text)
-		self.stop = False
-
-	def reset(self):
-		self.ranking_results.seek(0)
-		self.line = None
-		return self
-
-
-	def get_id(self, line, is_query):
-		spl = line.split(' ')
-		if is_query:
-			return str(spl[0].strip())
-		else:
-			return str(spl[2].strip())
-
-	def get_text(self, id_):
-		tokenized_ids = self.id2text.get_tokenized_element(id_)
-		if tokenized_ids is None:
-			return None
-
-		if len(tokenized_ids) < self.min_len:
-			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
-		return tokenized_ids
-
-	def batch_generator(self):
-
-		if self.line is None:
-			self.line = self.ranking_results.readline()
-
-		prev_q_id = self.get_id(self.line, is_query=True)
-		self.stop = False
-
-		while self.line and not self.stop:
-			# read a number of lines equal to batch_size
-			batch_ids = []
-			batch_data = []
-			while (self.line and ( len(batch_ids) < self.batch_size) ):
-
-				id_ = self.get_id(self.line, self.is_query)
-				curr_q_id = self.get_id(self.line, is_query=True)
-				if curr_q_id != prev_q_id:
-					prev_q_id = curr_q_id
-					self.stop = True
-					self.index += 1
-					break
-				# extracting the token_ids and creating a numpy array
-
-
-
-
-				if id_ not in batch_ids and self.index in self.indices:
-					tokens_list = self.get_text(id_)
-					if tokens_list is not None:
-						batch_ids.append(id_)
-						batch_data.append(torch.IntTensor(tokens_list))
-
-				prev_q_id = curr_q_id
-
-				self.line = self.ranking_results.readline()
-
-			batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
-			if len(batch_data) < 1:
-				return
-			#padd data along axis 1
-			batch_data = pad_sequence(batch_data,1).long()
-
-			yield batch_ids, batch_data, batch_lengths
 
 
 class RankingResultsTest:
@@ -673,10 +594,10 @@ def get_data_loaders_msmarco(cfg):
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
-	query_batch_generator = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_query_test, cfg.batch_size_test, is_query=True)
+	queries_fi = FileInterface(cfg.msmarco_query_test)
+	docs_fi = FileInterface(cfg.msmarco_docs_test)
 
-	docs_batch_generator = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_docs_test, cfg.batch_size_test, is_query=False)
-	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, queries_fi, docs_fi, cfg.batch_size_test)
 
 	return dataloaders
 
