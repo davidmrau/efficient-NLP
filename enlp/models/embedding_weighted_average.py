@@ -58,7 +58,7 @@ class EmbeddingWeightedAverage(nn.Module):
 		weights = self.weights(inp)
 
 		# normalize the weights
-		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=-1)
+		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=1)
 
 		# weights are extended to fit the size of the embeddings / hidden representation
 		weights = weights.repeat(1,1,values.size(-1))
