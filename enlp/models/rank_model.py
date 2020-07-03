@@ -26,7 +26,7 @@ class RankModel(nn.Module):
 			self.vocab_size = embedding_parameters.size(0)
 		
 		self.weighted_average = EmbeddingWeightedAverage(weights = weights, vocab_size = self.vocab_size, trainable = trainable_weights) # (weights, vocab_size, trainable = True)
-		print(weights)
+
 		# create module list
 		self.linears = nn.ModuleList()
 		self.relu = nn.ReLU()
