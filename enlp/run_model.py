@@ -128,7 +128,6 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
 				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
 
-
 				# calculate l1 loss
 				l1_loss = torch.tensor(0)
 				# calculate balance loss
@@ -274,7 +273,7 @@ def get_repr_inter(model, dataloader, device, max_rank):
 			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 			# repeate query for each document
 			n_repeat = batch_data_d.shape[0]
-			batch_data_q = data_q.repeat(n_repeat,1)
+			batch_data_q = data_q.repeat(n_repeat,1).to(device)
 			lengths_q = length_q.repeat(n_repeat).to(device)
 			score = model(batch_data_q, batch_data_d, lengths_q, batch_lengths_d)
 			scores += score.detach().cpu().tolist()
