@@ -38,7 +38,7 @@ class Sequential(IterableDataset):
 				yield [id_, tokens_list]
 
 class StrongData(IterableDataset):
-	def __init__(self, strong_results, documents_fi, queries, target, indices=None):
+	def __init__(self, strong_results, documents_fi, queries, target, indices=None, sample_random=True):
 
 		# "open" triplets file
 		if isinstance(strong_results, FileInterface):
@@ -69,7 +69,7 @@ class StrongData(IterableDataset):
 			self.target_function = self.probability_difference_target
 		else:
 			raise ValueError("Param 'target' of StrongData, was not among {'binary', 'rank_prob'}, but :" + str( target))
-
+		self.sample_random = sample_random
 
 	def __len__(self):
 		return len(self.strong_results_file)
@@ -116,7 +116,7 @@ class StrongData(IterableDataset):
 			rel_docs_set = {doc_id for doc_id, score in rel_docs}
 
 			for d1_id, score_1 in rel_docs:
-				if np.random.random() > 0.5:
+				if np.random.random() > 0.5 or not self.sample_random:
 					if len(non_rel_docs) > 0:
 						d2_id, d2_score = non_rel_docs.pop()
 						content_2 = self.documents.get_tokenized_element(d2_id)
@@ -207,6 +207,7 @@ class RankingResultsTest:
 
 		self.stop = False
 		self.index = 0
+		print(self.indices)
 
 	def reset(self):
 		self.ranking_results.seek(0)
@@ -634,7 +635,7 @@ def get_data_loaders_robust(cfg):
 
 	return dataloaders
 
-def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi):
+def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi, sample_random):
 
 
 	dataloaders = {}
@@ -642,6 +643,6 @@ def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, qu
 	# calculate train and validation size according to train_val_ratio
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
+	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test)
 	return dataloaders

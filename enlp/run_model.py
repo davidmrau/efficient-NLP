@@ -270,12 +270,12 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 def get_repr_inter(model, dataloader, device, max_rank):
 	scores, q_ids, d_ids  = list(), list(), list()
 	for q_id, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-			data_q, length_q, batch_data_d, lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
+			data_q, length_q, batch_data_d, batch_lengths_d  = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
 			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 			# repeate query for each document
 			n_repeat = batch_data_d.shape[0]
 			batch_data_q = data_q.repeat(n_repeat,1)
-			lengths_q = length_q.repeat(n_repeat)
+			lengths_q = length_q.repeat(n_repeat).to(device)
 			score = model(batch_data_q, batch_data_d, lengths_q, batch_lengths_d)
 			scores += score.detach().cpu().tolist()
 			d_ids += batch_ids_d
