@@ -38,12 +38,15 @@ with open(out_file, 'w') as out:
 			q_id = split_line[0].strip()
 			doc_id = split_line[2]
 			score = float(split_line[3])
-
+			
 			if prev_q_id != q_id:
 				prev_q_id = q_id
 				write_query(res)
+				print(q_id)
 				res = list()
 			else:
 				res.append([q_id, doc_id, score])
 			
-
+		# add last query 
+		res.append([q_id, doc_id, score])
+		write_query(res)
