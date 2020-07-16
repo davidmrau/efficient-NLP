@@ -126,7 +126,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		# initialize optimizer
 		optim = Adam(model.parameters(), lr=cfg.lr)
 
-		dataloaders = get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi)
+		dataloaders = get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi, cfg.sample_random)
 		data = dataloaders['test']
 		data.reset()
 		
