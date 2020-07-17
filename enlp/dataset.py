@@ -114,19 +114,20 @@ class StrongData(IterableDataset):
 					non_rel_docs.append(el)
 
 			rel_docs_set = {doc_id for doc_id, score in rel_docs}
-
 			for d1_id, score_1 in rel_docs:
-				if np.random.random() > 0.5 or not self.sample_random:
-					if len(non_rel_docs) > 0:
-						d2_id, d2_score = non_rel_docs.pop()
-						content_2 = self.documents.get_tokenized_element(d2_id)
-						result_2 = (d2_id, d2_score, content_2)
+				# sample random doc
 
-					else:
-						result_2 = self.sample_negative_document_result(rel_docs_set)
+				# if sample random  
+				rand = random.random() > 0.5
+				# take from negative samples in ranking results file if some left and sample_random=False
+				if len(non_rel_docs) > 0 and (rand or not self.sample_random):
+					d2_id, d2_score = non_rel_docs.pop()
+					content_2 = self.documents.get_tokenized_element(d2_id)
+					result_2 = (d2_id, d2_score, content_2)
+
 				else:
+					#otherwise take random doc
 					result_2 = self.sample_negative_document_result(rel_docs_set)
-
 				# after tokenizing / preprocessing, some queries/documents have empty content.
 				# If any of these are among 3 the selected ones, then we do not create this triplet sample
 				# In that case, we return None, as soon as possible, so that other file reading operations can be avoided
@@ -139,7 +140,7 @@ class StrongData(IterableDataset):
 					yield None
 					continue
 				# randomly swap positions
-				if np.random.random() > 0.5:
+				if random.random() > 0.5:
 					temp = result_1
 					result_1 = result_2
 					result_2 = temp
@@ -177,7 +178,7 @@ class MSMarcoTrain(data.Dataset):
 		doc1 = self.id2doc.get_tokenized_element(d1_id)
 		doc2 = self.id2doc.get_tokenized_element(d2_id)
 
-		if np.random.random() > 0.5:
+		if random.random() > 0.5:
 			return [query, doc1, doc2], 1
 		else:
 			return [query, doc2, doc1], -1
@@ -189,10 +190,7 @@ class RankingResultsTest:
 		# open file
 		self.batch_size = batch_size
 
-		if isinstance(ranking_results, FileInterface):
-			self.ranking_results = ranking_results
-		else:
-			self.ranking_results = open(ranking_results, 'r')
+		self.ranking_results = open(ranking_results, 'r')
 		self.min_len = min_len
 		self.indices = indices
 		if isinstance(id2query, FileInterface):
@@ -207,7 +205,6 @@ class RankingResultsTest:
 
 		self.stop = False
 		self.index = 0
-		print(self.indices)
 
 	def reset(self):
 		self.ranking_results.seek(0)
@@ -246,7 +243,7 @@ class RankingResultsTest:
 			# read a number of lines equal to batch_size
 			d_batch_ids = []
 			d_batch_data = []
-			while len(d_batch_ids) <= self.batch_size:
+			while len(d_batch_ids) < self.batch_size:
 				prev_q_id = curr_q_id
 				file_pos = self.ranking_results.tell()
 				line = self.ranking_results.readline()
@@ -640,8 +637,7 @@ def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, qu
 
 	dataloaders = {}
 
-	# calculate train and validation size according to train_val_ratio
-
+	#indices_test = indices_train
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test)
