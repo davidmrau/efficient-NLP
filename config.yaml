@@ -33,7 +33,7 @@ snrm:
   embedding_dim: 300
 rank_model:
   hidden_sizes: '200' # for multiple layers add '-' between hidden sizes  eg. ('100-400-200')
-  dropout_p: 0.2
+  dropout_p: 0.0
   embedding_dim: 768
   weights: 'data/embeddings/idf_tensor.p' # a path to a pickled tensor OR "uniform" OR "random"
   trainable_weights: True
@@ -64,10 +64,10 @@ robust_ranking_results_train: "${data_path}/robust04/robust04_AOL_anserini_top_1
 robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
 robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
-robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
+robust_ranking_results_test: '${data_path}/robust04/qrels.robust2004.txt.strong_triples_debug'
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt.strong_triples'
+robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt.strong_triples_debug'
 weak_min_results: 2
 sampler: 'uniform'
 target: 'binary'

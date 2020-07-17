@@ -10,7 +10,7 @@ from enlp.utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_hi
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
 				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
-	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss))
+	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f} acc: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss, acc))
 	if writer:
 		# update tensorboard
 		writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
@@ -62,110 +62,95 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if optim != None:
 			optim.zero_grad()
 
-		minibatches = split_batch_to_minibatches(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
 
 		batch_samples_number = 0
 
 		# allocate space in tensor form to sum the losses, per task
 
-		for minibatch in minibatches:
+	# decompose batch
+		data, targets, lengths = batch
 
-			# decompose batch
-			data, targets, lengths = minibatch
-			# get number of samples within the batch
-			minibatch_samples_number = targets.size(0)
+		# get number of samples within the batch
+		batch_samples_number = targets.size(0)
 
-			batch_samples_number += minibatch_samples_number
+		# update the number of trained samples in this epoch
+		cur_trained_samples += batch_samples_number
+		# update the total number of trained samples
+		total_trained_samples += batch_samples_number
 
-			# update the number of trained samples in this epoch
-			cur_trained_samples += minibatch_samples_number
-			# update the total number of trained samples
-			total_trained_samples += minibatch_samples_number
-
-			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
+		data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
 
-			if isinstance(model, torch.nn.DataParallel):
-				model_type = model.module.model_type
-			else:
-				model_type = model.model_type
+		if isinstance(model, torch.nn.DataParallel):
+			model_type = model.module.model_type
+		else:
+			model_type = model.model_type
 
-			# if the model provides an indipendednt representation for the input (query/doc)
-			if model_type == "representation-based":
+		# if the model provides an indipendednt representation for the input (query/doc)
+		if model_type == "representation-based":
 
-				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
-				logits = model(data, lengths)
-				# moving targets also to the appropriate device
-				# targets = targets.to(device)
+			# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
+			logits = model(data, lengths)
+			# moving targets also to the appropriate device
+			# targets = targets.to(device)
 
-				# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
-				split_size = logits.size(0) // 3
-				q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
+			# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
+			split_size = logits.size(0) // 3
+			q_repr, d1_repr, d2_repr = torch.split(logits, split_size)
 
-				# performing inner products
-				score_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
-				score_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
+			# performing inner products
+			score_q_d1 = torch.bmm(q_repr.unsqueeze(1), d1_repr.unsqueeze(-1)).squeeze()
+			score_q_d2 = torch.bmm(q_repr.unsqueeze(1), d2_repr.unsqueeze(-1)).squeeze()
 
-				# if batch contains only one sample the dotproduct is a scalar rather than a list of tensors
-				# so we need to unsqueeze
-				if minibatch_samples_number == 1:
-					score_q_d1 = score_q_d1.unsqueeze(0)
-					score_q_d2 = score_q_d2.unsqueeze(0)
+			
+			# calculate l1 loss
+			l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
+			# calculate balance loss
+			balance_loss = balance_loss_fn(logits, device)
+			# calculating L0 loss
+			l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+
+		# if the model provides a score for a document and a query
+		elif model_type == "interaction-based":
+			split_size = data.size(0) // 3
+			q_repr, doc1, doc2 = torch.split(data, split_size)
+			lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
+			score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
+			score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
+
+			# calculate l1 loss
+			l1_loss = torch.tensor(0)
+			# calculate balance loss
+			balance_loss = torch.tensor(0)
+			# calculating L0 loss
+			l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
+
+		else:
+			raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
+
+		# calculating loss
+		loss = loss_fn(score_q_d1, score_q_d2, targets)
+
+		# calculating classification accuracy (whether the correct document was classified as more relevant)
+		acc = (((score_q_d1 > score_q_d2).float() == targets).float() + (
+				(score_q_d2 > score_q_d1).float() == targets * -1).float()).mean()
+		# aggregating losses and running backward pass and update step
+		total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
 
-				# calculate l1 loss
-				l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
-				# calculate balance loss
-				balance_loss = balance_loss_fn(logits, device)
-				# calculating L0 loss
-				l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
+		av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc)
 
-			# if the model provides a score for a document and a query
-			elif model_type == "interaction-based":
-				split_size = data.size(0) // 3
-				q_repr, doc1, doc2 = torch.split(data, split_size)
-				lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
-				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
-				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
 
-				# calculate l1 loss
-				l1_loss = torch.tensor(0)
-				# calculate balance loss
-				balance_loss = torch.tensor(0)
-				# calculating L0 loss
-				l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
 
-			else:
-				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
-
-			# calculating loss
-			loss = loss_fn(score_q_d1, score_q_d2, targets)
-
-			# calculating classification accuracy (whether the correct document was classified as more relevant)
-			acc = (((score_q_d1 > score_q_d2).float() == targets).float() + (
-					(score_q_d2 > score_q_d1).float() == targets * -1).float()).mean()
-
-			# aggregating losses and running backward pass and update step
-			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
-
-			total_loss = total_loss * (minibatch_samples_number / batch[1].size(0))
-
-			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc)
-
-			if optim != None:
-				total_loss.backward()
-
-			if next(model.parameters()).is_cuda:
-				torch.cuda.empty_cache()
 
 		# if we are training, then we perform the backward pass and update step
 		if optim != None:
+			total_loss.backward()
 			optim.step()
-			optim.zero_grad()
 
 		if next(model.parameters()).is_cuda:
 			torch.cuda.empty_cache()
-
+		
 		# get pogress ratio
 		samples_trained_ratio = cur_trained_samples / samples_per_epoch
 
@@ -219,7 +204,6 @@ def get_rerank_representations(model, dataloader, device):
 		ids_d += batch_ids_d
 		l1_d, l0_d = l1_loss_fn(repr_d), l0_loss(repr_d)
 		av_l1_loss_d.step(l1_d), av_l0_d.step(l0_d)
-
 		# we want to return each query only once for all ranked documents for this query
 		if len(reprs_q) == 0:
 			repr_q = model(data_q, length_q)
@@ -281,6 +265,7 @@ def get_repr_inter(model, dataloader, device, max_rank):
 			# we want to return each query only once for all ranked documents for this query
 			if len(q_ids) == 0:	
 				q_ids += q_id
+			print(batch_ids_d)
 	if len(q_ids) < 1:
 		return None, None, None
 	scores = np.array(scores).flatten()

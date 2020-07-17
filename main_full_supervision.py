@@ -27,9 +27,9 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 
 	# set seeds
-	torch.manual_seed(cfg.seed)
-	np.random.seed(cfg.seed)
-	random.seed(cfg.seed)
+	#torch.manual_seed(cfg.seed)
+	#np.random.seed(cfg.seed)
+	#random.seed(cfg.seed)
 
 	# printing params
 	print(cfg.pretty())
@@ -43,10 +43,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 
 
-	# set seeds
-	torch.manual_seed(cfg.seed)
-	np.random.seed(cfg.seed)
-	random.seed(cfg.seed)
+
 
 	avail_threads = _getThreads()
 
@@ -119,6 +116,12 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 		writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 		model, device, n_gpu = instantiate_model(cfg)
+
+		# set seeds
+		#torch.manual_seed(cfg.seed)
+		#np.random.seed(cfg.seed)
+		#random.seed(cfg.seed)
+
 		# initialize loss function
 		loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
 
