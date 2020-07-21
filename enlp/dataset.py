@@ -150,7 +150,7 @@ class StrongData(IterableDataset):
 
 class MSMarcoTrain(data.Dataset):
 
-	def __init__(self, triplets_path, id2docs, id2query):
+	def __init__(self, triplets_path, id2doc, id2query):
 
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
