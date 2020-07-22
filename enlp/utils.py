@@ -149,6 +149,61 @@ def get_offset_dict_path(filename):
 def offset_dict_len(filename):
 	return len(read_pickle(get_offset_dict_path(filename)))
 
+
+def utilize_pretrained_bert(cfg):
+	params_to_copy = {}
+
+	if isinstance(cfg.tf.load_bert_layers, str) and len(cfg.tf.load_bert_layers) != 0:
+		load_bert_layers = str2lst(str(cfg.tf.load_bert_layers))
+	elif isinstance(cfg.tf.load_bert_layers, int):
+		load_bert_layers = [cfg.tf.load_bert_layers]
+	else:
+		load_bert_layers = []
+
+	if len(load_bert_layers) > 0:
+		# load state dictionary of the model that we will copy the paramterers from
+		if cfg.tf.load_bert_path == 'default':
+			model = transformers.BertModel.from_pretrained('bert-base-uncased')
+		else:
+			model = torch.load(cfg.tf.load_bert_path)
+
+		# retrieve the number of heads, according to the loaded model
+		cfg.tf.num_attention_heads = model.config.num_attention_heads
+
+		model_state_dict = model.state_dict()
+
+		# update the number of layers, depending on the layers that need to be copied
+		cfg.tf.num_of_layers = max( max(load_bert_layers), cfg.tf.num_of_layers)
+
+		for layer in load_bert_layers:
+
+			for key in model_state_dict:
+
+				# setting the actual layer index, cause we consider 0 to be embeddings,
+				# so first layer will be represented as 1, but has actual index of 0
+
+				if layer == 0:
+					check_string = 'embeddings'
+
+					# in case we are loading embeddings, including positional embeddings,
+					# we need to adjust the input length limit, and hidden representation size
+					if "position_embeddings" in key:
+						cfg.tf.input_length_limit = model_state_dict[key].size(0)
+						cfg.tf.hidden_size = model_state_dict[key].size(1)
+				else:
+					check_string = "." + str(int(layer) - 1) + "."
+					# if we are loading at least one bert layer, then we need to copy the number of attention heads
+					cfg.tf.num_attention_heads = model.config.num_attention_heads
+					# also making sure that we have the correct hidden size
+					cfg.tf.hidden_size = model.config.hidden_size
+
+
+
+				if check_string in key:
+					params_to_copy[key] =  torch.nn.Parameter(model_state_dict[key])
+	return params_to_copy
+
+
 def instantiate_model(cfg):
 
 	print('Initializing model...')
@@ -179,58 +234,12 @@ def instantiate_model(cfg):
 			embedding_dim = cfg.rank_model.embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
 			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
 
+	elif cfg.model == "bert":
+		model = BERT_inter(hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
+							num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
+							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy)
+
 	elif cfg.model == "tf":
-
-		params_to_copy = {}
-
-		if isinstance(cfg.tf.load_bert_layers, str) and len(cfg.tf.load_bert_layers) != 0:
-			load_bert_layers = str2lst(str(cfg.tf.load_bert_layers))
-		elif isinstance(cfg.tf.load_bert_layers, int):
-			load_bert_layers = [cfg.tf.load_bert_layers]
-		else:
-			load_bert_layers = []
-
-		if len(load_bert_layers) > 0:
-			# load state dictionary of the model that we will copy the paramterers from
-			if cfg.tf.load_bert_path == 'default':
-				model = transformers.BertModel.from_pretrained('bert-base-uncased')
-			else:
-				model = torch.load(cfg.tf.load_bert_path)
-
-			# retrieve the number of heads, according to the loaded model
-			cfg.tf.num_attention_heads = model.config.num_attention_heads
-
-			model_state_dict = model.state_dict()
-
-			# update the number of layers, depending on the layers that need to be copied
-			cfg.tf.num_of_layers = max( max(load_bert_layers), cfg.tf.num_of_layers)
-
-			for layer in load_bert_layers:
-
-				for key in model_state_dict:
-
-					# setting the actual layer index, cause we consider 0 to be embeddings,
-					# so first layer will be represented as 1, but has actual index of 0
-
-					if layer == 0:
-						check_string = 'embeddings'
-
-						# in case we are loading embeddings, including positional embeddings,
-						# we ned to adjust the input length limit, and hidden representation size
-						if "position_embeddings" in key:
-							cfg.tf.input_length_limit = model_state_dict[key].size(0)
-							cfg.tf.hidden_size = model_state_dict[key].size(1)
-					else:
-						check_string = "." + str(int(layer) - 1) + "."
-						# if we are loading at least one bert layer, then we need to copy the number of attention heads
-						cfg.tf.num_attention_heads = model.config.num_attention_heads
-						# also making sure that we have the correct hidden size
-						cfg.tf.hidden_size = model.config.hidden_size
-
-
-
-					if check_string in key:
-						params_to_copy[key] =  torch.nn.Parameter(model_state_dict[key])
 
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 							sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
@@ -305,7 +314,7 @@ def collate_fn_padd_triples(batch):
 
 	for item in batch:
 		# for weak supervision datasets, some queries/documents have empty text.
-		# In that case the sample is None, and we skip this samples
+		# In that case the sample is None, and we skip these samples
 		if item is None:
 			continue
 
@@ -327,6 +336,104 @@ def collate_fn_padd_triples(batch):
 	#pad data along axis 1
 	batch_data = pad_sequence(batch_data,1).long()
 	return batch_data, batch_targets, batch_lengths
+
+
+def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, n_gpu = 1):
+
+	if max_samples_per_gpu == -1:
+		return [batch]
+
+	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
+	size_of_minibatch = max_samples_per_gpu * n_gpu
+
+	batch_input_ids, batch_attention_masks, batch_targets = batch
+
+	number_of_samples_in_batch = batch_input_ids.size(0)
+
+	if number_of_samples_in_batch <= max_samples_per_gpu:
+		return [batch]
+
+	number_of_minibatches = math.ceil(number_of_samples_in_batch / size_of_minibatch)
+
+	minibatches = []
+
+	for i in range(number_of_minibatches):
+		minibatches.append( batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  batch_targets[i*size_of_minibatch : (i+1)*size_of_minibatch])
+
+	return minibatches
+
+
+def collate_fn_bert_interaction(batch):
+	""" Collate function for aggregating samples into batch size.
+		returns:
+		batch_input_ids = Torch.int32([ 
+						["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d1_t1_id, ..., q1_d1_tM_id, "PAD", ... ],
+						["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d2_t1_id, ..., q1_d2_tM_id, "PAD", ... ], ... ])
+						size : BSZ X MAX_batch_length
+						The first "PAD" at the beginning will be replaced with "CLS" during the forward pass of the model, using batch_pad_mask
+						The second "PAD" between the query and the document will be replaced with "SEP" during the forward pass of the model, using batch_sep_mask
+
+		batch_attention_masks = bollean where non padded tokens are True, size equal with batch_input_ids : BSZ X MAX_batch_length
+
+		batch_targets = [q1_d1_sim_score, q1_d2_sim_score, ...], scores are in {-1,1}
+
+	"""
+
+
+	batch_input_ids =list()
+	batch_attention_masks =list()
+	batch_targets =list()
+
+	# Hard-coding token IDS of CLS, SEP and PAD
+	cls_token_id = np.array([101])
+	sep_token_id = np.array([102])
+	pad_token_id = 0
+
+	for item in batch:
+		# for weak supervision datasets, some queries/documents have empty text.
+		# In that case the sample is None, and we skip these samples
+		if item is None:
+			continue
+
+
+		q, doc1, doc2 = item[0]
+
+		target = item[1]
+
+		q_d1 = np.concatenate([cls_token_id, q, sep_token_id, doc1])
+
+		q_d1_attention_mask = torch.ones(q_d1.shape[0], dtype=torch.bool)
+
+		q_d2 = np.concatenate([cls_token_id, q, sep_token_id, doc2])
+
+		q_d2_attention_mask = torch.ones(q_d2.shape[0], dtype=torch.bool)
+
+		if target == 1:
+			q_d1_target = 1
+			q_d2_target = -1
+		else:
+			q_d1_target = -1
+			q_d2_target = 1
+
+
+		batch_input_ids.append(torch.IntTensor(q_d1))
+		batch_input_ids.append(torch.IntTensor(q_d2))
+
+		batch_attention_masks.append(q_d1_attention_mask)
+		batch_attention_masks.append(q_d2_attention_mask)
+		batch_targets.append(q_d1_target)
+		batch_targets.append(q_d2_target)
+
+	# in case this batch does not contain any samples, then we return None
+	if len(batch_input_ids) == 0:
+		return None
+
+
+	batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=pad_token_id)
+	batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
+	batch_targets = torch.Tensor(batch_targets)
+
+	return batch_input_ids, batch_attention_masks, batch_targets
 
 
 def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):

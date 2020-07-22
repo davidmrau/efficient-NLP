@@ -150,7 +150,7 @@ class StrongData(IterableDataset):
 
 class MSMarcoTrain(data.Dataset):
 
-	def __init__(self, triplets_path, id2doc, id2query):
+	def __init__(self, triplets_path, id2doc, id2query, q_max_len = 64, d_max_len = 546):
 
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
@@ -177,6 +177,11 @@ class MSMarcoTrain(data.Dataset):
 		query = self.id2query.get_tokenized_element(q_id)
 		doc1 = self.id2doc.get_tokenized_element(d1_id)
 		doc2 = self.id2doc.get_tokenized_element(d2_id)
+
+		# truncating queries and documents:
+		query = query[:q_max_len]
+		doc1 = doc1[:d_max_len]
+		doc2 = doc2[:d_max_len]
 
 		if random.random() > 0.5:
 			return [query, doc1, doc2], 1

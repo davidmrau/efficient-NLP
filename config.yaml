@@ -14,6 +14,13 @@ sparse_dimensions: 1000
 large_out_biases: False
 num_workers: 0
 bottleneck_run: False
+bert:
+  hidden_size: 256
+  num_of_layers: 2
+  num_attention_heads: 4
+  input_length_limit: 512
+  load_bert_layers: '' # for multiple layers add '-' between hidden sizes  eg. ('0-1-4'). [0 are the embeddngs, 1 the first bert_layer etc.]
+  load_bert_path: 'default'
 tf:
   hidden_size: 256
   num_of_layers: 2

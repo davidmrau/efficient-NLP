@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from enlp.utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
-	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches
+	plot_ordered_posting_lists_lengths, Average, EarlyStopping, split_batch_to_minibatches, split_batch_to_minibatches_bert_interaction
 
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
@@ -62,7 +62,16 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if optim != None:
 			optim.zero_grad()
 
-		minibatches = split_batch_to_minibatches(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
+
+		if isinstance(model, torch.nn.DataParallel):
+			model_type = model.module.model_type
+		else:
+			model_type = model.model_type
+
+		if model_type == "bert-interaction":
+			minibatches = split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
+		else:
+			minibatches = split_batch_to_minibatches(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
 
 		batch_samples_number = 0
 
@@ -70,25 +79,44 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		for minibatch in minibatches:
 
-			# decompose batch
-			data, targets, lengths = minibatch
-			# get number of samples within the batch
-			minibatch_samples_number = targets.size(0)
+			if model_type == "bert-interaction":
 
-			batch_samples_number += minibatch_samples_number
-
-			# update the number of trained samples in this epoch
-			cur_trained_samples += minibatch_samples_number
-			# update the total number of trained samples
-			total_trained_samples += minibatch_samples_number
-
-			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
+				batch_input_ids, batch_attention_masks, batch_targets = minibatch
 
 
-			if isinstance(model, torch.nn.DataParallel):
-				model_type = model.module.model_type
+				# update counters : 
+
+
+				# get number of samples within the batch
+				# minibatch_samples_number = targets.size(0)
+				# batch_samples_number += minibatch_samples_number
+
+				# # update the number of trained samples in this epoch
+				# cur_trained_samples += minibatch_samples_number
+				# # update the total number of trained samples
+				# total_trained_samples += minibatch_samples_number
+
+
+
 			else:
-				model_type = model.model_type
+
+
+				# decompose batch
+				data, targets, lengths = minibatch
+				# get number of samples within the batch
+				minibatch_samples_number = targets.size(0)
+
+				batch_samples_number += minibatch_samples_number
+
+				# update the number of trained samples in this epoch
+				cur_trained_samples += minibatch_samples_number
+				# update the total number of trained samples
+				total_trained_samples += minibatch_samples_number
+
+				data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
+
+
+
 
 			# if the model provides an indipendednt representation for the input (query/doc)
 			if model_type == "representation-based":
@@ -134,6 +162,21 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				balance_loss = torch.tensor(0)
 				# calculating L0 loss
 				l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
+
+
+			elif model_type == "bert-interaction":
+
+				# batch_input_ids, batch_attention_masks, batch_targets = 
+
+				# apply model
+
+				# get output
+
+				# calculate loss
+
+				# update counters/ metrics [e.g. accuracy]
+
+
 
 			else:
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
