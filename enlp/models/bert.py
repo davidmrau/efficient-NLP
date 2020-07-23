@@ -21,7 +21,7 @@ class BERT_inter(torch.nn.Module):
 
 
 
-	# not sure if this is correct or if it shoulds stay, probably its ok ---->>>>
+# not sure if this is correct or if it shoulds stay, probably its ok ---->>>>
 		# traditionally the intermediate_size is set to be 4 times the size of the hidden size
 		intermediate_size = hidden_size*4
 
@@ -31,6 +31,9 @@ class BERT_inter(torch.nn.Module):
 
 		self.encoder = transformers.BertModel(config)
 
+		self.last_linear = torch.nn.Linear(hidden_size, hidden_size)
+
+		self.output_linear = torch.nn.Linear(hidden_size, 2)
 
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
@@ -50,8 +53,17 @@ class BERT_inter(torch.nn.Module):
 
 			setattr(item, last_item, params_to_copy[param])
 
-	def forward(self, input_ids, attention_masks):
+	def forward(self, input_ids, attention_masks, token_type_ids):
 
-		last_hidden_state, pooler_output = self.encoder(input_ids = input_ids, attention_mask=attention_masks)
+		last_hidden_state, _ = self.encoder(input_ids = input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
 
-		return pooler_output
+		# extract hidden representation of the 1st token, that is the CLS special token
+		cls_hidden_repr = last_hidden_state[:,0]
+
+		out = self.last_linear(cls_hidden_repr)
+
+		out = torch.tanh(out)
+
+		out = self.output_linear(out)
+
+		return out

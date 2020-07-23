@@ -59,12 +59,21 @@ def exp(cfg):
 
 	writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 
+
+	if isinstance(model, torch.nn.DataParallel):
+		model_type = model.module.model_type
+	else:
+		model_type = model.model_type
+
+
+	cfg.model_type = model_type
+
 	print('Loading data...')
 	# initialize dataloaders
 	if cfg.dataset == 'msmarco':
 		dataloaders = get_data_loaders_msmarco(cfg)
 		metric = MAPTrec(cfg.trec_eval, cfg.msmarco_qrel_test, cfg.max_rank, add_params='-l 2')
-		max_len = 150
+		max_len = cfg.msmarco.max_complete_length
 		#metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
 	elif cfg.dataset == 'robust04':
 		dataloaders = get_data_loaders_robust(cfg)
@@ -73,8 +82,15 @@ def exp(cfg):
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
-	# initialize loss function
-	loss_fn = nn.MarginRankingLoss(margin = cfg.margin).to(device)
+
+
+
+
+	if model_type == "bert-interaction":
+		loss_fn = nn.CrossEntropyLoss()
+	else:
+		# initialize loss function
+		loss_fn = nn.MarginRankingLoss(margin = cfg.margin).to(device)
 
 
 	# initialize optimizer

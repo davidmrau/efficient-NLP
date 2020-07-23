@@ -6,8 +6,9 @@ from torch.utils import data
 from torch.utils.data import DataLoader, IterableDataset
 import numpy as np
 from enlp.file_interface import FileInterface
-from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor
-
+from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor, \
+				collate_fn_bert_interaction
+				
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -150,7 +151,7 @@ class StrongData(IterableDataset):
 
 class MSMarcoTrain(data.Dataset):
 
-	def __init__(self, triplets_path, id2doc, id2query, q_max_len = 64, d_max_len = 546):
+	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510):
 
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
@@ -166,6 +167,11 @@ class MSMarcoTrain(data.Dataset):
 		else:
 			self.id2doc = FileInterface(id2doc)
 
+		self.max_query_len = max_query_len
+		self.max_doc_len = max_complete_length - max_query_len if max_complete_length != -1 else -1
+
+
+
 
 	def __len__(self):
 		return len(self.triplets)
@@ -179,9 +185,9 @@ class MSMarcoTrain(data.Dataset):
 		doc2 = self.id2doc.get_tokenized_element(d2_id)
 
 		# truncating queries and documents:
-		query = query[:q_max_len]
-		doc1 = doc1[:d_max_len]
-		doc2 = doc2[:d_max_len]
+		query = query[:self.max_query_len]
+		doc1 = doc1[:self.max_doc_len]
+		doc2 = doc2[:self.max_doc_len]
 
 		if random.random() > 0.5:
 			return [query, doc1, doc2], 1
@@ -191,7 +197,7 @@ class MSMarcoTrain(data.Dataset):
 
 class RankingResultsTest:
 
-	def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None):
+	def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None, max_query_len = -1, max_complete_length = -1):
 		# open file
 		self.batch_size = batch_size
 
@@ -210,6 +216,9 @@ class RankingResultsTest:
 
 		self.stop = False
 		self.index = 0
+
+		self.max_query_len = max_query_len
+		self.max_doc_len = max_complete_length - max_query_len if max_complete_length != -1 else -1
 
 	def reset(self):
 		self.ranking_results.seek(0)
@@ -295,6 +304,102 @@ class RankingResultsTest:
 			d_batch_data = pad_sequence(d_batch_data,1).long()
 			q_data = padd_tensor(q_data, d_batch_data.shape[1]).long()
 			yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
+
+	def batch_generator_bert_interaction(self):
+
+		self.stop = False
+		file_pos = self.ranking_results.tell()
+		line = self.ranking_results.readline()
+		if len(line) < 1:
+			print('Read empty line, assuming file end.')
+			return
+		curr_q_id, _ = self.get_id(line)
+		self.ranking_results.seek(file_pos)
+		started_query = False
+		while not self.stop:
+			# read a number of lines equal to batch_size
+			d_batch_ids = []
+			d_batch_data = []
+			while len(d_batch_ids) < self.batch_size:
+				prev_q_id = curr_q_id
+				file_pos = self.ranking_results.tell()
+				line = self.ranking_results.readline()
+				if len(line) < 1:
+					break
+				curr_q_id, doc_id = self.get_id(line)
+
+				if curr_q_id != prev_q_id:
+					self.index += 1
+
+				if self.indices is not None:
+					if self.index not in self.indices:		
+						#print('>>', line, 'index', self.index)
+						continue
+				if curr_q_id != prev_q_id and started_query:
+					#print('break new q_id', line)
+					self.stop = True
+					self.ranking_results.seek(file_pos)
+					break
+			
+				# extracting the token_ids and creating a numpy array
+
+
+				# if index of queries to load is provided check if query index is indices	
+				# doc = self.get_tokenized(doc_id, self.id2doc)
+
+				doc_data = self.id2doc.get_tokenized_element(doc_id)
+				# truncate document data 
+				if self.max_doc_len != -1:
+					doc_data = doc_data[:self.max_doc_len]
+
+				if doc is not None:
+					d_batch_ids.append(doc_id)
+					d_batch_data.append(doc_data)
+					#print('+', line)
+					started_query = True
+					q_id = [curr_q_id]
+					q_data = self.id2query.get_tokenized_element(curr_q_id)
+					# truncate query
+					if self.max_query_len != -1:
+						q_data = q_data[:self.max_query_len]
+
+
+			if len(d_batch_data) < 1:
+				print('Empty batch!')
+				return
+
+
+			# at this point we have :
+			# q_id : [ query_id ]
+			# q_data: numpy array of the query token ids.
+
+			# lists of document ids and document content that do not exceed the batch size
+			# d_batch_ids : list of document ids
+			# d_batch_data : list of numpy arrays that contain the token ids of the documents
+
+			# need to create final form of bert input + attention masks + token type ids
+
+			batch_input_ids = []
+			batch_attention_masks = []
+			batch_token_type_ids = []
+
+			# creating batch:
+			for doc_data in d_batch_data:
+				input_ids, attention_masks, token_type_ids = create_bert_inretaction_input(q_data, doc_data)
+
+				batch_input_ids.append(input_ids)
+				batch_attention_masks.append(attention_masks)
+				batch_token_type_ids.append(token_type_ids)
+
+
+			# the output should be in the form : [q_id], [doc_ids], input_ids, attention_masks, token_type_ids
+
+			batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
+			batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
+			batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
+
+			yield q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids
+
 
 class WeakSupervision(IterableDataset):
 	def __init__(self, weak_results_fi, documents_fi, queries_fi, top_k_per_query=-1, sampler = 'uniform', target='binary',
@@ -585,20 +690,29 @@ def get_data_loaders_msmarco(cfg):
 		triples = cfg.msmarco_triplets_train
 	print(triples)
 	dataloaders = {}
-	dataset = MSMarcoTrain(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train)
+	dataset = MSMarcoTrain(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train, \
+		max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 
+
+	if cfg.model_type == "bert-interaction":
+		collate_fn = collate_fn_bert_interaction
+	else:
+		collate_fn = collate_fn_padd_triples
+
+
 	dataloaders['train'] = DataLoader(train_dataset,
-	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = cfg.num_workers)
+	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn, shuffle=True, num_workers = cfg.num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset,
-	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=False, num_workers = cfg.num_workers)
+	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn, shuffle=False, num_workers = cfg.num_workers)
 
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
 
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, cfg.batch_size_test)
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, \
+				cfg.batch_size_test, max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	return dataloaders
 

@@ -20,6 +20,7 @@ import random
 from enlp.models.rank_model import RankModel
 from enlp.models.bert_based import BERT_based
 from enlp.models.snrm import SNRM
+from enlp.models.bert import BERT_inter
 matplotlib.use('Agg')
 #
 # from https://gist.github.com/stefanonardo/693d96ceb2f531fa05db530f3e21517d
@@ -153,27 +154,33 @@ def offset_dict_len(filename):
 def utilize_pretrained_bert(cfg):
 	params_to_copy = {}
 
-	if isinstance(cfg.tf.load_bert_layers, str) and len(cfg.tf.load_bert_layers) != 0:
-		load_bert_layers = str2lst(str(cfg.tf.load_bert_layers))
-	elif isinstance(cfg.tf.load_bert_layers, int):
-		load_bert_layers = [cfg.tf.load_bert_layers]
+	# the model might be "tf" or "bert". We need to handle each case dynamically
+	model_name = cfg.__getattr__("model")
+
+	load_bert_layers = cfg.__getattr__(model_name).__getattr__("load_bert_layers")
+	load_bert_path = cfg.__getattr__(model_name).__getattr__("load_bert_path")
+
+	if isinstance(load_bert_layers, str) and len(load_bert_layers) != 0:
+		load_bert_layers = str2lst(str(load_bert_layers))
+	elif isinstance(load_bert_layers, int):
+		load_bert_layers = [load_bert_layers]
 	else:
 		load_bert_layers = []
 
 	if len(load_bert_layers) > 0:
 		# load state dictionary of the model that we will copy the paramterers from
-		if cfg.tf.load_bert_path == 'default':
+		if load_bert_path == 'default':
 			model = transformers.BertModel.from_pretrained('bert-base-uncased')
 		else:
-			model = torch.load(cfg.tf.load_bert_path)
+			model = torch.load(load_bert_path)
 
 		# retrieve the number of heads, according to the loaded model
-		cfg.tf.num_attention_heads = model.config.num_attention_heads
+		cfg.__getattr__(model_name)["num_attention_heads"] =  model.config.num_attention_heads
 
 		model_state_dict = model.state_dict()
 
 		# update the number of layers, depending on the layers that need to be copied
-		cfg.tf.num_of_layers = max( max(load_bert_layers), cfg.tf.num_of_layers)
+		cfg.__getattr__(model_name)["num_of_layers"] =  max( max(load_bert_layers), cfg.__getattr__(model_name)["num_of_layers"])
 
 		for layer in load_bert_layers:
 
@@ -188,19 +195,22 @@ def utilize_pretrained_bert(cfg):
 					# in case we are loading embeddings, including positional embeddings,
 					# we need to adjust the input length limit, and hidden representation size
 					if "position_embeddings" in key:
-						cfg.tf.input_length_limit = model_state_dict[key].size(0)
-						cfg.tf.hidden_size = model_state_dict[key].size(1)
+
+						cfg.__getattr__(model_name)["input_length_limit"] =  model_state_dict[key].size(0)
+						cfg.__getattr__(model_name)["hidden_size"] =  model_state_dict[key].size(1)
 				else:
 					check_string = "." + str(int(layer) - 1) + "."
 					# if we are loading at least one bert layer, then we need to copy the number of attention heads
-					cfg.tf.num_attention_heads = model.config.num_attention_heads
+
+					cfg.__getattr__(model_name)["num_attention_heads"] =  model.config.num_attention_heads
 					# also making sure that we have the correct hidden size
-					cfg.tf.hidden_size = model.config.hidden_size
+					cfg.__getattr__(model_name)["hidden_size"] =  model.config.hidden_size
 
 
 
 				if check_string in key:
 					params_to_copy[key] =  torch.nn.Parameter(model_state_dict[key])
+
 	return params_to_copy
 
 
@@ -235,11 +245,14 @@ def instantiate_model(cfg):
 			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
 
 	elif cfg.model == "bert":
-		model = BERT_inter(hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
-							num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
+		params_to_copy = utilize_pretrained_bert(cfg)
+
+		model = BERT_inter(hidden_size = cfg.bert.hidden_size, num_of_layers = cfg.bert.num_of_layers,
+							num_attention_heads = cfg.bert.num_attention_heads, input_length_limit = cfg.bert.input_length_limit,
 							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy)
 
 	elif cfg.model == "tf":
+		params_to_copy = utilize_pretrained_bert(cfg)
 
 		model = BERT_based( hidden_size = cfg.tf.hidden_size, num_of_layers = cfg.tf.num_of_layers,
 							sparse_dimensions = cfg.sparse_dimensions, num_attention_heads = cfg.tf.num_attention_heads, input_length_limit = cfg.tf.input_length_limit,
@@ -346,7 +359,7 @@ def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, 
 	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
 	size_of_minibatch = max_samples_per_gpu * n_gpu
 
-	batch_input_ids, batch_attention_masks, batch_targets = batch
+	batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets = batch
 
 	number_of_samples_in_batch = batch_input_ids.size(0)
 
@@ -358,9 +371,37 @@ def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, 
 	minibatches = []
 
 	for i in range(number_of_minibatches):
-		minibatches.append( batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  batch_targets[i*size_of_minibatch : (i+1)*size_of_minibatch])
+		minibatches.append([ batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], \
+			batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
+			batch_token_type_ids[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
+			batch_targets[i*size_of_minibatch : (i+1)*size_of_minibatch] ])
 
 	return minibatches
+
+def create_bert_inretaction_input(q, doc):
+	# inputs: query and document token ids in the form of numpy array
+	# creates one input in the form : ["CLS"_id, q_t1_id, ..., q_tN_id, "SEP"_id, d_t1_id, ..., d_tM_id]
+	# and the return the above input_ids, along with the corresponding attention mask and token type ids
+
+	# Hard-coding token IDS of CLS, SEP and PAD
+	cls_token_id = np.array([101])
+	sep_token_id = np.array([102])
+	pad_token_id = 0
+
+	np_zero = np.array([0])
+
+	q_token_type_ids = np.zeros(q.shape[0])
+	d_token_type_ids = np.ones(doc.shape[0])
+
+	q_d = np.concatenate([cls_token_id, q, sep_token_id, doc])
+	q_d = torch.LongTensor(q_d)
+
+	q_d_attention_mask = torch.ones(q_d.shape[0], dtype=torch.bool)
+
+	q_d_token_type_ids = np.concatenate([np_zero, q_token_type_ids, np_zero, d_token_type_ids])
+	q_d_token_type_ids = torch.LongTensor(q_d_token_type_ids)
+
+	return q_d, q_d_attention_mask, q_d_token_type_ids
 
 
 def collate_fn_bert_interaction(batch):
@@ -375,6 +416,9 @@ def collate_fn_bert_interaction(batch):
 
 		batch_attention_masks = bollean where non padded tokens are True, size equal with batch_input_ids : BSZ X MAX_batch_length
 
+		batch_attention_masks = mask that defines if the token is from query (value = 0) or document (value = 1),
+								size equal with batch_input_ids : BSZ X MAX_batch_length
+
 		batch_targets = [q1_d1_sim_score, q1_d2_sim_score, ...], scores are in {-1,1}
 
 	"""
@@ -382,12 +426,8 @@ def collate_fn_bert_interaction(batch):
 
 	batch_input_ids =list()
 	batch_attention_masks =list()
+	batch_token_type_ids = list()
 	batch_targets =list()
-
-	# Hard-coding token IDS of CLS, SEP and PAD
-	cls_token_id = np.array([101])
-	sep_token_id = np.array([102])
-	pad_token_id = 0
 
 	for item in batch:
 		# for weak supervision datasets, some queries/documents have empty text.
@@ -395,32 +435,30 @@ def collate_fn_bert_interaction(batch):
 		if item is None:
 			continue
 
-
 		q, doc1, doc2 = item[0]
 
 		target = item[1]
 
-		q_d1 = np.concatenate([cls_token_id, q, sep_token_id, doc1])
-
-		q_d1_attention_mask = torch.ones(q_d1.shape[0], dtype=torch.bool)
-
-		q_d2 = np.concatenate([cls_token_id, q, sep_token_id, doc2])
-
-		q_d2_attention_mask = torch.ones(q_d2.shape[0], dtype=torch.bool)
-
 		if target == 1:
 			q_d1_target = 1
-			q_d2_target = -1
+			q_d2_target = 0
 		else:
-			q_d1_target = -1
+			q_d1_target = 0
 			q_d2_target = 1
 
+		q_d1, q_d1_attention_mask, q_d1_token_type_ids = create_bert_inretaction_input(q, doc1)
+		q_d2, q_d2_attention_mask, q_d2_token_type_ids = create_bert_inretaction_input(q, doc2)
 
-		batch_input_ids.append(torch.IntTensor(q_d1))
-		batch_input_ids.append(torch.IntTensor(q_d2))
+		batch_input_ids.append(q_d1)
+		batch_input_ids.append(q_d2)
 
 		batch_attention_masks.append(q_d1_attention_mask)
 		batch_attention_masks.append(q_d2_attention_mask)
+
+		batch_token_type_ids.append(q_d1_token_type_ids)
+		batch_token_type_ids.append(q_d2_token_type_ids)
+
+
 		batch_targets.append(q_d1_target)
 		batch_targets.append(q_d2_target)
 
@@ -428,12 +466,13 @@ def collate_fn_bert_interaction(batch):
 	if len(batch_input_ids) == 0:
 		return None
 
-
-	batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=pad_token_id)
+	batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
 	batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
-	batch_targets = torch.Tensor(batch_targets)
+	batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
+	batch_targets = torch.LongTensor(batch_targets)
 
-	return batch_input_ids, batch_attention_masks, batch_targets
+	return batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets
+
 
 
 def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):
@@ -758,6 +797,8 @@ def get_model_folder_name(cfg):
 			weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
 			model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
 
+		elif cfg.model =="bert":
+			model_string="bert_interaction_change_model_string"
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)
 
@@ -837,23 +878,41 @@ def create_random_batch(bsz, max_len):
 
 	return input, lengths, targets
 
+def create_random_batch_bert_interaction(bsz, max_len):
+	input_ids = torch.randint(0,2, (bsz , max_len))
+	attention_masks = torch.randint(0,2, (bsz , max_len)).bool()
+	token_type_ids = torch.randint(0,2, (bsz , max_len))
+	targets = (torch.randn(bsz) > 0.5).long()
+
+	return input_ids, attention_masks, token_type_ids, targets
 
 def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
 	bsz = 1
 
+	# max_len = 100
+
+	if isinstance(model, torch.nn.DataParallel):
+		model_type = model.module.model_type
+	else:
+		model_type = model.model_type
+
 	try:
 		while True :
 
-			data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
+			if model_type == "bert-interaction":
+				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len)
+				input_ids, attention_masks, token_type_ids, targets = input_ids.to(device), attention_masks.to(device), token_type_ids.to(device), targets.to(device)
 
+				# print(input_ids.size())
+				# exit()
+				# print(attention_masks)
+				# print(token_type_ids)
+				# print(targets)
 
-			data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
-
-			if isinstance(model, torch.nn.DataParallel):
-				model_type = model.module.model_type
 			else:
-				model_type = model.model_type
+				data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
+				data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
 			if model_type == "representation-based":
 				# forward pass (inputs are concatenated in the form [q1, q2, ..., q1d1, q2d1, ..., q1d2, q2d2, ...])
@@ -898,16 +957,20 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				# calculating L0 loss
 				l0_q, l0_docs = 0, 0
 
+			elif model_type == "bert-interaction":
+
+				output = model(input_ids, attention_masks, token_type_ids)
+
+
 			else:
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
 
-			# print(score_q_d1.size())
-			# print(score_q_d2.size())
-			# print(targets.size())
-
-			# calculating loss
-			loss = loss_fn(score_q_d1, score_q_d2, targets)
+				# calculating loss
+			if model_type == "bert-interaction":
+				loss = loss_fn(output, targets)
+			else:
+				loss = loss_fn(score_q_d1, score_q_d2, targets)
 
 			loss.backward()
 			optim.step()
