@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, IterableDataset
 import numpy as np
 from enlp.file_interface import FileInterface
 from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor, \
-				collate_fn_bert_interaction
+				collate_fn_bert_interaction, create_bert_inretaction_input
 				
 from torch.nn.utils.rnn import pad_sequence
 
@@ -352,7 +352,7 @@ class RankingResultsTest:
 				if self.max_doc_len != -1:
 					doc_data = doc_data[:self.max_doc_len]
 
-				if doc is not None:
+				if doc_data is not None:
 					d_batch_ids.append(doc_id)
 					d_batch_data.append(doc_data)
 					#print('+', line)
@@ -711,7 +711,7 @@ def get_data_loaders_msmarco(cfg):
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
 
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, \
+	dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, \
 				cfg.batch_size_test, max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	return dataloaders

@@ -334,12 +334,15 @@ def scores_interaction_based(model, dataloader, device, reset, max_rank):
 	return scores, q_ids
 
 def scores_bert_interaction(model, dataloader, device, reset, max_rank):
-	scores, q_ids = list(), list()
+	all_scores, all_q_ids = [], []
 	if reset:
 		dataloader.reset()
+
 	while True:
 
-		scores, q_ids, d_ids  = list(), list(), list()
+		print("one more true loop", len(all_scores))
+
+		scores, q_ids, d_ids = [], [], []
 		# for q_id, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator_bert_interaction():
 		for q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids in dataloader.batch_generator_bert_interaction():
 			# move data to device
@@ -350,24 +353,28 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank):
 			score = torch.softmax(model_out, dim=-1)[:,1]
 
 			scores += score.detach().cpu().tolist()
-			d_ids += batch_ids_d
+			d_ids += d_batch_ids
 			# we want to return each query only once for all ranked documents for this query
 			if len(q_ids) == 0:	
 				q_ids += q_id
+
+		print("Query ended (Probably). len of docs :", len(d_ids))
 		if len(q_ids) < 1:
-			return None, None, None
+			return None, None
 		scores = np.array(scores).flatten()
 		tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(d_ids, scores)]
-		score = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
+		sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
 
 		if max_rank != -1:
-			score = score[:max_rank]
+			sorted_by_relevance = sorted_by_relevance[:max_rank]
 
-		if score is None:
+		if sorted_by_relevance is None:
 			break
-		scores.append(score)
-		q_ids += q_id
-	return scores, q_ids
+
+		all_scores.append(sorted_by_relevance)
+		all_q_ids += q_id
+	return all_scores, all_q_ids
+
 
 
 
