@@ -365,7 +365,7 @@ class RankingResultsTest:
 
 
 			if len(d_batch_data) < 1:
-				print('Empty batch!')
+				# print('Empty batch!')
 				return
 
 

@@ -357,7 +357,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank):
 				q_ids += q_id
 
 		if len(q_ids) < 1:
-			return None, None
+			return all_scores, all_q_ids
 		scores = np.array(scores).flatten()
 		tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(d_ids, scores)]
 		sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
