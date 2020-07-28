@@ -9,6 +9,8 @@ from enlp.file_interface import FileInterface
 from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor, \
 				collate_fn_bert_interaction, create_bert_inretaction_input
 				
+
+from transformers import BertTokenizer
 from torch.nn.utils.rnn import pad_sequence
 
 
@@ -654,33 +656,43 @@ class WeakSupervision(IterableDataset):
 		return [scores_list[i] for i in sampled_indices]
 
 
-
-
-
-
-
 class MSMarcoLM(data.Dataset):
 
-	def __init__(self, data_path, documents_path, queries_path):
+	def __init__(self, data_path, documents_path, queries_path, max_length=512):
 
 
 		self.data = open(data_path, 'r').readlines()
-
+		# subtract 3 for the special tokens that are added
+		self.max_length = max_length - 3
 		# "open" documents file
 		self.documents = FileInterface(documents_path)
 		# "open" queries file
 		self.queries = FileInterface(queries_path)
 
+		self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 	def __len__(self):
 		return len(self.data)
 
+	def get_content(self, line):
+		delim_pos = line.find('\t')
+		return line[delim_pos+1:]
+
 	def __getitem__(self, index):
-		q_id, _, d1_id, _  = self.data[index].split('\t')
-		query = self.queries.get_tokenized_element(q_id)
-		doc = self.documents.get_tokenized_element(d1_id)
-		inp = list(query[1:]) + list(doc[1:])
-		return torch.LongTensor(inp)
+		q_id, _, d1_id, _  = self.data[index].split(' ')
+		query = self.get_content(self.queries.get(q_id))
+		doc = self.get_content(self.get_content(self.documents.get(d1_id)))
+		query = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(query))
+		doc = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(doc))
+		len_doc = self.max_length - len(query)
+		cls_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.cls_token)
+		sep_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.sep_token)
+		inp = [cls_id] + query + [sep_id] + doc[:len_doc] + [sep_id]
+		inp = torch.LongTensor(inp)
+		return inp
+
+
+
 
 def get_data_loaders_msmarco(cfg):
 
