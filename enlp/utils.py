@@ -174,13 +174,16 @@ def utilize_pretrained_bert(cfg):
 		else:
 			model = torch.load(load_bert_path)
 
-		# retrieve the number of heads, according to the loaded model
-		cfg.__getattr__(model_name)["num_attention_heads"] =  model.config.num_attention_heads
-
 		model_state_dict = model.state_dict()
 
 		# update the number of layers, depending on the layers that need to be copied
-		cfg.__getattr__(model_name)["num_of_layers"] =  max( max(load_bert_layers), cfg.__getattr__(model_name)["num_of_layers"])
+		cfg.__getattr__(model_name)["num_of_layers"] =  max( max(load_bert_layers) -1, cfg.__getattr__(model_name)["num_of_layers"])
+
+		if max(load_bert_layers) > 0:
+			# retrieve the number of heads, according to the loaded model
+			cfg.__getattr__(model_name)["num_attention_heads"] =  model.config.num_attention_heads
+
+
 
 		for layer in load_bert_layers:
 
