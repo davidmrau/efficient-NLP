@@ -47,6 +47,7 @@ class MAPTrec(Metric):
 		write_ranking_trec(scores, qids, self.tmp_ranking_file)
 
 	def score(self, scores, qids):
+		print(scores)
 		self.write_scores(scores, qids)
 		metric = self.trec_eval.score(self.qrel_file, self.tmp_ranking_file, self.max_rank, self.add_params)
 		return round(metric, 6)

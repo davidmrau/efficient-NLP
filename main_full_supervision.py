@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 
 from enlp.file_interface import FileInterface
 from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, gen_folds
-from enlp.metrics import MAPTrec
+from enlp.metrics import MAPTrec, MRR
 from enlp.utils import offset_dict_len
 from enlp.run_model import run
 from enlp.dataset import get_data_loaders_robust_strong
@@ -63,7 +63,8 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	print('Loading data...')
 	# initialize dataloaders
 
-	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
+	#metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
+	metric = MRR(cfg.robust_qrel_test, cfg.max_rank)
 	print('done')
 
 

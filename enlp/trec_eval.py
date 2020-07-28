@@ -9,6 +9,7 @@ class TrecEval(object):
 
 	def score(self, qrel_path, ranking_path, max_rank, add_params=''):
 		output = subprocess.check_output(f"./{self.path} {add_params} {qrel_path} {ranking_path} -M  {max_rank}", shell=True).decode(sys.stdout.encoding)
+		print(output)
 		output = output.replace('\t', ' ').split('\n')
 		for line in output:
 			if line.startswith('map'):

@@ -66,7 +66,7 @@ robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_sto
 robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_ranking_results_test: '${data_path}/robust04/qrels.robust2004.txt.strong_triples_debug'
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
-robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
+robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt.strong_triples_debug'
 robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt.strong_triples_debug'
 weak_min_results: 2
 sampler: 'uniform'

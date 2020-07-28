@@ -243,7 +243,7 @@ class RankingResultsTest:
 			# read a number of lines equal to batch_size
 			d_batch_ids = []
 			d_batch_data = []
-			while len(d_batch_ids) < self.batch_size:
+			while len(d_batch_ids) <= self.batch_size:
 				prev_q_id = curr_q_id
 				file_pos = self.ranking_results.tell()
 				line = self.ranking_results.readline()
@@ -636,7 +636,7 @@ def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, qu
 
 
 	dataloaders = {}
-
+	indices_test = indices_train
 	#indices_test = indices_train
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)

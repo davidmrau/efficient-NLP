@@ -265,7 +265,6 @@ def get_repr_inter(model, dataloader, device, max_rank):
 			# we want to return each query only once for all ranked documents for this query
 			if len(q_ids) == 0:	
 				q_ids += q_id
-			print(batch_ids_d)
 	if len(q_ids) < 1:
 		return None, None, None
 	scores = np.array(scores).flatten()
