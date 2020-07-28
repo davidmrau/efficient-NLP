@@ -177,7 +177,7 @@ def utilize_pretrained_bert(cfg):
 		model_state_dict = model.state_dict()
 
 		# update the number of layers, depending on the layers that need to be copied
-		cfg.__getattr__(model_name)["num_of_layers"] =  max( max(load_bert_layers) -1, cfg.__getattr__(model_name)["num_of_layers"])
+		cfg.__getattr__(model_name)["num_of_layers"] =  max( max(load_bert_layers), cfg.__getattr__(model_name)["num_of_layers"])
 
 		if max(load_bert_layers) > 0:
 			# retrieve the number of heads, according to the loaded model
@@ -1062,8 +1062,8 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 				score_q_d1 = model(qd1_input_ids, qd1_attention_masks, qd1_token_type_ids)
 				score_q_d2 = model(qd2_input_ids, qd2_attention_masks, qd2_token_type_ids)
 
-				score_q_d1 = torch.sigmoid(score_q_d1)
-				score_q_d2 = torch.sigmoid(score_q_d2)
+				score_q_d1 = torch.tanh(score_q_d1)
+				score_q_d2 = torch.tanh(score_q_d2)
 
 				# print("output sizes")
 				# print(score_q_d1.size())

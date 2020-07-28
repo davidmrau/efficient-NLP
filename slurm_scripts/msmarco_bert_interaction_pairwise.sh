@@ -1,5 +1,5 @@
 
-POINTWISE=True
+POINTWISE=False
 
 BATCH_SIZE="128"
 

@@ -162,8 +162,8 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				score_q_d1 = model(qd1_input_ids, qd1_attention_masks, qd1_token_type_ids)
 				score_q_d2 = model(qd2_input_ids, qd2_attention_masks, qd2_token_type_ids)
 
-				score_q_d1 = torch.sigmoid(score_q_d1)
-				score_q_d2 = torch.sigmoid(score_q_d2)
+				score_q_d1 = torch.tanh(score_q_d1)
+				score_q_d2 = torch.tanh(score_q_d2)
 
 			else:
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
@@ -368,8 +368,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 				# After retrieving model's output, we apply softax and keep the second dimension that represents the relevance probability
 				score = torch.softmax(model_out, dim=-1)[:,1]
 			else:
-				score = torch.sigmoid(model_out)
-
+				score = torch.tanh(score)
 
 			scores += score.detach().cpu().tolist()
 			d_ids += d_batch_ids
