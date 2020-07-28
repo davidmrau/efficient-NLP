@@ -249,7 +249,8 @@ def instantiate_model(cfg):
 
 		model = BERT_inter(hidden_size = cfg.bert.hidden_size, num_of_layers = cfg.bert.num_of_layers,
 							num_attention_heads = cfg.bert.num_attention_heads, input_length_limit = cfg.bert.input_length_limit,
-							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy)
+							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy,
+							point_wise = cfg.bert.point_wise)
 
 	elif cfg.model == "tf":
 		params_to_copy = utilize_pretrained_bert(cfg)
@@ -351,10 +352,10 @@ def collate_fn_padd_triples(batch):
 	return batch_data, batch_targets, batch_lengths
 
 
-def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, n_gpu = 1):
+def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, n_gpu = 1, pairwise_training = False):
 
-	if max_samples_per_gpu == -1:
-		return [batch]
+	if pairwise_training:
+		max_samples_per_gpu *= 2
 
 	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
 	size_of_minibatch = max_samples_per_gpu * n_gpu
@@ -364,17 +365,45 @@ def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, 
 	number_of_samples_in_batch = batch_input_ids.size(0)
 
 	if number_of_samples_in_batch <= max_samples_per_gpu:
+
+		if pairwise_training:
+			# rows represent sample pairs, column 1 and 2 represent target of d1 and d2 respecttively
+			batch_targets = batch_targets.view(-1,2)
+			# rows represent sample pairs, 1 means d1 is more relevant, -1 means d2 is more relevant
+			batch_targets = (batch_targets[:,0] > batch_targets[:,1]).int()*2 -1
+
+			batch = [batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets]
+
 		return [batch]
 
 	number_of_minibatches = math.ceil(number_of_samples_in_batch / size_of_minibatch)
 
 	minibatches = []
 
-	for i in range(number_of_minibatches):
-		minibatches.append([ batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], \
-			batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
-			batch_token_type_ids[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
-			batch_targets[i*size_of_minibatch : (i+1)*size_of_minibatch] ])
+	if pairwise_training == False:
+
+		for i in range(number_of_minibatches):
+			minibatches.append([ batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], \
+				batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
+				batch_token_type_ids[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
+				batch_targets[i*size_of_minibatch : (i+1)*size_of_minibatch] ])
+
+	else:
+
+		# preprocess targets so that they prepresent pair targets
+
+		# rows represent sample pairs, column 1 and 2 represent target of d1 and d2 respecttively
+		batch_targets = batch_targets.view(-1,2)
+		# rows represent sample pairs, 1 means d1 is more relevant, -1 means d2 is more relevant
+		batch_targets = (batch_targets[:,0] > batch_targets[:,1]).int()*2 -1
+		# in a pairwise training case, the number of targets are half of the size of the input samples
+		size_of_minibatch_targets = int(size_of_minibatch/2)
+
+		for i in range(number_of_minibatches):
+			minibatches.append([ batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], \
+				batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
+				batch_token_type_ids[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
+				batch_targets[i*size_of_minibatch_targets : (i+1)*size_of_minibatch_targets] ])
 
 	return minibatches
 
@@ -445,6 +474,13 @@ def collate_fn_bert_interaction(batch):
 		else:
 			q_d1_target = 0
 			q_d2_target = 1
+
+
+		# if random.random() > 0.5:
+		# 	return [query, doc1, doc2], 1
+		# else:
+		# 	return [query, doc2, doc1], -1
+
 
 		q_d1, q_d1_attention_mask, q_d1_token_type_ids = create_bert_inretaction_input(q, doc1)
 		q_d2, q_d2_attention_mask, q_d2_token_type_ids = create_bert_inretaction_input(q, doc2)
@@ -798,7 +834,30 @@ def get_model_folder_name(cfg):
 			model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
 
 		elif cfg.model =="bert":
-			model_string="bert_interaction_change_model_string"
+
+			load_bert_layers = cfg.bert.load_bert_layers
+			load_bert_path = cfg.bert.load_bert_path
+
+			if isinstance(load_bert_layers, str) and len(load_bert_layers) != 0:
+				load_bert_layers = str2lst(str(load_bert_layers))
+			elif isinstance(load_bert_layers, int):
+				load_bert_layers = [load_bert_layers]
+			else:
+				load_bert_layers = []
+
+			# if we are not using a pretrained bert
+			if len(load_bert_layers) == 0:
+				model_string=f"BERT_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_from_scratch"
+			# if we are using a pretrained bert
+			else:
+				temp_load_bert_path = load_bert_path.replace("/", ".")
+				model_string = "BERT_loaded_" + temp_load_bert_path + "_Layers_" + cfg.bert.load_bert_layers
+
+			if cfg.bert.point_wise:
+				model_string = "POINT_wise_" + model_string
+			else:
+				model_string = "PAIR_wise_" + model_string
+		
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)
 
@@ -815,6 +874,8 @@ def get_model_folder_name(cfg):
 				model_string += "_single_sample"
 
 		# create experiment directory name
+		if cfg.model == "bert":
+			return f"{cfg.dataset}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 		if cfg.model != "rank":
 			return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 		else:
@@ -878,17 +939,24 @@ def create_random_batch(bsz, max_len):
 
 	return input, lengths, targets
 
-def create_random_batch_bert_interaction(bsz, max_len):
+def create_random_batch_bert_interaction(bsz, max_len, point_wise):
+
+	if point_wise:
+		targets = (torch.randn(bsz) > 0.5).long()
+	else:
+		targets = (torch.randn(bsz) > 0.5).int()*2 -1
+		bsz *= 2
+
+
 	input_ids = torch.randint(0,2, (bsz , max_len))
 	attention_masks = torch.randint(0,2, (bsz , max_len)).bool()
 	token_type_ids = torch.randint(0,2, (bsz , max_len))
-	targets = (torch.randn(bsz) > 0.5).long()
 
 	return input_ids, attention_masks, token_type_ids, targets
 
 def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 
-	bsz = 1
+	bsz = 2
 
 	# max_len = 100
 
@@ -900,15 +968,11 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 	try:
 		while True :
 
-			if model_type == "bert-interaction":
-				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len)
-				input_ids, attention_masks, token_type_ids, targets = input_ids.to(device), attention_masks.to(device), token_type_ids.to(device), targets.to(device)
+			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
+				point_wise = model_type == "bert-interaction"
 
-				# print(input_ids.size())
-				# exit()
-				# print(attention_masks)
-				# print(token_type_ids)
-				# print(targets)
+				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len, point_wise = point_wise)
+				input_ids, attention_masks, token_type_ids, targets = input_ids.to(device), attention_masks.to(device), token_type_ids.to(device), targets.to(device)
 
 			else:
 				data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
@@ -960,6 +1024,50 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 			elif model_type == "bert-interaction":
 
 				output = model(input_ids, attention_masks, token_type_ids)
+
+			elif model_type == "bert-interaction_pair_wise":
+
+				num_of_samples = int(input_ids.size(0) / 2)
+
+				# every second sample corresponds to d2, so we split inputs accordingly
+				input_ids = input_ids.view(num_of_samples,2, -1)
+				attention_masks = attention_masks.view(num_of_samples,2,-1)
+				token_type_ids = token_type_ids.view(num_of_samples,2,-1)
+
+				# print("init")
+				# print(input_ids.size())
+				# print(attention_masks.size())
+				# print(token_type_ids.size())
+				# # exit()
+
+				qd1_input_ids = input_ids[:,0]
+				qd2_input_ids = input_ids[:,1]
+
+				qd1_attention_masks = attention_masks[:,0]
+				qd2_attention_masks = attention_masks[:,1]
+
+				qd1_token_type_ids = token_type_ids[:,0]
+				qd2_token_type_ids = token_type_ids[:,1]
+
+				# print("qd1 sizes")
+				# print(qd1_input_ids.size())
+				# print(qd1_attention_masks.size())
+				# print(qd1_token_type_ids.size())
+				# # print(.size())
+				# # exit()
+
+				score_q_d1 = model(qd1_input_ids, qd1_attention_masks, qd1_token_type_ids)
+				score_q_d2 = model(qd2_input_ids, qd2_attention_masks, qd2_token_type_ids)
+
+				score_q_d1 = torch.sigmoid(score_q_d1)
+				score_q_d2 = torch.sigmoid(score_q_d2)
+
+				# print("output sizes")
+				# print(score_q_d1.size())
+				# print(score_q_d2.size())
+				# print(targets.size())
+
+				# print(bsz, input_ids.size())
 
 
 			else:

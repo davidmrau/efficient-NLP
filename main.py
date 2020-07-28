@@ -103,7 +103,10 @@ def exp(cfg):
 		cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len)
 		print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
 
-	cfg.batch_size_test = n_gpu * 3 * cfg.max_samples_per_gpu
+	if model_type == "bert-interaction":
+		cfg.batch_size_test = n_gpu * cfg.max_samples_per_gpu
+	else:
+		cfg.batch_size_test = n_gpu * 3 * cfg.max_samples_per_gpu
 
 	print('Printing Parameters...')
 	# printing params

@@ -8,11 +8,16 @@ import math
 
 class BERT_inter(torch.nn.Module):
 	def __init__(self, hidden_size = 256, num_of_layers = 2, num_attention_heads = 4, input_length_limit = 512,
-			vocab_size = 30522, embedding_parameters = None, params_to_copy = {}):
+			vocab_size = 30522, embedding_parameters = None, params_to_copy = {}, point_wise = True):
 		super(BERT_inter, self).__init__()
 
 
-		self.model_type = "bert-interaction"
+		if point_wise:
+			self.model_type = "bert-interaction"
+			output_size = 2
+		else:
+			self.model_type = "bert-interaction_pair_wise"
+			output_size = 1
 
 		if embedding_parameters is not None:
 			# adjust hidden size and vocab size
@@ -33,7 +38,7 @@ class BERT_inter(torch.nn.Module):
 
 		self.last_linear = torch.nn.Linear(hidden_size, hidden_size)
 
-		self.output_linear = torch.nn.Linear(hidden_size, 2)
+		self.output_linear = torch.nn.Linear(hidden_size, output_size)
 
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
