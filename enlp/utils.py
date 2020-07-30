@@ -366,9 +366,6 @@ def collate_fn_padd_triples(batch):
 
 def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, n_gpu = 1, pairwise_training = False):
 
-	if pairwise_training:
-		max_samples_per_gpu *= 2
-
 	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
 	size_of_minibatch = max_samples_per_gpu * n_gpu
 
@@ -486,12 +483,6 @@ def collate_fn_bert_interaction(batch):
 		else:
 			q_d1_target = 0
 			q_d2_target = 1
-
-
-		# if random.random() > 0.5:
-		# 	return [query, doc1, doc2], 1
-		# else:
-		# 	return [query, doc2, doc1], -1
 
 
 		q_d1, q_d1_attention_mask, q_d1_token_type_ids = create_bert_inretaction_input(q, doc1)
@@ -909,13 +900,6 @@ def plot_top_k_analysis(analysis_dict):
 
 	x = np.arange(len(MRR_top_k_freq))
 
-	# fig = plt.figure()
-	# ax1 = fig.add_subplot(121)
-	# ax2 = fig.add_subplot(122)
-
-	# axs = [ax1, ax2]
-
-
 	fig, axs = plt.subplots(2)
 	fig.suptitle('Top and Bottom k analysis (Ignoring dimensions one-by-one)')
 	axs[0].plot(x, MRR_top_k_freq, "-b", label="Frequent")
@@ -930,15 +914,7 @@ def plot_top_k_analysis(analysis_dict):
 	axs[1].axis(ymin=0, ymax=1.0)
 	axs[1].title.set_text('Ignoring BOTTOM k')
 
-	# plt.title('Removing the top k dimensions one-by-one')
-
-	# axs[1].plot(x, -y)
-
-
-
 	plt.show()
-
-
 
 
 def create_random_batch(bsz, max_len, vocab_size):
@@ -968,8 +944,6 @@ def create_random_batch_bert_interaction(bsz, max_len, point_wise, vocab_size):
 def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size):
 
 	bsz = 2
-
-	# max_len = 100
 
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
@@ -1045,41 +1019,18 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 				attention_masks = attention_masks.view(num_of_samples,2,-1)
 				token_type_ids = token_type_ids.view(num_of_samples,2,-1)
 
-				# print("init")
-				# print(input_ids.size())
-				# print(attention_masks.size())
-				# print(token_type_ids.size())
-				# # exit()
-
 				qd1_input_ids = input_ids[:,0]
 				qd2_input_ids = input_ids[:,1]
-
 				qd1_attention_masks = attention_masks[:,0]
 				qd2_attention_masks = attention_masks[:,1]
-
 				qd1_token_type_ids = token_type_ids[:,0]
 				qd2_token_type_ids = token_type_ids[:,1]
-
-				# print("qd1 sizes")
-				# print(qd1_input_ids.size())
-				# print(qd1_attention_masks.size())
-				# print(qd1_token_type_ids.size())
-				# # print(.size())
-				# # exit()
 
 				score_q_d1 = model(qd1_input_ids, qd1_attention_masks, qd1_token_type_ids)
 				score_q_d2 = model(qd2_input_ids, qd2_attention_masks, qd2_token_type_ids)
 
 				score_q_d1 = torch.tanh(score_q_d1)
 				score_q_d2 = torch.tanh(score_q_d2)
-
-				# print("output sizes")
-				# print(score_q_d1.size())
-				# print(score_q_d2.size())
-				# print(targets.size())
-
-				# print(bsz, input_ids.size())
-
 
 			else:
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
