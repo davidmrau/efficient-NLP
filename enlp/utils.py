@@ -242,10 +242,15 @@ def instantiate_model(cfg):
 					 embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
 					 n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)
 
+		vocab_size = model.vocab_size
+
 	elif cfg.model == "rank":
 		model = RankModel(hidden_sizes = str2lst(str(cfg.rank_model.hidden_sizes)), embedding_parameters = embedding_parameters,
 			embedding_dim = cfg.rank_model.embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
 			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
+
+
+		vocab_size = model.vocab_size
 
 	elif cfg.model == "bert":
 		params_to_copy = utilize_pretrained_bert(cfg)
@@ -255,6 +260,8 @@ def instantiate_model(cfg):
 							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy,
 							point_wise = cfg.bert.point_wise)
 
+		vocab_size = model.encoder.config.vocab_size
+
 	elif cfg.model == "tf":
 		params_to_copy = utilize_pretrained_bert(cfg)
 
@@ -263,6 +270,8 @@ def instantiate_model(cfg):
 							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, pooling_method = cfg.tf.pooling_method,
 							large_out_biases = cfg.large_out_biases, layer_norm = cfg.tf.layer_norm, act_func = cfg.tf.act_func,
 							params_to_copy = params_to_copy)
+
+		vocab_size = model.encoder.config.vocab_size
 
 	# select device depending on availability and user's setting
 	if not cfg.disable_cuda and torch.cuda.is_available():
@@ -280,7 +289,7 @@ def instantiate_model(cfg):
 
 	model = model.to(device=device)
 
-	return model, device, n_gpu
+	return model, device, n_gpu, vocab_size
 
 def collate_fn_padd_single(batch):
 	""" Collate function for aggregating samples into batch size.
@@ -932,8 +941,8 @@ def plot_top_k_analysis(analysis_dict):
 
 
 
-def create_random_batch(bsz, max_len):
-	input = torch.randint(0, 2, (bsz * 3, max_len))
+def create_random_batch(bsz, max_len, vocab_size):
+	input = torch.randint(0, vocab_size, (bsz * 3, max_len))
 
 	lengths = torch.tensor([max_len - 1 for i in range(bsz * 3)])
 
@@ -942,22 +951,21 @@ def create_random_batch(bsz, max_len):
 
 	return input, lengths, targets
 
-def create_random_batch_bert_interaction(bsz, max_len, point_wise):
+def create_random_batch_bert_interaction(bsz, max_len, point_wise, vocab_size):
 
 	if point_wise:
 		targets = (torch.randn(bsz) > 0.5).long()
 	else:
 		targets = (torch.randn(bsz) > 0.5).int()*2 -1
-		bsz *= 2
 
 
-	input_ids = torch.randint(0,2, (bsz , max_len))
+	input_ids = torch.randint(0,vocab_size, (bsz , max_len))
 	attention_masks = torch.randint(0,2, (bsz , max_len)).bool()
 	token_type_ids = torch.randint(0,2, (bsz , max_len))
 
 	return input_ids, attention_masks, token_type_ids, targets
 
-def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
+def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size):
 
 	bsz = 2
 
@@ -974,11 +982,11 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
 				point_wise = model_type == "bert-interaction"
 
-				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len, point_wise = point_wise)
+				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len, point_wise = point_wise, vocab_size=vocab_size)
 				input_ids, attention_masks, token_type_ids, targets = input_ids.to(device), attention_masks.to(device), token_type_ids.to(device), targets.to(device)
 
 			else:
-				data, lengths, targets = create_random_batch(bsz * n_gpu, max_len)
+				data, lengths, targets = create_random_batch(bsz * n_gpu, max_len, vocab_size)
 				data, lengths, targets = data.to(device), lengths.to(device), targets.to(device)
 
 			if model_type == "representation-based":
@@ -1096,7 +1104,15 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len):
 			# print("Dynamically calculated max_samples_per_gpu == ", bsz - 1)
 			optim.zero_grad()
 			torch.cuda.empty_cache()
-			return bsz - 3
+
+			max_samples_per_gpu = bsz - 2
+
+			# In the following case we need an even number of samples in any case
+			if model_type == "bert-interaction_pair_wise":
+				if max_samples_per_gpu % 2 == 1:
+					max_samples_per_gpu -= 1
+
+			return max_samples_per_gpu
 
 		else:
 			raise e

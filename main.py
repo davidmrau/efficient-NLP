@@ -31,7 +31,7 @@ def exp(cfg):
 
 	# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
-	model, device, n_gpu = instantiate_model(cfg)
+	model, device, n_gpu, vocab_size = instantiate_model(cfg)
 
 	# load model
 	if cfg.load:
@@ -65,8 +65,8 @@ def exp(cfg):
 	else:
 		model_type = model.model_type
 
-
 	cfg.model_type = model_type
+
 
 	print('Loading data...')
 	# initialize dataloaders
@@ -83,9 +83,6 @@ def exp(cfg):
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
 
-
-
-
 	if model_type == "bert-interaction":
 		loss_fn = nn.CrossEntropyLoss()
 	else:
@@ -97,10 +94,9 @@ def exp(cfg):
 	optim = Adam(model.parameters(), lr=cfg.lr)
 
 
-
 	# if max_samples_per_gpu is not set (-1), then dynamically calculate it
 	if cfg.max_samples_per_gpu == -1:
-		cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len)
+		cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
 		print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
 
 	if model_type == "bert-interaction":
