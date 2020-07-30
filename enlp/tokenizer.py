@@ -2,6 +2,7 @@ import argparse
 import pickle
 from transformers import BertTokenizerFast
 import nltk
+from nltk.stem import PorterStemmer
 
 import os
 
@@ -10,7 +11,7 @@ import os
 class Tokenizer():
 
 	def __init__(self, tokenizer="bert", max_len=-1, stopwords="lucene", remove_unk = True, dicts_path = "data/embeddings/",
-					lower_case=True, unk_words_filename = None):
+					lower_case=True, unk_words_filename = None, stemmer = False):
 		"""
 		Stopwords:
 			"none": Not removing any stopwords
@@ -25,6 +26,10 @@ class Tokenizer():
 
 		self.lower = lower_case
 		self.tokenizer = tokenizer
+		if stemmer:
+			self.stemmer = PorterStemmer()
+		else:
+			self.stemmer = None
 
 		if self.tokenizer == "bert":
 			self.bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -123,6 +128,10 @@ class Tokenizer():
 			text = text.lower()
 
 		tokens = nltk.word_tokenize(text)
+
+		if self.stemmer is not None:
+			tokens = [self.stemmer.stem(token) for token in tokens]
+
 		#tokens = self.stanford_tokenize(text[:100000])
 		# if there is a specified max len of input to be considered, we enforce it on the token level
 		# as the token level is percieved by nltk.word_tokenize()
@@ -168,7 +177,8 @@ def tokenize(args):
 
 	print("Tokenizing :", in_fname)
 	# add = 'glove' if args.whitespace else 'bert'
-	out_fname = f'{in_fname}_{args.tokenizer}_stop_{args.stopwords}{"_remove_unk" if args.remove_unk else ""}{"_max_len_" + str(args.max_len) if args.max_len != -1 else "" }.tsv'
+	out_fname = f'{in_fname}_{args.tokenizer}_stop_{args.stopwords}{"_remove_unk" if args.remove_unk else ""}' + \
+				f'{"_max_len_" + str(args.max_len) if args.max_len != -1 else "" }{"_stemmed" if args.stemmer else ""}.tsv'
 	print("To file    :", out_fname)
 
 	if args.dont_log_unk:
@@ -177,11 +187,12 @@ def tokenize(args):
 		unk_words_filename = out_fname + "_unk_words"
 
 	tokenizer = Tokenizer(tokenizer = args.tokenizer, max_len = args.max_len, stopwords=args.stopwords,
-							remove_unk = args.remove_unk, embeddings_path = args.embeddings_path, unk_words_filename = unk_words_filename)
+							remove_unk = args.remove_unk, dicts_path = args.dicts_path, unk_words_filename = unk_words_filename,
+							stemmer = args.stemmer)
 
 	empty_ids_filename = out_fname + "_empty_ids"
 
-	word2idx = pickle.load(open(args.word2index_path, 'rb'))
+	# word2idx = pickle.load(open(args.word2index_path, 'rb'))
 	with open(out_fname, 'w') as out_f:
 		with open(in_fname, 'r') as in_f:
 			with open(empty_ids_filename, 'w') as empty_ids_f:
@@ -232,6 +243,7 @@ if __name__ == "__main__":
 	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove'}")
 	parser.add_argument('--stopwords', type=str, default="none", help = "{'none','lucene', 'some/path/file'}")
 	parser.add_argument('--remove_unk', action='store_true')
+	parser.add_argument('--stemmer', action='store_true')
 	parser.add_argument('--dont_log_unk', action='store_true')
 	args = parser.parse_args()
 

@@ -10,7 +10,7 @@ import argparse
 import pickle as p
 
 
-def create_seek_dictionary_per_index(filename, delimiter='\t', line_index_is_id = True):
+def create_seek_dictionary_per_index(filename, line_index_is_id = True):
 	""" Creating a dictionary, for accessing directly a documents content, given document's id
 			from a large file containing all documents
 			returns:
@@ -24,12 +24,14 @@ def create_seek_dictionary_per_index(filename, delimiter='\t', line_index_is_id 
 		seek_value = file.tell()
 		line = file.readline()
 		while line:
-			split_line = line.strip().split(delimiter)
+			split_line = line.strip().split("\t")
+
 			# triplets so use counter as id
 			if line_index_is_id:
 				id_ = sample_counter
 			else:
 				id_ = split_line[0].strip()
+
 			sample_counter += 1
 			index_to_seek[id_] = seek_value
 			if sample_counter % 100000 == 0:
@@ -42,17 +44,15 @@ def create_seek_dictionary_per_index(filename, delimiter='\t', line_index_is_id 
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--delimiter', type=str, default='\t')
 parser.add_argument('--fname', type=str)
 parser.add_argument('--line_index_is_id', action='store_true')
 args = parser.parse_args()
 
 
 in_fname = args.fname
-delimiter = args.delimiter
 out_fname = in_fname + '.offset_dict.p'
 
 
-offset_dict = create_seek_dictionary_per_index(in_fname, delimiter, args.line_index_is_id)
+offset_dict = create_seek_dictionary_per_index(in_fname, args.line_index_is_id)
 
 p.dump(offset_dict, open(out_fname, 'wb'))
