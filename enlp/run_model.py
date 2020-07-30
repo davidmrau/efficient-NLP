@@ -59,13 +59,20 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if batch is None:
 			continue
 
-		if optim != None:
-			optim.zero_grad()
-
 		if isinstance(model, torch.nn.DataParallel):
 			model_type = model.module.model_type
 		else:
 			model_type = model.model_type
+
+
+		if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
+			_, _, _, batch_targets = batch
+		else:
+			_, batch_targets, _ = batch
+
+
+		if optim != None:
+			optim.zero_grad()
 
 		if model_type == "bert-interaction":
 			minibatches = split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu, pairwise_training = False)
@@ -192,9 +199,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
-
-
-			total_loss = total_loss * (minibatch_samples_number / batch[1].size(0))
+			total_loss = total_loss * (minibatch_samples_number / batch_targets.size(0))
 
 			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc)
 
@@ -368,7 +373,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 				# After retrieving model's output, we apply softax and keep the second dimension that represents the relevance probability
 				score = torch.softmax(model_out, dim=-1)[:,1]
 			else:
-				score = torch.tanh(score)
+				score = torch.tanh(model_out)
 
 			scores += score.detach().cpu().tolist()
 			d_ids += d_batch_ids

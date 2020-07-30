@@ -6,7 +6,7 @@ NUM_EPOCHS="10000"
 PATIENCE=5
 
 # load complete bert
-LOAD_LAYERS="0-1-2-3-4-5-6-7-8-9-10-11-12-13"
+LOAD_LAYERS="0-1-2-3-4-5-6-7-8-9-10-11-12"
 
 LOAD_MODEL_PATH="/project/draugpu/data/msmarco_rel_embed/best_model_cpu.model"
 

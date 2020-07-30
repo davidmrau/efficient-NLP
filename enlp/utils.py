@@ -854,7 +854,7 @@ def get_model_folder_name(cfg):
 			# if we are using a pretrained bert
 			else:
 				temp_load_bert_path = load_bert_path.replace("/", ".")
-				model_string = "BERT_loaded_" + temp_load_bert_path + "_Layers_" + cfg.bert.load_bert_layers
+				model_string = "BERT_loaded_" + temp_load_bert_path + "_Layers_" + str(cfg.bert.load_bert_layers)
 
 			if cfg.bert.point_wise:
 				model_string = "POINT_wise_" + model_string
