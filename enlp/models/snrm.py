@@ -77,12 +77,15 @@ class SNRM(nn.Module):
 
 		out= self.relu(out)
 
-
 		# batch x max_length  - (n-1)x out_size
 
+		# will set output of all padded tokens to 0
+		out = out.permute(0,2,1)
+		negative_mask = (1 - mask.int()).bool()
+		out[negative_mask] = 0
+		out = out.permute(0,2,1)
 
-		mask = mask.unsqueeze(1).repeat(1, self.sparse_dimensions,1).float()
-		out = (mask * out).sum(2) / lengths.unsqueeze(1)
+		out = (out).sum(2) / lengths.unsqueeze(1)
 		# batch x max_length - (n-1) x out_size
 		return out
 

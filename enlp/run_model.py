@@ -86,7 +86,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 		for minibatch in minibatches:
 
-
+			torch.cuda.empty_cache()
 			# move to device
 			minibatch = [item.to(device) for item in minibatch]
 
