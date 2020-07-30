@@ -59,17 +59,25 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 		if batch is None:
 			continue
 
-		if optim != None:
-			optim.zero_grad()
-
-
 		if isinstance(model, torch.nn.DataParallel):
 			model_type = model.module.model_type
 		else:
 			model_type = model.model_type
 
+
+		if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
+			_, _, _, batch_targets = batch
+		else:
+			_, batch_targets, _ = batch
+
+
+		if optim != None:
+			optim.zero_grad()
+
 		if model_type == "bert-interaction":
-			minibatches = split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
+			minibatches = split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu, pairwise_training = False)
+		elif model_type == "bert-interaction_pair_wise":
+			minibatches = split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu, pairwise_training = True)
 		else:
 			minibatches = split_batch_to_minibatches(batch, max_samples_per_gpu = max_samples_per_gpu, n_gpu=n_gpu)
 
@@ -82,7 +90,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			# move to device
 			minibatch = [item.to(device) for item in minibatch]
 
-			if model_type == "bert-interaction":
+			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
 				input_ids, attention_masks, token_type_ids, targets = minibatch
 			else:
 				data, targets, lengths = minibatch
@@ -120,7 +128,6 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 					score_q_d1 = score_q_d1.unsqueeze(0)
 					score_q_d2 = score_q_d2.unsqueeze(0)
 
-
 				# calculate l1 loss
 				l1_loss = l1_loss_fn(torch.cat([q_repr, d1_repr, d2_repr], 1))
 				# calculate balance loss
@@ -136,29 +143,46 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
 				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
 
-				# calculate l1 loss
-				l1_loss = torch.tensor(0)
-				# calculate balance loss
-				balance_loss = torch.tensor(0)
-				# calculating L0 loss
-				l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
-
-
 			elif model_type == "bert-interaction":
 				# apply model
 				relevance_out = model(input_ids, attention_masks, token_type_ids)
 
+			elif model_type == "bert-interaction_pair_wise":
+				# every second sample corresponds to d2, so we split inputs accordingly
+
+				num_of_samples = int(input_ids.size(0) / 2)
+
+				# every second sample corresponds to d2, so we split inputs accordingly
+				input_ids = input_ids.view(num_of_samples,2, -1)
+				attention_masks = attention_masks.view(num_of_samples,2,-1)
+				token_type_ids = token_type_ids.view(num_of_samples,2,-1)
+
+				qd1_input_ids = input_ids[:,0]
+				qd2_input_ids = input_ids[:,1]
+
+				qd1_attention_masks = attention_masks[:,0]
+				qd2_attention_masks = attention_masks[:,1]
+
+				qd1_token_type_ids = token_type_ids[:,0]
+				qd2_token_type_ids = token_type_ids[:,1]
+
+				score_q_d1 = model(qd1_input_ids, qd1_attention_masks, qd1_token_type_ids)
+				score_q_d2 = model(qd2_input_ids, qd2_attention_masks, qd2_token_type_ids)
+
+				score_q_d1 = torch.tanh(score_q_d1)
+				score_q_d2 = torch.tanh(score_q_d2)
+
+			else:
+				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
+
+			# the following metrics are not calculated in case we do not run a "representation-based" model
+			if model_type != "representation-based":
 				# calculate l1 loss
 				l1_loss = torch.tensor(0)
 				# calculate balance loss
 				balance_loss = torch.tensor(0)
 				# calculating L0 loss
 				l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
-
-			else:
-				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
-
-
 
 			if model_type == "bert-interaction":
 				loss = loss_fn(relevance_out, targets)
@@ -175,9 +199,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
-
-
-			total_loss = total_loss * (minibatch_samples_number / batch[1].size(0))
+			total_loss = total_loss * (minibatch_samples_number / batch_targets.size(0))
 
 			av_loss.step(loss), av_l1_loss.step(l1_loss), av_balance_loss.step(balance_loss), av_total_loss.step(total_loss), av_l0_q.step(l0_q), av_l0_docs.step(l0_docs), av_acc.step(acc)
 
@@ -333,7 +355,7 @@ def scores_interaction_based(model, dataloader, device, reset, max_rank):
 		q_ids += q_id
 	return scores, q_ids
 
-def scores_bert_interaction(model, dataloader, device, reset, max_rank):
+def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise = False):
 	all_scores, all_q_ids = [], []
 	if reset:
 		dataloader.reset()
@@ -347,8 +369,11 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank):
 			batch_input_ids, batch_attention_masks, batch_token_type_ids = batch_input_ids.to(device), batch_attention_masks.to(device), batch_token_type_ids.to(device)
 			# propagate data through model
 			model_out = model(batch_input_ids, batch_attention_masks, batch_token_type_ids)
-			# After retrieving model's output, we apply softax and keep the second dimension that represents the relevance probability
-			score = torch.softmax(model_out, dim=-1)[:,1]
+			if pairwise == False:
+				# After retrieving model's output, we apply softax and keep the second dimension that represents the relevance probability
+				score = torch.softmax(model_out, dim=-1)[:,1]
+			else:
+				score = torch.tanh(model_out)
 
 			scores += score.detach().cpu().tolist()
 			d_ids += d_batch_ids
@@ -387,7 +412,9 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 	elif model_type == "interaction-based":
 		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset, max_rank)
 	elif model_type == "bert-interaction":
-		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset, max_rank)
+		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset, max_rank, pairwise = False)
+	elif model_type == "bert-interaction_pair_wise":
+		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset, max_rank, pairwise = True)
 	else:
 		raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 

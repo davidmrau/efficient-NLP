@@ -708,7 +708,7 @@ def get_data_loaders_msmarco(cfg):
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 
 
-	if cfg.model_type == "bert-interaction":
+	if cfg.model_type == "bert-interaction" or cfg.model_type == "bert-interaction_pair_wise":
 		collate_fn = collate_fn_bert_interaction
 	else:
 		collate_fn = collate_fn_padd_triples
