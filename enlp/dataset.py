@@ -152,17 +152,13 @@ class StrongData(IterableDataset):
 				yield [query, result_1[2], result_2[2]], target
 
 class MSMarcoTrain(data.Dataset):
-
 	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510):
-
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
 		if isinstance(id2query, FileInterface):
 			self.id2query = id2query
 		else:
 			self.id2query = FileInterface(id2query)
-
-
 
 		if isinstance(id2doc, FileInterface):
 			self.id2doc = id2doc
@@ -171,9 +167,6 @@ class MSMarcoTrain(data.Dataset):
 
 		self.max_query_len = max_query_len
 		self.max_doc_len = max_complete_length - max_query_len if max_complete_length != -1 else -1
-
-
-
 
 	def __len__(self):
 		return len(self.triplets)

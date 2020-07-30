@@ -935,7 +935,7 @@ def create_random_batch_bert_interaction(bsz, max_len, point_wise, vocab_size):
 		targets = (torch.randn(bsz) > 0.5).int()*2 -1
 
 
-	input_ids = torch.randint(0,vocab_size, (bsz , max_len))
+	input_ids = torch.randint(0, vocab_size, (bsz , max_len))
 	attention_masks = torch.randint(0,2, (bsz , max_len)).bool()
 	token_type_ids = torch.randint(0,2, (bsz , max_len))
 
@@ -1046,7 +1046,11 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 			optim.step()
 			optim.zero_grad()
 
-			bsz += 1
+			#  keeping an even number of samples for this case
+			if model_type == "bert-interaction_pair_wise":
+				bsz += 2
+			else:
+				bsz +=1
 
 
 	except RuntimeError as e:
@@ -1057,11 +1061,6 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 			torch.cuda.empty_cache()
 
 			max_samples_per_gpu = bsz - 2
-
-			# In the following case we need an even number of samples in any case
-			if model_type == "bert-interaction_pair_wise":
-				if max_samples_per_gpu % 2 == 1:
-					max_samples_per_gpu -= 1
 
 			return max_samples_per_gpu
 

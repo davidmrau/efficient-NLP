@@ -47,7 +47,7 @@ rank_model:
   trainable_weights: True
 msmarco:
   max_query_len: 64
-  max_complete_length: 510
+  max_complete_length: 512
 debug: False
 max_rank: 1000
 experiments_dir: "experiments_${dataset}"
