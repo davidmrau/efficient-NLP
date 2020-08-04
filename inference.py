@@ -31,7 +31,6 @@ def inference(cfg):
 	model = load_model(cfg, cfg.model_folder, device)
 
 
-	qrels_base = cfg.qrels.split('/')[-1]
 
 
 	# set minimum length in case of snrm
@@ -40,21 +39,32 @@ def inference(cfg):
 		min_len = cfg.snrm.n
 
 
-	cfg.model_folder += f'/{qrels_base}/'
-	os.makedirs(cfg.model_folder, exist_ok=True)
+	
 
 	# load data
 
 		#metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, add_params='-l 2')
 	#metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
+	
 
+	
 	if cfg.metric == 'mrr':
 		metric = MRR(cfg.qrels, 10)
 	elif cfg.metric == 'map':
+		
+		res_folder_base = cfg.qrels.split('/')[-1]
+		cfg.model_folder += f'/{res_folder_base}/'
 		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, save_all_path=cfg.model_folder)
+	elif cfg.metric == 'none':
+
+		res_folder_base = cfg.queries.split('/')[-1]
+		cfg.model_folder += f'/{res_folder_base}/'
+		metric = None
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 
+	
+	os.makedirs(cfg.model_folder, exist_ok=True)
 
 	print('Loading data...')
 
@@ -64,15 +74,18 @@ def inference(cfg):
 
 	
 	print('testing...')
-	metric_score = test(model, 'test', dataloaders, device, cfg.max_rank,
-                                                 0, metric=metric, writer=None, model_folder=cfg.model_folder)
+	if metric:
+		metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder)
+		print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
+
+		metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
+		with open(metrics_file_path, 'w') as out:
+			out.write(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
+	else:
+		scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder)
+		write_ranking_trec(scores, q_ids, cfg.model_folder + '/ranking.trec')
 
 
-	print(f'{qrels_base} {metric.name}:\t{metric_score}\n')
-
-	metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
-	with open(metrics_file_path, 'w') as out:
-		out.write(f'{qrels_base} {metric.name}:\t{metric_score}\n')
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()

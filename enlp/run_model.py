@@ -399,9 +399,10 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 
 
 
+# returns metric score if metric != None
+# if metric = None returns scores, qiids
 
-
-def test(model, mode, data_loaders, device, max_rank, total_trained_samples, metric, model_folder, reset=True, writer=None):
+def test(model, mode, data_loaders, device, max_rank, total_trained_sample, model_folder, reset=True, writer=None, metric=None):
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
 	else:
@@ -417,14 +418,14 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, met
 		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset, max_rank, pairwise = True)
 	else:
 		raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
-
-	metric_score = metric.score(scores, q_ids)
-
-	if writer:
-		writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
-	print(f'{mode} -  {metric.name}: {metric_score}')
-	return metric_score
-
+	if metric:
+		metric_score = metric.score(scores, q_ids)
+		if writer:
+			writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
+		print(f'{mode} -  {metric.name}: {metric_score}')
+		return metric_score
+	else:
+		return scores, q_ids
 
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
 		  l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
@@ -510,7 +511,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 				# Run also proper evaluation script
 				print('Running test: ')
 				metric_score = test(model, 'test', dataloaders, device, max_rank,
-																	total_trained_samples, metric, model_folder=model_folder, writer=writer)
+																	total_trained_samples, model_folder=model_folder, writer=writer, metric=metric)
 
 				if telegram:
 					telegram_message = model_folder + '\n' + f'Test Metric Score:\n{metric_score}'
