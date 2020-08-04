@@ -39,6 +39,10 @@ def inference(cfg):
 	if cfg.model == "snrm":
 		min_len = cfg.snrm.n
 
+
+	cfg.model_folder += f'/{qrels_base}/'
+	os.makedirs(cfg.model_folder, exist_ok=True)
+
 	# load data
 
 		#metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, add_params='-l 2')
@@ -47,33 +51,21 @@ def inference(cfg):
 	if cfg.metric == 'mrr':
 		metric = MRR(cfg.qrels, 10)
 	elif cfg.metric == 'map':
-		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank)
+		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, save_all_path=cfg.model_folder)
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 
 
+	print('Loading data...')
 
-	docs_fi = FileInterface(cfg.docs)
 
-	query_batch_generator = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.batch_size_test, is_query=True)
-	docs_batch_generator = RankingResultsTest(cfg.ranking_results, docs_fi, cfg.batch_size_test, is_query=False)
 	dataloaders = {}
-	dataloaders['test'] = [query_batch_generator, docs_batch_generator]
+	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=cfg.msmarco.max_query_len, max_complete_length=cfg.msmarco.max_complete_length)
 
-
-	cfg.model_folder += f'/{qrels_base}/'
-	os.makedirs(cfg.model_folder, exist_ok=True)
-	scores, q_ids, d_ids, metric_score = test(model, 'test', dataloaders, device, cfg.max_rank,
-                                                 0, metric=metric, writer=None)
-
-	ranking_file_path = f'{cfg.model_folder}/re_ranking'
-
-	write_ranking(scores, q_ids, ranking_file_path)
-	write_ranking_trec(scores, q_ids, ranking_file_path +'.trec')
-	plot_ordered_posting_lists_lengths(cfg.model_folder, q_reprs, 'query')
-	plot_histogram_of_latent_terms(cfg.model_folder, q_reprs, 'query')
-	plot_ordered_posting_lists_lengths(cfg.model_folder, d_reprs, 'docs')
-	plot_histogram_of_latent_terms(cfg.model_folder, d_reprs, 'docs')
+	
+	print('testing...')
+	metric_score = test(model, 'test', dataloaders, device, cfg.max_rank,
+                                                 0, metric=metric, writer=None, model_folder=cfg.model_folder)
 
 
 	print(f'{qrels_base} {metric.name}:\t{metric_score}\n')
