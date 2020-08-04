@@ -402,7 +402,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 # returns metric score if metric != None
 # if metric = None returns scores, qiids
 
-def test(model, mode, data_loaders, device, max_rank, total_trained_sample, model_folder, reset=True, writer=None, metric=None):
+def test(model, mode, data_loaders, device, max_rank, total_trained_samples, model_folder, reset=True, writer=None, metric=None):
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
 	else:
