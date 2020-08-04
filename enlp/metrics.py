@@ -34,7 +34,7 @@ class MRR(Metric):
 	def write_scores(self, scores, qids):
 		write_ranking(scores, qids, self.tmp_ranking_file)
 		if self.file_path:
-			write_ranking(scores, qids, self.file_path + '.trec')
+			write_ranking(scores, qids, self.file_path)
 
 
 	def score(self, scores, qids):
