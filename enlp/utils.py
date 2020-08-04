@@ -21,6 +21,8 @@ from enlp.models.rank_model import RankModel
 from enlp.models.bert_based import BERT_based
 from enlp.models.snrm import SNRM
 from enlp.models.bert import BERT_inter
+import collections
+
 matplotlib.use('Agg')
 #
 # from https://gist.github.com/stefanonardo/693d96ceb2f531fa05db530f3e21517d
@@ -154,7 +156,7 @@ def offset_dict_len(filename):
 def utilize_pretrained_bert(cfg):
 	params_to_copy = {}
 
-	# the model might be "tf" or "bert". We need to handle each case dynamically
+	# the model might be "tf" or "bert". We n/eed to handle each case dynamically
 	model_name = cfg.__getattr__("model")
 
 	load_bert_layers = cfg.__getattr__(model_name).__getattr__("load_bert_layers")
@@ -172,8 +174,12 @@ def utilize_pretrained_bert(cfg):
 		if load_bert_path == 'default':
 			model = transformers.BertModel.from_pretrained('bert-base-uncased')
 		else:
-			model = torch.load(load_bert_path)
-
+			model =  transformers.BertModel.from_pretrained(load_bert_path)
+		
+		#if isinstance(model, torch.nn.DataParallel):
+		#	model = model.module
+		#model = model.to('cpu')
+	
 		model_state_dict = model.state_dict()
 
 		# update the number of layers, depending on the layers that need to be copied
@@ -1071,18 +1077,24 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 
 
 
-def load_model(cfg, load_model_folder, device, state_dict=False):
+def load_model(cfg, load_model_folder, device):
 	cfg.embedding = 'random'
-	model, device, n_gpu = instantiate_model(cfg)
-	if not state_dict:
-		model_old = torch.load(load_model_folder + '/best_model.model', map_location=device)
+	model, device, n_gpu, _ = instantiate_model(cfg)
+	state_dict = torch.load(load_model_folder + '/best_model.model', map_location=device)
 
-		if isinstance(model_old, torch.nn.DataParallel):
-			model_old = model_old.module
+	if isinstance(state_dict, torch.nn.DataParallel):
+		state_dict = state_dict.module
 
-		state_dict = model_old.state_dict()
-		model.load_state_dict(state_dict)
-	else:
-		model.load_state_dict(torch.load(load_model_folder + '/best_model_state_dict.model'))
+	if not isinstance(state_dict, collections.OrderedDict):
+		state_dict = state_dict.state_dict()
+
+	new_state_dict = collections.OrderedDict()
+	for k, v in state_dict.items():
+		if 'module.' in k:
+			k = k.replace('module.', '')
+		new_state_dict[k] = v
+	state_dict = new_state_dict
+
+	model.load_state_dict(state_dict)
 
 	return model
