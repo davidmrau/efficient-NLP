@@ -6,4 +6,4 @@ DOCS_FILE=data/docs/msmarco-docs.tsv
 QUERY_FILE=data/orcas/orcas-doctrain-queries.tsv
 BATCH_SIZE=4
 
-python3 run_language_modeling.py --model_type=bert --output_dir=experiments_lm/relevance_embedding_bert_orcas --train_data_file=$TRAIN_FILE --eval_data_file=$TEST_FILE --mlm --do_train --do_eval --per_gpu_train_batch_size=$BATCH_SIZE  --per_gpu_eval_batch_size=$BATCH_SIZE  --model_name_or_path=bert-base-uncased --ratio_first_second=0.8 --docs_path=$DOCS_FILE --query_path=$QUERY_FILE --mlm_probability=0.5 --exclude
+python3 run_language_modeling.py --model_type=bert --output_dir=experiments_lm/relevance_embedding_bert_orcas_all_q --train_data_file=$TRAIN_FILE --eval_data_file=$TEST_FILE --mlm --do_train --do_eval --per_gpu_train_batch_size=$BATCH_SIZE  --per_gpu_eval_batch_size=$BATCH_SIZE  --model_name_or_path=bert-base-uncased --ratio_first_second=0.8 --docs_path=$DOCS_FILE --query_path=$QUERY_FILE --mlm_probability=0.5 --exclude --save_total_limit=5 --warmup_steps=1000 --save_steps 2000 --learning_rate 1e-5 --num_train_epochs 5
