@@ -63,8 +63,11 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	print('Loading data...')
 	# initialize dataloaders
 
+
+
+
+	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
 	#metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
-	metric = MRR(cfg.robust_qrel_test, cfg.max_rank)
 	print('done')
 
 
