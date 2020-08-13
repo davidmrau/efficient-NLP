@@ -107,7 +107,11 @@ class Tokenizer():
 	def get_word_ids(self, word):
 		
 		if self.tokenizer == "bert":
-			return self.bert_tokenizer.encode(word)[1:-1]
+			token_id = self.bert_tokenizer.encode(word)[1:-1]
+			if token_id[0] == self.unk_word_id:
+				with open(self.unk_words_filename, "a") as myfile:
+					myfile.write(word + "\n")
+			return token_id
 
 		if self.tokenizer == "glove":
 			if word in self.glove_word2idx:
