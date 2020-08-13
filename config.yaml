@@ -79,7 +79,7 @@ robust_query_train: '${data_path}/robust04/AOL-queries-all_spaces_${embedding}_s
 robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt.strong_triples'
+robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_pairwise'
 weak_min_results: 2
 sampler: 'uniform'
 target: 'binary'
@@ -87,7 +87,7 @@ top_k_per_query: -1
 samples_per_query: -1
 dataset: ''
 trec_eval: 'trec_eval'
-num_folds: 5
+folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
 margin: 1
 sample_j: False
 single_sample: False

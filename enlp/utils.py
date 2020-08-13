@@ -122,20 +122,6 @@ def split_dataset(train_val_ratio, dataset):
 	return train_dataset, validation_dataset
 
 
-
-def gen_folds(dataset_len, num_folds):
-	folds = list()
-	rand_indices = list(range(dataset_len))
-	random.shuffle(rand_indices)
-	for i in range(1,num_folds+1):
-		# train the model
-		from_ = dataset_len*(i-1)//num_folds
-		to_ = int(np.floor(dataset_len*i/num_folds))
-		test_indices = rand_indices[from_:to_]
-		train_indices = rand_indices[:from_] + rand_indices[to_:]
-		folds.append([train_indices, test_indices])
-	return folds
-
 def file_len(fname):
 	""" Get the number of lines from file
 	""" # https://stackoverflow.com/questions/845058/how-to-get-line-count-of-a-large-file-cheaply-in-python

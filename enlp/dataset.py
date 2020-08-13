@@ -166,7 +166,7 @@ class MSMarcoTrain(data.Dataset):
 			self.id2doc = FileInterface(id2doc)
 
 		self.max_query_len = max_query_len
-		self.max_doc_len = max_complete_length - max_query_len if max_complete_length != -1 else -1
+		self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
 
 	def __len__(self):
 		return len(self.triplets)
@@ -180,10 +180,9 @@ class MSMarcoTrain(data.Dataset):
 		doc2 = self.id2doc.get_tokenized_element(d2_id)
 
 		# truncating queries and documents:
-		query = query[:self.max_query_len]
-		doc1 = doc1[:self.max_doc_len]
-		doc2 = doc2[:self.max_doc_len]
-
+		query = query if self.max_query_len is None else query[:self.max_query_len]
+		doc1 = doc1 if self.max_doc_len is None else doc1[:self.max_doc_len]
+		doc2 = doc2 if self.max_doc_len is None else doc2[:self.max_doc_len]
 		if random.random() > 0.5:
 			return [query, doc1, doc2], 1
 		else:
@@ -756,13 +755,18 @@ def get_data_loaders_robust(cfg):
 
 	return dataloaders
 
-def get_data_loaders_robust_strong(cfg, indices_train, indices_test, docs_fi, query_fi, ranking_results_fi, sample_random):
+def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, max_q_len, max_d_len):
 
 
 	dataloaders = {}
 
 	#indices_test = indices_train
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-	dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
+	#dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
+
+	train_dataset = MSMarcoTrain(ranking_results, docs_fi, query_fi, max_query_len = max_q_len, max_complete_length = max_d_len)
+
+	
+	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test)
 	return dataloaders
