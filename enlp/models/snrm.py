@@ -60,7 +60,8 @@ class SNRM(nn.Module):
             out_list.append(output)
 
         # stack to tensor
-        out = torch.stack(out_list)
+        
+        out = torch.cat(out_list, dim = 1)
 
 
         out = out.view(-1, self.hidden_sizes[0])
