@@ -338,10 +338,11 @@ def collate_fn_padd_triples(batch):
 
 
 		q, doc1, doc2 = item[0]
-		batch_q.append(torch.IntTensor(q))
-		batch_doc1.append(torch.IntTensor(doc1))
-		batch_doc2.append(torch.IntTensor(doc2))
-		batch_targets.append(item[1])
+		if doc1 is not None and doc2 is not None:
+			batch_q.append(torch.IntTensor(q))
+			batch_doc1.append(torch.IntTensor(doc1))
+			batch_doc2.append(torch.IntTensor(doc2))
+			batch_targets.append(item[1])
 
 	batch_data = batch_q + batch_doc1 + batch_doc2
 	# in case this batch does not contain any samples, then we return None
