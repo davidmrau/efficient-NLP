@@ -30,9 +30,8 @@ def write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f):
 
 def generate_triplets(args):
 
-	out_fname = "test_set_triplets"
 
-	out_fname += "_pointwise" if args.pointwise else "_pairwise"
+	out_fname = "_pointwise" if args.pointwise else "_pairwise"
 
 	qrels = defaultdict(lambda: defaultdict(list))
 
@@ -63,27 +62,26 @@ def generate_triplets(args):
 	# qrels do not contain enough irrelevant documents,
 	# so we will add some from the top-1000 that are not classified as relevant
 
+	if args.top_1000_file != 'none':
 
-	for line in open(args.top_1000_file, 'r'):
+		for line in open(args.top_1000_file, 'r'):
 
-		line = line.split()
-		q_id = line[0]
-		d_id = line[2]
+			line = line.split()
+			q_id = line[0]
+			d_id = line[2]
 
-		# if we haven't read this document id already from the qrels file
-		if d_id not in qrels[q_id][0] and d_id not in qrels[q_id][1] and d_id not in qrels[q_id][2] and d_id not in qrels[q_id][3]:
-			qrels[q_id][-1].append(d_id)
+			# if we haven't read this document id already from the qrels file
+			if d_id not in qrels[q_id][0] and d_id not in qrels[q_id][1] and d_id not in qrels[q_id][2] and d_id not in qrels[q_id][3]:
+				qrels[q_id][-1].append(d_id)
 
 
-	out_f = open(out_fname, 'w')
-
+	out_f = open(args.qrels_file + out_fname, 'w')
 	for q_id in qrels:
 		perfectly_relevant = qrels[q_id][3]
 		higly_relevant = qrels[q_id][2]
 		related = qrels[q_id][1]
 		irrelevant = qrels[q_id][0]
 		irrelevant_top_1000 = qrels[q_id][-1]
-
 		if args.pointwise:
 			relevant = perfectly_relevant + higly_relevant
 
@@ -136,7 +134,7 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--qrels_file', type=str)
-	parser.add_argument('--top_1000_file', type=str)
+	parser.add_argument('--top_1000_file', type=str, default='none')
 	parser.add_argument('--pointwise', action='store_true')
 	args = parser.parse_args()
 
