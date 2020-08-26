@@ -27,8 +27,8 @@ class TrecEval(object):
 			with open(self.save_all_path, 'w') as f:
 				f.write(output)
 
+		print(output)
 		output = output.replace('\t', ' ').split('\n')
-
 		for line in output:
 			if line.startswith('map'):
 				return float(line.split()[2])

@@ -10,7 +10,7 @@ from enlp.utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_hi
 
 def log_progress(mode, total_trained_samples, currently_trained_samples, samples_per_epoch, loss, l1_loss,
 				 balance_loss, total_loss, l0_q, l0_docs, acc, writer=None):
-	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss))
+	print("{}  {}/{} total loss: {:.4f}, task loss: {:.4f}, l1 loss: {:.4f}, balance loss: {:.4f}, acc: {:.4f}".format(mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss, acc))
 	if writer:
 		# update tensorboard
 		writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
@@ -26,6 +26,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			  total_trained_samples, device, optim=None, samples_per_epoch=10000, log_every_ratio=0.01,
 			  max_samples_per_gpu = 16, n_gpu = 1):
 	"""Train 1 epoch, and evaluate every 1000 total_training_steps. Tensorboard is updated after every batch
+			continue
 
 	Returns
 	-------
@@ -140,8 +141,18 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				split_size = data.size(0) // 3
 				q_repr, doc1, doc2 = torch.split(data, split_size)
 				lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
-				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
-				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
+				#score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
+				#score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
+				d_concat = torch.cat((doc1, doc2), 0)
+				q_concat = torch.cat((q_repr, q_repr), 0)
+				lengths_q_concat = torch.cat((lengths_q, lengths_q), 0)
+				lengths_d_concat = torch.cat((lengths_d1, lengths_d2), 0)
+				scores = model(q_concat, d_concat, lengths_q_concat, lengths_d_concat)
+				split_size = scores.size(0) // 2
+				score_q_d1, score_q_d2 = torch.split(scores, split_size)
+				#print(score_q_d2.shape)
+				#print(targets.shape)
+				#print(targets)
 
 			elif model_type == "bert-interaction":
 				# apply model
@@ -187,14 +198,12 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			if model_type == "bert-interaction":
 				loss = loss_fn(relevance_out, targets)
 				acc = ((relevance_out[:, 1] > relevance_out[:, 0]).int() == targets).float().mean()
-
 			else:
 				# calculating loss
 				loss = loss_fn(score_q_d1, score_q_d2, targets)
-
 				# calculating classification accuracy (whether the correct document was classified as more relevant)
 				acc = (((score_q_d1 > score_q_d2).float() == targets).float() + (
-						(score_q_d2 > score_q_d1).float() == targets * -1).float()).mean()
+						(score_q_d2 >= score_q_d1).float() == targets * -1).float()).mean()
 
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
@@ -332,7 +341,7 @@ def get_repr_inter(model, dataloader, device, max_rank):
 			scores += score.detach().cpu().tolist()
 			d_ids += batch_ids_d
 			# we want to return each query only once for all ranked documents for this query
-			if len(q_ids) == 0:	
+			if len(q_ids) == 0:
 				q_ids += q_id
 	if len(q_ids) < 1:
 		return None, None, None
@@ -378,7 +387,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 			scores += score.detach().cpu().tolist()
 			d_ids += d_batch_ids
 			# we want to return each query only once for all ranked documents for this query
-			if len(q_ids) == 0:	
+			if len(q_ids) == 0:
 				q_ids += q_id
 
 		if len(q_ids) < 1:
@@ -496,7 +505,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			if bottleneck_run:
 				print('Bottleneck run, stopping now!')
 				break
-				
+
 			else:
 
 				if validate:

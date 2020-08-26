@@ -1069,8 +1069,6 @@ def load_model(cfg, load_model_folder, device):
 	model, device, n_gpu, _ = instantiate_model(cfg)
 	state_dict = torch.load(load_model_folder + '/best_model.model', map_location=device)
 
-
-
 	if not isinstance(state_dict, collections.OrderedDict):
 
 		if isinstance(state_dict, torch.nn.DataParallel):
@@ -1078,13 +1076,16 @@ def load_model(cfg, load_model_folder, device):
 		state_dict = state_dict.state_dict()
 
 	new_state_dict = collections.OrderedDict()
-	if n_gpu < 2:
-		for k, v in state_dict.items():
+	for k, v in state_dict.items():
+	
+		if n_gpu < 2:
 			if 'module.' in k:
 				k = k.replace('module.', '')
-			new_state_dict[k] = v
-		state_dict = new_state_dict
+		else:
+			if 'module.' not in k:
+				k = 'module.' + k
+		new_state_dict[k] = v
+	state_dict = new_state_dict
 
 	model.load_state_dict(state_dict)
-
 	return model

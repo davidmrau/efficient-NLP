@@ -62,15 +62,22 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	# initialize tensorboard
 	print('Loading data...')
 	# initialize dataloaders
-
-	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank, add_params='-l 2')
+	if cfg.dataset == 'msmarco':
+		add_params= '-l 2'
+	else:
+		add_params = ''
+	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank, add_params=add_params)
 	print('done')
 	max_len = 1500
 
 #	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 #	folds = gen_folds(dataset_len, cfg.num_folds)
-
-	folds = pickle.load(open(cfg.folds_file, 'rb'))
+	if cfg.debug:
+		cfg.robust_ranking_results_strong += '_debug'
+		folds = [[None, None], [None, None], [None, None], [None, None], [None, None]]
+		cfg.robust_ranking_results_test = 'data/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results_debug'
+	else:
+		folds = pickle.load(open(cfg.folds_file, 'rb'))
 	docs_fi = FileInterface(cfg.robust_docs)
 	query_fi = FileInterface(cfg.robust_query_test)
 
@@ -79,7 +86,8 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	fold_count = -1
 
 	for i, (indices_train, indices_test) in enumerate(folds):
-
+		#if i  < 2 :
+		#	continue
 		ranking_results = f'{cfg.robust_ranking_results_strong}_{i}'
 		fold_count += 1
 		completed_model_folder = f'{completed_model_folder_general}/{i}/'
@@ -119,6 +127,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		model, device, n_gpu, vocab_size = instantiate_model(cfg)
 		# initialize loss function
 		loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
+		#loss_fn = nn.MSELoss().to(device)
 
 		# initialize optimizer
 		optim = Adam(model.parameters(), lr=cfg.lr)
@@ -145,8 +154,9 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 		metric_scores.append(metric_score)
 
+		os.makedirs(completed_model_folder, exist_ok=True)
 		os.renames(temp_model_folder, completed_model_folder)
-	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised', np.mean(metric_scores), 0).close()
+	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised {np.mean(metric_scores)}').close()
 
 	# after the training is done, we remove the temp prefix from the dir name
 	print("Training completed! Changing from temporary name to final name.")

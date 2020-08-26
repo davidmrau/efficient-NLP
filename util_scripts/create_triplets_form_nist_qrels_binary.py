@@ -108,24 +108,24 @@ def generate_triplets(args):
 			# perfectly_relevant - related
 			write_all_combinations_in_triplets(q_id, perfectly_relevant, related, out_f)
 			# perfectly_relevant - irrelevant
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant, out_f)
+			#write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant, out_f)
 			# perfectly_relevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant_top_1000, out_f)
+			#write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant_top_1000, out_f)
 
 			# higly_relevant - related
 			write_all_combinations_in_triplets(q_id, higly_relevant, related, out_f)
 			# higly_relevant - irrelevant
-			write_all_combinations_in_triplets(q_id, higly_relevant, irrelevant, out_f)
+			#write_all_combinations_in_triplets(q_id, higly_relevant, irrelevant, out_f)
 			# higly_relevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, higly_relevant, irrelevant_top_1000, out_f)
+			#write_all_combinations_in_triplets(q_id, higly_relevant, irrelevant_top_1000, out_f)
 
 			# related - irrelevant
-			write_all_combinations_in_triplets(q_id, related, irrelevant, out_f)
+			#write_all_combinations_in_triplets(q_id, related, irrelevant, out_f)
 			# related - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, related, irrelevant_top_1000, out_f)
+			#write_all_combinations_in_triplets(q_id, related, irrelevant_top_1000, out_f)
 
 			# irrelevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, irrelevant, irrelevant_top_1000, out_f)
+			#write_all_combinations_in_triplets(q_id, irrelevant, irrelevant_top_1000, out_f)
 
 
 

@@ -55,7 +55,6 @@ class EmbeddingWeightedAverage(nn.Module):
 		mask = mask.unsqueeze(-1).float()
 		# calculate the weight of each term
 		weights = self.weights(inp)
-
 		# normalize the weights
 		weights = torch.nn.functional.softmax(weights.masked_fill((1 - mask).bool(), float('-inf')), dim=1)
 
@@ -65,7 +64,6 @@ class EmbeddingWeightedAverage(nn.Module):
 		mask = mask.repeat(1,1,values.size(-1))
 		# we first calculate the weighted sum
 		weighted_average = (weights * values * mask).sum(dim = 1)
-
 		return weighted_average
 
 

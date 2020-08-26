@@ -56,7 +56,8 @@ class MAPTrec(Metric):
 	def write_scores(self, scores, qids):
 		write_ranking_trec(scores, qids, self.tmp_ranking_file)
 		if self.file_path:
-			write_ranking(scores, qids, self.file_path + '.trec')
+			write_ranking(scores, qids, self.file_path + '.tsv')
+			write_ranking_trec(scores, qids, self.file_path + '.trec')
 
 	def score(self, scores, qids):
 		self.write_scores(scores, qids)

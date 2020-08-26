@@ -178,7 +178,6 @@ class MSMarcoTrain(data.Dataset):
 		query = self.id2query.get_tokenized_element(q_id)
 		doc1 = self.id2doc.get_tokenized_element(d1_id)
 		doc2 = self.id2doc.get_tokenized_element(d2_id)
-
 		# truncating queries and documents:
 		query = query if self.max_query_len is None else query[:self.max_query_len]
 		doc1 = doc1 if self.max_doc_len is None else doc1[:self.max_doc_len]
@@ -212,7 +211,7 @@ class RankingResultsTest:
 		self.index = 0
 
 		self.max_query_len = max_query_len
-		self.max_doc_len = max_complete_length - max_query_len if max_complete_length != -1 else -1
+		self.max_doc_len = None if max_complete_length is None else max_complete_length - max_query_len
 
 	def reset(self):
 		self.ranking_results.seek(0)
@@ -343,7 +342,7 @@ class RankingResultsTest:
 
 				doc_data = self.id2doc.get_tokenized_element(doc_id)
 				# truncate document data 
-				if self.max_doc_len != -1:
+				if self.max_doc_len != None:
 					doc_data = doc_data[:self.max_doc_len]
 
 				if doc_data is not None:
@@ -354,7 +353,7 @@ class RankingResultsTest:
 					q_id = [curr_q_id]
 					q_data = self.id2query.get_tokenized_element(curr_q_id)
 					# truncate query
-					if self.max_query_len != -1:
+					if self.max_query_len != None:
 						q_data = q_data[:self.max_query_len]
 
 
@@ -767,6 +766,6 @@ def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking
 	train_dataset = MSMarcoTrain(ranking_results, docs_fi, query_fi, max_query_len = max_q_len, max_complete_length = max_d_len)
 
 	
-	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
+	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers, shuffle=True)
 	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test)
 	return dataloaders

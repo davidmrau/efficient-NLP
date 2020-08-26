@@ -5,7 +5,7 @@ from omegaconf import OmegaConf
 
 matplotlib.use('Agg')
 import os
-
+import pickle
 
 from enlp.utils import write_ranking, write_ranking_trec, plot_histogram_of_latent_terms, \
 	plot_ordered_posting_lists_lengths, load_model
@@ -51,10 +51,10 @@ def inference(cfg):
 	if cfg.metric == 'mrr':
 		metric = MRR(cfg.qrels, 10)
 	elif cfg.metric == 'map':
-		
-		res_folder_base = cfg.qrels.split('/')[-1]
+		add_params = '-l 2' if cfg.dataset == 'msmarco' else ''	
+		res_folder_base = cfg.ranking_results.split('/')[-1]
 		cfg.model_folder += f'/{res_folder_base}/'
-		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, save_all_path=cfg.model_folder)
+		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, save_all_path=cfg.model_folder, add_params=add_params)
 	elif cfg.metric == 'none':
 
 		res_folder_base = cfg.queries.split('/')[-1]
@@ -68,9 +68,9 @@ def inference(cfg):
 
 	print('Loading data...')
 
-
+	folds = pickle.load(open(cfg.folds_file, 'rb'))
 	dataloaders = {}
-	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=cfg.msmarco.max_query_len, max_complete_length=cfg.msmarco.max_complete_length)
+	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=None if cfg.dataset == 'robust04' else cfg.msmarco.max_query_len, max_complete_length=None if cfg.dataset == 'robust04' else cfg.msmarco.max_complete_length, indices=folds[0][1])
 
 	
 	print('testing...')
@@ -84,6 +84,7 @@ def inference(cfg):
 	else:
 		scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder)
 		write_ranking_trec(scores, q_ids, cfg.model_folder + '/ranking.trec')
+		write_ranking(scores, q_ids, cfg.model_folder + '/ranking.tsv')
 
 
 if __name__ == "__main__":
