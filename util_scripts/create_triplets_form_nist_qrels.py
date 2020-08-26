@@ -74,16 +74,20 @@ def generate_triplets(args):
 			if d_id not in qrels[q_id][0] and d_id not in qrels[q_id][1] and d_id not in qrels[q_id][2] and d_id not in qrels[q_id][3]:
 				qrels[q_id][-1].append(d_id)
 
+	out_f_name = args.qrels_file + out_fname
+	if args.binary_pairwise:
+		out_f_name += '_binary'
 
-	out_f = open(args.qrels_file + out_fname + "_rel", 'w')
+	out_f = open(out_f_name,  'w')
 	for q_id in qrels:
 		perfectly_relevant = qrels[q_id][3]
-		higly_relevant = qrels[q_id][2]
+		highly_relevant = qrels[q_id][2]
 		related = qrels[q_id][1]
 		irrelevant = qrels[q_id][0]
 		irrelevant_top_1000 = qrels[q_id][-1]
+
 		if args.pointwise:
-			relevant = perfectly_relevant + higly_relevant
+			relevant = perfectly_relevant + highly_relevant
 
 			irrelevant = related + irrelevant + irrelevant_top_1000
 
@@ -98,13 +102,14 @@ def generate_triplets(args):
 			for rel_id, irrel_id in zip(relevant, irrelevant):
 
 				out_f.write(q_id + '\t' + rel_id + '\t' + irrel_id + "\n")
-
+		elif args.binary_pairwise:
+			relevant = perfectly_relevant + highly_relevant + related 
+			write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f)
 		else:
-
 			# generate pairs using all relevance hierarchy combinations:
 
-			# perfectly_relevant - higly_relevant
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, higly_relevant, out_f)
+			# perfectly_relevant - highly_relevant
+			write_all_combinations_in_triplets(q_id, perfectly_relevant, highly_relevant, out_f)
 			# perfectly_relevant - related
 			write_all_combinations_in_triplets(q_id, perfectly_relevant, related, out_f)
 			# perfectly_relevant - irrelevant
@@ -112,12 +117,12 @@ def generate_triplets(args):
 			# perfectly_relevant - irrelevant_top_1000
 			write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant_top_1000, out_f)
 
-			# higly_relevant - related
-			write_all_combinations_in_triplets(q_id, higly_relevant, related, out_f)
-			# higly_relevant - irrelevant
-			write_all_combinations_in_triplets(q_id, higly_relevant, irrelevant, out_f)
-			# higly_relevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, higly_relevant, irrelevant_top_1000, out_f)
+			# highly_relevant - related
+			write_all_combinations_in_triplets(q_id, highly_relevant, related, out_f)
+			# highly_relevant - irrelevant
+			write_all_combinations_in_triplets(q_id, highly_relevant, irrelevant, out_f)
+			# highly_relevant - irrelevant_top_1000
+			write_all_combinations_in_triplets(q_id, highly_relevant, irrelevant_top_1000, out_f)
 
 			# related - irrelevant
 			write_all_combinations_in_triplets(q_id, related, irrelevant, out_f)
@@ -134,10 +139,13 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--qrels_file', type=str)
+	parser.add_argument('--binary_pairwise', action='store_true')
 	parser.add_argument('--top_1000_file', type=str, default='none')
 	parser.add_argument('--pointwise', action='store_true')
 	args = parser.parse_args()
-
+	    
+	for arg in vars(args):
+		print(arg, ':', getattr(args, arg))
 	# args.qrels_file = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/msmarco/2019qrels-pass.txt"
 
 	# args.top_1000_file = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv"
