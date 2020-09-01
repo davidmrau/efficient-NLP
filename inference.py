@@ -44,7 +44,7 @@ def inference(cfg):
 	# load data
 
 		#metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, add_params='-l 2')
-	#metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
+	# metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
 	
 
 	
@@ -91,12 +91,19 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 	# getting model config
-	if not cl_cfg.model_folder or not cl_cfg.docs or not cl_cfg.queries or not cl_cfg.ranking_results or not cl_cfg.metric :
-		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH ")
+	# if not cl_cfg.model_folder or not cl_cfg.docs or not cl_cfg.queries or not cl_cfg.ranking_results or not cl_cfg.metric :
+	# 	raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH ")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 	cfg_default = OmegaConf.load('config.yaml')
 	cfg = OmegaConf.merge(cfg_default, cfg)
+
+	if cfg.rerank_top_N is None:
+		cfg.rerank_top_N = -1 
+
+	# print(cfg.rerank_top_N)
+
+	# exit()
 	inference(cfg)

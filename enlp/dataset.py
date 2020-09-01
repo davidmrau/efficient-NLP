@@ -397,7 +397,7 @@ class RankingResultsTest:
 class WeakSupervision(IterableDataset):
 	def __init__(self, weak_results_fi, documents_fi, queries_fi, top_k_per_query=-1, sampler = 'uniform', target='binary',
 			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True, indices_to_use = None,
-			sample_j = False):
+			sample_j = False, sample_random = False):
 
 		# "open" triplets file
 		self.weak_results_file = weak_results_fi
@@ -458,6 +458,9 @@ class WeakSupervision(IterableDataset):
 		else:
 			self.query_indices = indices_to_use
 
+		# whether to also generate triplets using a relevand and a random strong negative document from corpus
+		self.sample_random = sample_random
+
 	def __len__(self):
 		raise NotImplementedError()
 
@@ -514,17 +517,19 @@ class WeakSupervision(IterableDataset):
 				else:
 					continue
 
-				# get the first of the candidates in order to be matched with a random negative document
-				result1 = candidates[0]
+				if self.sample_random:
 
-				# add the relevant document id to the excluding list if we haven't already
-				if self.strong_negatives == False:
-					rel_doc_id = result1[0]
-					relevant_doc_ids_set = {rel_doc_id}
+					# get the first of the candidates in order to be matched with a random negative document
+					result1 = candidates[0]
 
-				negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
+					# add the relevant document id to the excluding list if we haven't already
+					if self.strong_negatives == False:
+						rel_doc_id = result1[0]
+						relevant_doc_ids_set = {rel_doc_id}
 
-				yield self.generate_triplet(query, [result1, negative_result])
+					negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
+
+					yield self.generate_triplet(query, [result1, negative_result])
 
 			#  if we are generating all combinations from samples_per_query candidates with all the candidates samples
 			# (plus 1 negative sample for each of the afforementioned samples)
@@ -567,15 +572,16 @@ class WeakSupervision(IterableDataset):
 
 							yield self.generate_triplet(query, [candidate1, candidate2])
 
-							# yield triplet of irrelevants
-							# add the relevant document id to the excluding list if we haven't already
-							if self.strong_negatives == False:
-								rel_doc_id = candidate1[0]
-								relevant_doc_ids_set = {rel_doc_id}
+							if self.sample_random:
+								# yield triplet of irrelevants
+								# add the relevant document id to the excluding list if we haven't already
+								if self.strong_negatives == False:
+									rel_doc_id = candidate1[0]
+									relevant_doc_ids_set = {rel_doc_id}
 
-							negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
+								negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
 
-							yield self.generate_triplet(query, [candidate1, negative_result])
+								yield self.generate_triplet(query, [candidate1, negative_result])
 
 
 # target value calculation functions
@@ -733,19 +739,24 @@ def get_data_loaders_robust(cfg):
 
 	dataset_len = offset_dict_len(ranking_results_train)
 
-	indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
-	# dataset = WeakSupervision(cfg.robust_ranking_results_train, docs_fi, cfg.robust_query_train, sampler = cfg.sampler, target=cfg.target)
+	if cfg.weak_overfitting_test:
+		# using the first query for training and validating
+		indices_train = [0]
+		indices_val = [0]
+	else:
+		# calculate train and validation size according to train_val_ratio
+		indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
 
 	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, single_sample=cfg.single_sample,
-					 shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j, min_results=cfg.weak_min_results)
+					 shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j, min_results=cfg.weak_min_results,
+					 sample_random = cfg.sample_random)
 
 	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True,
-					shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query, min_results=cfg.weak_min_results)
+					shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query, min_results=cfg.weak_min_results,
+					sample_random = cfg.sample_random)
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
-	# calculate train and validation size according to train_val_ratio
-	# train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 

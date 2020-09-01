@@ -94,3 +94,4 @@ single_sample: False
 telegram: False
 max_samples_per_gpu: -1
 sample_random: False
+weak_overfitting_test: False

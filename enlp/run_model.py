@@ -247,7 +247,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 
 
-def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank):
+def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank, rerank_top_N = -1):
 	scores = list()
 	for batch_q_repr in q_reprs:
 		batch_len = len(batch_q_repr)
@@ -262,6 +262,11 @@ def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 		# now we will sort the documents by relevance, for each query
 		for i in range(batch_len):
 			tuples_of_doc_ids_and_scores = [(doc_id, score) for doc_id, score in zip(doc_ids, q_score_lists[i])]
+
+			# we will only re-rank the top N docs, if specified
+			if rerank_top_N != -1:
+				tuples_of_doc_ids_and_scores = tuples_of_doc_ids_and_scores[: rerank_top_N]
+
 			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
 			if max_rank != -1:
 				sorted_by_relevance = sorted_by_relevance[:max_rank]
@@ -293,7 +298,7 @@ def get_rerank_representations(model, dataloader, device):
 		return None, None, None, None, None, None, None, None
 
 
-def scores_representation_based(model, dataloader, device, writer, max_rank, total_trained_samples, reset, model_folder, mode, plot=True):
+def scores_representation_based(model, dataloader, device, writer, max_rank, total_trained_samples, reset, model_folder, mode, plot=True, rerank_top_N = -1):
 
 	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
 	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
@@ -306,7 +311,7 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 		q_repr, q_id, l0_q, l1_loss_q, d_repr, d_ids, l0_docs, l1_loss_docs = get_rerank_representations(model, dataloader, device)
 		if q_repr is None or d_repr is None:
 			break
-		scores += get_dot_scores(d_repr, d_ids, q_repr, max_rank)
+		scores += get_dot_scores(d_repr, d_ids, q_repr, max_rank, rerank_top_N)
 		q_ids += q_id
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
@@ -411,14 +416,15 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 # returns metric score if metric != None
 # if metric = None returns scores, qiids
 
-def test(model, mode, data_loaders, device, max_rank, total_trained_samples, model_folder, reset=True, writer=None, metric=None):
+def test(model, mode, data_loaders, device, max_rank, total_trained_samples, model_folder, reset=True, writer=None, metric=None, rerank_top_N=-1):
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
 	else:
 		model_type = model.model_type
 	# if the model provides an indipendednt representation for the input (query/doc)
 	if model_type == "representation-based":
-		scores, q_ids = scores_representation_based(model, data_loaders[mode], device, writer, max_rank, total_trained_samples, reset, model_folder, mode, plot=True)
+		scores, q_ids = scores_representation_based(model, data_loaders[mode], device, writer, max_rank, total_trained_samples, reset, model_folder,
+				mode, plot=True, rerank_top_N = rerank_top_N)
 	elif model_type == "interaction-based":
 		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset, max_rank)
 	elif model_type == "bert-interaction":
