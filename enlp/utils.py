@@ -868,6 +868,8 @@ def get_model_folder_name(cfg):
 				model_string += "_sample_j"
 			if cfg.single_sample:
 				model_string += "_single_sample"
+			if cfg.sample_random == False:
+				model_string += "_No_random_triplets"
 
 		# create experiment directory name
 		if cfg.model == "bert":

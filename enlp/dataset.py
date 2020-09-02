@@ -447,8 +447,13 @@ class WeakSupervision(IterableDataset):
 			# initialize common calculations
 			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
 			self.sampler_function = self.sample_zipf
+		# top-N sampling methods, refer to uniform probability to the top N candidates and very small probability to the rest of the canidates
+		elif "top-" in sampler:
+			N = int(sampler.split('-')[1])
+			self.sample_weights = np.asarray([1 for i in range(N)] + [0.0001 for i in range(self.max_candidates - N)])
+			self.sampler_function = self.sample_top_n_probabilistically
 		else:
-			raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf', 'linear'}, but :" + str( sampler))
+			raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf', 'linear', 'top-\{INTEGER}'}, but :" + str( sampler))
 		# having a calculated list of indices, that will be used while sampling
 		self.candidate_indices = list(range(self.max_candidates))
 
@@ -651,6 +656,19 @@ class WeakSupervision(IterableDataset):
 		if return_indices:
 			return sampled_indices
 		return [scores_list[i] for i in sampled_indices]
+
+	# top-N sampling methods, refer to uniform probability to the top N candidates and very small probability to the rest of the canidates
+	def sample_top_n_probabilistically(self, scores_list, n, return_indices = False):
+		length = len(scores_list)
+		indices = self.candidate_indices[:length]
+		# normalize sampling probabilities depending on the number of candidates
+		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
+		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
+		if return_indices:
+			return sampled_indices
+		return [scores_list[i] for i in sampled_indices]
+
+
 
 
 class MSMarcoLM(data.Dataset):
