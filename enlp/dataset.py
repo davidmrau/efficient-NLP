@@ -755,19 +755,27 @@ def get_data_loaders_robust(cfg):
 	weak_results_fi = FileInterface(ranking_results_train)
 	dataloaders = {}
 
-	dataset_len = offset_dict_len(ranking_results_train)
 
 	if cfg.weak_overfitting_test:
-		# using the first query for training and validating
-		indices_train = [0]
-		indices_val = [0]
+		# using all given queries both for training and validating
+		indices_train = None
+		indices_val = None
 	else:
 		# calculate train and validation size according to train_val_ratio
+		dataset_len = offset_dict_len(ranking_results_train)
 		indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
 
 	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, single_sample=cfg.single_sample,
 					 shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j, min_results=cfg.weak_min_results,
 					 sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query)
+
+	test_queries_fi = FileInterface(cfg.robust_query_test)
+
+	# if requested to validate on the weak results of the test set, then we change the FileInterface parameter values, and to be used all weak ranking results (indices)
+	if cfg.validate_on_weak_test_results:
+		queries_fi = test_queries_fi
+		weak_results_fi = FileInterface(cfg.robust_ranking_results_test)
+		indices_val = None
 
 	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True,
 					shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query, min_results=cfg.weak_min_results,
@@ -779,7 +787,7 @@ def get_data_loaders_robust(cfg):
 	dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, cfg.robust_query_test , docs_fi, cfg.batch_size_test)
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, test_queries_fi, docs_fi, cfg.batch_size_test)
 
 	return dataloaders
 
