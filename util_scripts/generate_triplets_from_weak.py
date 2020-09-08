@@ -229,12 +229,12 @@ class WeakTripletGenerator(object):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--size_limit', type=float, default=0.1, help="Define max size of generated triplets file in GB.")
-parser.add_argument('--queries_limit', type=int, default=100)
+parser.add_argument('--size_limit', type=float, default=None, help="Define max size of generated triplets file in GB.")
+parser.add_argument('--queries_limit', type=int, default=None)
 parser.add_argument('--sampler', type=str, default="uniform")
 parser.add_argument('--target', type=str, default="binary")
-parser.add_argument('--top_k_per_query', type=int, default=1000)
-parser.add_argument('--samples_per_query', type=int, default=1000)
+parser.add_argument('--top_k_per_query', type=int, default=100)
+parser.add_argument('--samples_per_query', type=int, default=-1)
 parser.add_argument('--no_shuffling', action='store_false')
 # parser.add_argument('--shuffle_at_end', type=int, default=1000)
 
