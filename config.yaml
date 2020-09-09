@@ -80,6 +80,7 @@ robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
 robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_pairwise'
+robust_triplets_path: '${data_path}/robust04/weak_overfitting/all/test_top_2000.csv_TRIPLETS_top_100'
 weak_min_results: 2
 sampler: 'uniform'
 target: 'binary'
@@ -96,3 +97,4 @@ max_samples_per_gpu: -1
 sample_random: False
 weak_overfitting_test: False
 validate_on_weak_test_results: False
+provided_triplets: False

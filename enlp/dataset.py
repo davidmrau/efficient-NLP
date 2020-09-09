@@ -151,7 +151,8 @@ class StrongData(IterableDataset):
 				target = self.target_function(result_1, result_2)
 				yield [query, result_1[2], result_2[2]], target
 
-class MSMarcoTrain(data.Dataset):
+# class MSMarcoTrain(data.Dataset):
+class TrainingTriplets(data.Dataset):
 	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510):
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
@@ -715,9 +716,9 @@ def get_data_loaders_msmarco(cfg):
 		triples = cfg.msmarco_triplets_train_debug
 	else:
 		triples = cfg.msmarco_triplets_train
-	print(triples)
+
 	dataloaders = {}
-	dataset = MSMarcoTrain(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train, \
+	dataset = TrainingTriplets(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train, \
 		max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
@@ -752,34 +753,54 @@ def get_data_loaders_robust(cfg):
 
 	docs_fi = FileInterface(cfg.robust_docs)
 	queries_fi = FileInterface(cfg.robust_query_train)
-	weak_results_fi = FileInterface(ranking_results_train)
 	dataloaders = {}
-
-
-	if cfg.weak_overfitting_test:
-		# using all given queries both for training and validating
-		indices_train = None
-		indices_val = None
-	else:
-		# calculate train and validation size according to train_val_ratio
-		dataset_len = offset_dict_len(ranking_results_train)
-		indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
-
-	train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, single_sample=cfg.single_sample,
-					 shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j, min_results=cfg.weak_min_results,
-					 sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query)
 
 	test_queries_fi = FileInterface(cfg.robust_query_test)
 
-	# if requested to validate on the weak results of the test set, then we change the FileInterface parameter values, and to be used all weak ranking results (indices)
-	if cfg.validate_on_weak_test_results:
-		queries_fi = test_queries_fi
-		weak_results_fi = FileInterface(cfg.robust_ranking_results_test)
-		indices_val = None
 
-	validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True,
-					shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query, min_results=cfg.weak_min_results,
-					sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query)
+	if cfg.provided_triplets:
+
+		if cfg.weak_overfitting_test:
+			queries_fi = test_queries_fi
+
+		triplets_train_path = cfg.robust_triplets_path + "_train"
+		triplets_val_path = cfg.robust_triplets_path + "_val"
+
+		train_dataset = TrainingTriplets(triplets_train_path, docs_fi, queries_fi, max_query_len = None, max_complete_length = None)
+		validation_dataset = TrainingTriplets(triplets_val_path, docs_fi, queries_fi, max_query_len = None, max_complete_length = None)
+
+		# dataset = TrainingTriplets(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train, max_query_len = None, max_complete_length = None)
+
+
+	else:
+
+
+		weak_results_fi = FileInterface(ranking_results_train)
+
+		if cfg.weak_overfitting_test:
+			# using all given queries both for training and validating
+			indices_train = None
+			indices_val = None
+		else:
+			# calculate train and validation size according to train_val_ratio
+			dataset_len = offset_dict_len(ranking_results_train)
+			indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
+
+		train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, single_sample=cfg.single_sample,
+						 shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j, min_results=cfg.weak_min_results,
+						 sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query)
+
+		# if requested to validate on the weak results of the test set, then we change the FileInterface parameter values, and to be used all weak ranking results (indices)
+		if cfg.validate_on_weak_test_results:
+			queries_fi = test_queries_fi
+			weak_results_fi = FileInterface(cfg.robust_ranking_results_test)
+			indices_val = None
+
+		validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True,
+						shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query, min_results=cfg.weak_min_results,
+						sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query)
+
+
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
@@ -800,7 +821,7 @@ def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	#dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 
-	train_dataset = MSMarcoTrain(ranking_results, docs_fi, query_fi, max_query_len = max_q_len, max_complete_length = max_d_len)
+	train_dataset = TrainingTriplets(ranking_results, docs_fi, query_fi, max_query_len = max_q_len, max_complete_length = max_d_len)
 
 	
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers, shuffle=True)

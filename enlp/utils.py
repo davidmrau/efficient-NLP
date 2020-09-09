@@ -861,15 +861,18 @@ def get_model_folder_name(cfg):
 			model_string += "_large_out_biases"
 
 		if cfg.dataset == "robust04":
-			model_string +=  '_sample_' + cfg.sampler + "_target_" + cfg.target
-			if cfg.samples_per_query != -1:
-				model_string += "_comb_of_" + str(cfg.samples_per_query)
-			if cfg.sample_j:
-				model_string += "_sample_j"
-			if cfg.single_sample:
-				model_string += "_single_sample"
-			if cfg.sample_random == False:
-				model_string += "_No_random_triplets"
+			if cfg.provided_triplets:
+				model_string += "_provided_triplets"
+			else:
+				model_string +=  '_sample_' + cfg.sampler + "_target_" + cfg.target
+				if cfg.samples_per_query != -1:
+					model_string += "_comb_of_" + str(cfg.samples_per_query)
+				if cfg.sample_j:
+					model_string += "_sample_j"
+				if cfg.single_sample:
+					model_string += "_single_sample"
+				if cfg.sample_random == False:
+					model_string += "_No_random_triplets"
 
 		# create experiment directory name
 		if cfg.model == "bert":
