@@ -1,10 +1,10 @@
-
+import os
 
 import argparse
 import random
 import pickle as p
 import sys
-sys.path.append("..")
+sys.path.append(os.path.join(os.getcwd()))
 from enlp.file_interface import FileInterface
 from random import shuffle
 
