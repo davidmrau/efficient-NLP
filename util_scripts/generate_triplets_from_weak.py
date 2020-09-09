@@ -115,11 +115,13 @@ class WeakTripletGenerator(object):
             q_id, query_results = self.weak_results_fi.read_all_results_of_query_index(query_index, self.max_candidates)
 
             if len(query_results) < self.min_results:
+                print("Insuficient number of results", len(query_results), ", Q_id", q_id)
                 continue
 
             # if the content of the query is empty, then skip this query
             query = self.queries.get_tokenized_element(q_id)
             if query is None:
+                print("Query is None !",  q_id)
                 continue
 
             self.queries_processed += 1
