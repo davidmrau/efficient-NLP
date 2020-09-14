@@ -68,31 +68,50 @@ def inference(cfg):
 
 	print('Loading data...')
 
-	folds = pickle.load(open(cfg.folds_file, 'rb'))
-	dataloaders = {}
-	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=None if cfg.dataset == 'robust04' else cfg.msmarco.max_query_len, max_complete_length=None if cfg.dataset == 'robust04' else cfg.msmarco.max_complete_length, indices=folds[0][1])
+	# calculate maximum lengths
+	if cfg.dataset == "robust04":
+		max_query_len = cfg.robust04.max_length
+		max_complete_length = -1, 
+		max_doc_len = cfg.robust04.max_length
+	elif cfg.dataset == "msmarco":
+ 		max_query_len = cfg.msmarco.max_query_len,
+ 		max_complete_length = cfg.msmarco.max_complete_length,
+ 		max_doc_len = None
+	else:
+		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
 
+	if cfg.eval_1st_fold:
+		folds = pickle.load(open(cfg.folds_file, 'rb'))
+		indices = folds[0][1]
+	else:
+		indices = None
+
+	dataloaders = {}
+	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=max_query_len, max_complete_length=max_complete_length, max_doc_len=max_doc_len, indices=indices)
 	
 	print('testing...')
-	if metric:
-		metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder)
-		print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
 
-		metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
-		with open(metrics_file_path, 'w') as out:
-			out.write(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
-	else:
-		scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder)
-		write_ranking_trec(scores, q_ids, cfg.model_folder + '/ranking.trec')
-		write_ranking(scores, q_ids, cfg.model_folder + '/ranking.tsv')
+	with torch.no_grad():
+		if metric:
+			metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder, rerank_top_N = cfg.rerank_top_N)
+			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
+
+			metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
+			with open(metrics_file_path, 'w') as out:
+				out.write(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
+		else:
+			scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder, rerank_top_N = cfg.rerank_top_N)
+			write_ranking_trec(scores, q_ids, cfg.model_folder + '/ranking.trec')
+			write_ranking(scores, q_ids, cfg.model_folder + '/ranking.tsv')
 
 
 if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
+
 	# getting model config
-	# if not cl_cfg.model_folder or not cl_cfg.docs or not cl_cfg.queries or not cl_cfg.ranking_results or not cl_cfg.metric :
-	# 	raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH ")
+	if not cl_cfg.model_folder or not cl_cfg.docs or not cl_cfg.queries or not cl_cfg.ranking_results or not cl_cfg.metric or not cl_cfg.eval_1st_fold :
+		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH eval_1st_fold={True/False}")
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
 	# merging both

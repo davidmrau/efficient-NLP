@@ -876,11 +876,11 @@ def get_model_folder_name(cfg):
 
 		# create experiment directory name
 		if cfg.model == "bert":
-			return f"{cfg.dataset}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+			return f"{cfg.dataset}_Stop_{cfg.stopwords}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 		if cfg.model != "rank":
-			return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+			return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_STOP_{cfg.stopwords}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 		else:
-			return f"{cfg.dataset}_margin_{cfg.margin}_Emb_{cfg.embedding}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+			return f"{cfg.dataset}_margin_{cfg.margin}_Emb_{cfg.embedding}_STOP_{cfg.stopwords}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 
 
 def plot_top_k_analysis(analysis_dict):

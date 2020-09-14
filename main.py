@@ -78,7 +78,7 @@ def exp(cfg):
 	elif cfg.dataset == 'robust04':
 		dataloaders = get_data_loaders_robust(cfg)
 		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
-		max_len = 1500
+		max_len = cfg.robust04.max_length
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')

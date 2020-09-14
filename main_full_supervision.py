@@ -142,7 +142,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 
 		
-		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, None, None)
+		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, cfg.robust04.max_length, cfg.robust04.max_length)
 		data = dataloaders['test']
 		data.reset()
 		

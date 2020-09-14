@@ -29,7 +29,7 @@ def online_inference(cfg):
 	ii = InvertedIndex(parent_dir=cfg.index_folder, vocab_size = cfg.sparse_dimensions, num_of_decimals=cfg.num_of_decimals)
 
 	# open file
-	dataset = Sequential(cfg.query_file, tokenize=cfg.tokenize, min_len=cfg.snrm.n)
+	dataset = Sequential(cfg.query_file, tokenize=cfg.tokenize, min_len=cfg.snrm.n, max_len = cfg.robust04.max_length)
 	dataloader =  DataLoader(dataset, batch_size=cfg.batch_size, collate_fn=collate_fn_padd_single)
 
 
