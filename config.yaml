@@ -100,3 +100,4 @@ sample_random: False
 weak_overfitting_test: False
 validate_on_weak_test_results: False
 provided_triplets: False
+rerank_top_N: -1

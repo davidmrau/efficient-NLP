@@ -257,7 +257,6 @@ class RankingResultsTest:
 		
 
 	def batch_generator(self):
-
 		self.stop = False
 		file_pos = self.ranking_results.tell()
 		line = self.ranking_results.readline()
@@ -314,8 +313,12 @@ class RankingResultsTest:
 					if self.max_doc_len is not None:
 						doc = doc[:self.max_doc_len]
 
+					# ignoring everything lower than the  top N documents, regarding the reranking
+					if doc_count == self.rerank_top_N:
+						continue
 
 
+					doc_count += 1
 					d_batch_ids.append(doc_id)
 					d_batch_data.append(torch.IntTensor(doc))
 					#print('+', line)
@@ -328,8 +331,6 @@ class RankingResultsTest:
 				print('Empty batch!')
 				return
 
-
-
 			query = self.get_tokenized(q_id[-1], self.id2query)	
 			# truncate query
 			if self.max_query_len is not None:
@@ -338,9 +339,6 @@ class RankingResultsTest:
 			q_data = [torch.IntTensor(query)]
 			d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
 			q_length = torch.FloatTensor([len(q) for q in q_data])
-
-			if self.rerank_top_N != -1:
-
 
 			#padd data along axis 1
 			d_batch_data = pad_sequence(d_batch_data,1).long()
@@ -796,7 +794,7 @@ def get_data_loaders_msmarco(cfg):
 
 
 	dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, \
-				cfg.batch_size_test, max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
+				cfg.batch_size_test, rerank_top_N = cfg.rerank_top_N, max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	return dataloaders
 
@@ -865,7 +863,7 @@ def get_data_loaders_robust(cfg):
 		dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, test_queries_fi, docs_fi, cfg.batch_size_test, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, test_queries_fi, docs_fi, cfg.batch_size_test, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length, rerank_top_N = cfg.rerank_top_N)
 
 	return dataloaders
 
@@ -882,5 +880,5 @@ def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking
 
 	
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers, shuffle=True)
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test, max_query_len = max_q_len, max_doc_len = max_d_len)
+	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test, max_query_len = max_q_len, max_doc_len = max_d_len, rerank_top_N = cfg.rerank_top_N)
 	return dataloaders

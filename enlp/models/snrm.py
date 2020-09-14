@@ -1,103 +1,3 @@
-#
-# import torch
-# import torch.nn as nn
-# import transformers
-# 
-# class SNRM(nn.Module):
-#
-#     def __init__(self, hidden_sizes, sparse_dimensions, n, embedding_parameters, embedding_dim, vocab_size, dropout_p, n_gram_model = 'cnn', large_out_biases = False):
-#         super(SNRM, self).__init__()
-#
-#         self.model_type = "representation-based"
-#
-#         self.n = n
-#         self.hidden_sizes = hidden_sizes
-#         self.sparse_dimensions = sparse_dimensions
-#         self.n_gram_model = n_gram_model
-#
-#         # load or randomly initialize embeddings according to parameters
-#         if embedding_parameters is None:
-#             self.embedding_dim = embedding_dim
-#             self.vocab_size = vocab_size
-#             self.embedding = torch.nn.Embedding(vocab_size, embedding_dim)
-#             # set embeddings for model
-#         else:
-#             self.embedding = nn.Embedding.from_pretrained(embedding_parameters, freeze=False)
-#             self.embedding_dim = embedding_parameters.size(1)
-#             self.vocab_size = embedding_parameters.size(0)
-#
-#         # print(embedding_dim)
-#
-#         self.sliding = nn.Linear(self.embedding_dim * n, hidden_sizes[0])
-#
-#         self.linears = nn.ModuleList()
-#         self.relu = nn.ReLU()
-#         for k in range(len(hidden_sizes)-1):
-#             self.linears.append(nn.Linear(hidden_sizes[k], hidden_sizes[k+1]))
-#
-#
-#         self.linears.append(nn.Linear(hidden_sizes[-1], sparse_dimensions))
-#
-#         self.drop = nn.Dropout(p=dropout_p)
-#
-#
-#     def forward(self, x, lengths):
-#         # generate mask for averaging over non-zero elements later
-#         mask = (x > 0)[:, self.n - 1: ]
-#         # making sure that inputs smaller than n, will produce at least some output (affected by padding)
-#         mask[:,0] = True
-#
-#         out = self.embedding(x)
-#
-#         out_list = list()
-#         # moving window of size n results in num n-grams - length - (n-1) inputs
-#         for i in range(out.size(1) - (self.n - 1)):
-#             # get input according to window
-#             input = out[:, i : i + self.n] # batch_size x num n-grams x embedding_dim
-#             #reshape input to fit linear n x embedding_dim
-#             input = input.view(-1, self.n * self.embedding_dim) # batch_size x num n-gram  * embedding_dim
-#             output = self.sliding(input) # batchsize x num n-grams * hidden_size
-#             out_list.append(output)
-#
-#         # stack to tensor
-#
-#         out = torch.cat(out_list, dim = 1)
-#
-#
-#         out = out.view(-1, self.hidden_sizes[0])
-#
-#
-#         out= self.relu(out)
-#         out = self.drop(out)
-#
-#         for i in range(len(self.linears)-1):
-#             out = self.linears[i](out)
-#             out= self.relu(out)
-#             out = self.drop(out)
-#
-#         # we do not apply dropout on the last layer
-#         out = self.linears[-1](out)
-#
-#         out= self.relu(out)
-#
-#         out = out.view(x.size(0), -1, self.sparse_dimensions)
-#
-#         # will set output of all padded tokens to 0
-#         # out = out.permute(0,2,1)
-#         negative_mask = (1 - mask.int()).bool()
-#         out[negative_mask] = 0
-#
-#         out = out.permute(0,2,1)
-#
-#         out = (out).sum(2) / lengths.unsqueeze(1)
-#         # batch x max_length - (n-1) x out_size
-#         return out
-#
-#
-
-# CNN Version of SNRM
-
-
 import torch
 import torch.nn as nn
 import transformers
@@ -149,6 +49,7 @@ class SNRM(nn.Module):
       mask = (x > 0)[:, self.n - 1: ]
       # making sure that inputs smaller than n, will produce at least some output (affected by padding)
       mask[:,0] = True
+
       out = self.embedding(x)
 
       out = out.permute(0,2,1)
