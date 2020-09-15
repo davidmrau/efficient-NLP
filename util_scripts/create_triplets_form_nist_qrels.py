@@ -3,7 +3,8 @@ import pickle
 from transformers import BertTokenizerFast
 import nltk
 from nltk.stem import PorterStemmer
-
+import pickle as p
+import numpy as np
 from collections import defaultdict
 
 import os
@@ -31,7 +32,14 @@ def write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f):
 def generate_triplets(args):
 
 
-	out_fname = "_pointwise" if args.pointwise else "_pairwise"
+	ending = "_pointwise" if args.pointwise else "_pairwise"
+
+
+	out_f_name = args.qrels_file + ending
+	if args.binary_pairwise:
+		out_f_name += '_binary'
+	if args.rand_negative_docs_dict:
+		out_f_name += '_rand_docs'
 
 	qrels = defaultdict(lambda: defaultdict(list))
 
@@ -74,10 +82,7 @@ def generate_triplets(args):
 			if d_id not in qrels[q_id][0] and d_id not in qrels[q_id][1] and d_id not in qrels[q_id][2] and d_id not in qrels[q_id][3]:
 				qrels[q_id][-1].append(d_id)
 
-	out_f_name = args.qrels_file + out_fname
-	if args.binary_pairwise:
-		out_f_name += '_binary'
-
+	
 	out_f = open(out_f_name,  'w')
 	for q_id in qrels:
 		perfectly_relevant = qrels[q_id][3]
@@ -105,6 +110,16 @@ def generate_triplets(args):
 		elif args.binary_pairwise:
 			relevant = perfectly_relevant + highly_relevant + related 
 			write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f)
+		elif args.rand_negative_docs_dict is not None:
+			all_docs = p.load(open(args.rand_negative_docs_dict, 'rb'))
+			relevant = perfectly_relevant + highly_relevant + related 
+			num_of_triplets = len(relevant)
+			irrelevant = np.random.choice(list(all_docs), num_of_triplets, replace=False)
+			print(irrelevant)
+			
+
+			write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f)
+
 		else:
 			# generate pairs using all relevance hierarchy combinations:
 
@@ -140,6 +155,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--qrels_file', type=str)
 	parser.add_argument('--binary_pairwise', action='store_true')
+	parser.add_argument('--rand_negative_docs_dict', default=None, type=str)
 	parser.add_argument('--top_1000_file', type=str, default='none')
 	parser.add_argument('--pointwise', action='store_true')
 	args = parser.parse_args()
