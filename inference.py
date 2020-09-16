@@ -38,15 +38,6 @@ def inference(cfg):
 	if cfg.model == "snrm":
 		min_len = cfg.snrm.n
 
-
-	
-
-	# load data
-
-		#metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, add_params='-l 2')
-	# metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
-	
-
 	
 	if cfg.metric == 'mrr':
 		metric = MRR(cfg.qrels, 10)
@@ -73,19 +64,18 @@ def inference(cfg):
 	# calculate maximum lengths
 	if cfg.dataset == "robust04":
 		max_query_len = cfg.robust04.max_length
-		max_complete_length = -1, 
+		max_complete_length = -1 
 		max_doc_len = cfg.robust04.max_length
 	elif cfg.dataset == "msmarco":
- 		max_query_len = cfg.msmarco.max_query_len,
- 		max_complete_length = cfg.msmarco.max_complete_length,
- 		max_doc_len = None
+		max_query_len = cfg.msmarco.max_query_len
+		max_complete_length = cfg.msmarco.max_complete_length
+		max_doc_len = None
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
 
-
 	dataloaders = {}
-	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=max_query_len, \
-		rerank_top_N = cfg.rerank_top_N, max_complete_length=max_complete_length, max_doc_len=max_doc_len)
+	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=max_query_len,
+		max_complete_length=max_complete_length, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N)
 
 	print('testing...')
 
@@ -120,7 +110,4 @@ if __name__ == "__main__":
 	if cfg.rerank_top_N is None:
 		cfg.rerank_top_N = -1 
 
-	# print(cfg.rerank_top_N)
-
-	# exit()
 	inference(cfg)
