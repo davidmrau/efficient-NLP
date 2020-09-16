@@ -82,15 +82,10 @@ def inference(cfg):
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
 
-	if cfg.eval_1st_fold:
-		folds = pickle.load(open(cfg.folds_file, 'rb'))
-		indices = folds[0][1]
-	else:
-		indices = None
 
 	dataloaders = {}
 	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=max_query_len, \
-		rerank_top_N = cfg.rerank_top_N, max_complete_length=max_complete_length, max_doc_len=max_doc_len, indices=indices)
+		rerank_top_N = cfg.rerank_top_N, max_complete_length=max_complete_length, max_doc_len=max_doc_len)
 
 	print('testing...')
 
@@ -112,8 +107,8 @@ if __name__ == "__main__":
 	# getting command line arguments
 	cl_cfg = OmegaConf.from_cli()
 
-	if "model_folder" not in cl_cfg or "docs" not in cl_cfg or "queries" not in cl_cfg or "ranking_results" not in cl_cfg or "metric" not in cl_cfg or "eval_1st_fold" not in cl_cfg:
-		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH eval_1st_fold={True/False}")
+	if "model_folder" not in cl_cfg or "docs" not in cl_cfg or "queries" not in cl_cfg or "ranking_results" not in cl_cfg or "metric" not in cl_cfg:
+		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH")
 
 	# getting model config
 	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
