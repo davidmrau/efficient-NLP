@@ -73,9 +73,9 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 #	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 #	folds = gen_folds(dataset_len, cfg.num_folds)
 	if cfg.debug:
-		cfg.robust_ranking_results_strong += '_debug'
-		folds = [[None, None], [None, None], [None, None], [None, None], [None, None]]
-		cfg.robust_ranking_results_test = 'data/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results_debug'
+		cfg.robust_ranking_results_strong += '_rand_docs_debug'
+		folds = [[None, [152]], [None, [16, 222]], [None, [16,152, 222]], [None, None], [None, None]]
+		cfg.robust_ranking_results_test = 'data/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
 	else:
 		folds = pickle.load(open(cfg.folds_file, 'rb'))
 	docs_fi = FileInterface(cfg.robust_docs)
@@ -86,10 +86,12 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	fold_count = -1
 
 	for i, (indices_train, indices_test) in enumerate(folds):
-		#if i  < 2 :
+		#if i  < 1 :
+		#	fold_count += 1
 		#	continue
-		ranking_results = f'{cfg.robust_ranking_results_strong}_{i}'
 		fold_count += 1
+		print(indices_train, indices_test)
+		ranking_results = f'{cfg.robust_ranking_results_strong}_{i}'
 		completed_model_folder = f'{completed_model_folder_general}/{i}/'
 		temp_model_folder = f'{temp_model_folder_general}/{i}/'
 		print("Complete Model Path: ", completed_model_folder)
