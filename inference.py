@@ -80,6 +80,7 @@ def inference(cfg):
 	print('testing...')
 
 	with torch.no_grad():
+		model.eval()
 		if metric:
 			metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder)
 			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
