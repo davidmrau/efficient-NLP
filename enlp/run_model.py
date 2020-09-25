@@ -93,10 +93,8 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
 				input_ids, attention_masks, token_type_ids, targets = minibatch
-				targets = targets.unsqueeze(0)
 			elif model_type == "interaction-based":
 				data, targets, lengths = minibatch
-				targets = targets.unsqueeze(0)
 			else:
 				data, targets, lengths = minibatch
 
@@ -145,15 +143,15 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				split_size = data.size(0) // 3
 				q_repr, doc1, doc2 = torch.split(data, split_size)
 				lengths_q, lengths_d1, lengths_d2 = torch.split(lengths, split_size)
-				#score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
-				#score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
-				d_concat = torch.cat((doc1, doc2), 0)
-				q_concat = torch.cat((q_repr, q_repr), 0)
-				lengths_q_concat = torch.cat((lengths_q, lengths_q), 0)
-				lengths_d_concat = torch.cat((lengths_d1, lengths_d2), 0)
-				scores = model(q_concat, d_concat, lengths_q_concat, lengths_d_concat)
-				split_size = scores.size(0) // 2
-				score_q_d1, score_q_d2 = torch.split(scores, split_size)
+				score_q_d1 = model(q_repr, doc1, lengths_q, lengths_d1)
+				score_q_d2 = model(q_repr, doc2, lengths_q, lengths_d2)
+				#d_concat = torch.cat((doc1, doc2), 0)
+				#q_concat = torch.cat((q_repr, q_repr), 0)
+				#lengths_q_concat = torch.cat((lengths_q, lengths_q), 0)
+				#lengths_d_concat = torch.cat((lengths_d1, lengths_d2), 0)
+				#scores = model(q_concat, d_concat, lengths_q_concat, lengths_d_concat)
+				#split_size = scores.size(0) // 2
+				#score_q_d1, score_q_d2 = torch.split(scores, split_size)
 				#print(score_q_d2.shape)
 				#print(targets.shape)
 				#print(targets)
@@ -204,13 +202,11 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				acc = ((relevance_out[:, 1] > relevance_out[:, 0]).int() == targets).float().mean()
 			else:
 				# calculating loss
-				loss = loss_fn(score_q_d1, score_q_d2, targets)
+				loss = loss_fn(score_q_d1, score_q_d2, targets.unsqueeze(1))
 				# calculating classification accuracy (whether the correct document was classified as more relevant)
-				acc = (((score_q_d1 > score_q_d2).float() == targets).float() + (
-						(score_q_d2 >= score_q_d1).float() == targets * -1).float()).mean()
 				targets_ = targets.clone()
 				targets[ targets == -1 ] = 0
-				acc = (((score_q_d1 > score_q_d2).float() == targets).float()).mean()
+				acc = (((score_q_d1 > score_q_d2).float() == targets.unsqueeze(1)).float()).mean()
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
