@@ -93,8 +93,6 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
 				input_ids, attention_masks, token_type_ids, targets = minibatch
-			elif model_type == "interaction-based":
-				data, targets, lengths = minibatch
 			else:
 				data, targets, lengths = minibatch
 
