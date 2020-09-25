@@ -94,9 +94,10 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
 				input_ids, attention_masks, token_type_ids, targets = minibatch
 				targets = targets.unsqueeze(0)
+			elif model_type == "interaction-based":
+				targets = targets.unsqueeze(0)
 			else:
 				data, targets, lengths = minibatch
-				targets = targets.unsqueeze(0)
 
 			# get number of samples within the minibatch
 			minibatch_samples_number = targets.size(0)
