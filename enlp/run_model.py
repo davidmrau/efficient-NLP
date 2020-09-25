@@ -93,8 +93,10 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 
 			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
 				input_ids, attention_masks, token_type_ids, targets = minibatch
+				targets = targets.unsqueeze(0)
 			else:
 				data, targets, lengths = minibatch
+				targets = targets.unsqueeze(0)
 
 			# get number of samples within the minibatch
 			minibatch_samples_number = targets.size(0)
@@ -204,7 +206,9 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				# calculating classification accuracy (whether the correct document was classified as more relevant)
 				acc = (((score_q_d1 > score_q_d2).float() == targets).float() + (
 						(score_q_d2 >= score_q_d1).float() == targets * -1).float()).mean()
-
+				targets_ = targets.clone()
+				targets[ targets == -1 ] = 0
+				acc = (((score_q_d1 > score_q_d2).float() == targets).float()).mean()
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
