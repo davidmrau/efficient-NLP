@@ -412,7 +412,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank, pairwise
 # returns metric score if metric != None
 # if metric = None returns scores, qiids
 
-def test(model, mode, data_loaders, device, max_rank, total_trained_samples, model_folder, reset=True, writer=None, metric=None):
+def test(model, mode, data_loaders, device, max_rank, total_trained_samples, model_folder, reset=True, writer=None, metric=None, report_top_N=-1):
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
 	else:
@@ -429,6 +429,15 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, mod
 		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset, max_rank, pairwise = True)
 	else:
 		raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
+
+	# if requested, we only return the top N results for each query
+	if report_top_N != -1:
+		top_scores = []
+		for i in range(len(q_ids)):
+			top_scores.append(scores[i][:report_top_N])
+			# scores[i] = scores[i][:report_top_N]
+		scores = top_scores
+
 	if metric:
 		metric_score = metric.score(scores, q_ids)
 		if writer:

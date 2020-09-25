@@ -45,12 +45,14 @@ def inference(cfg):
 		add_params = '-l 2' if cfg.dataset == 'msmarco' else ''	
 		res_folder_base = cfg.ranking_results.split('/')[-1]
 		res_folder_base += "_rerank_top_" + str(cfg.rerank_top_N) if cfg.rerank_top_N != -1 else ""
+		res_folder_base += "_report_top_" + str(cfg.report_top_N) if cfg.report_top_N != -1 else ""
 		cfg.model_folder += f'/{res_folder_base}/'
 		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, save_all_path=cfg.model_folder, add_params=add_params)
 	elif cfg.metric == 'none':
 
 		res_folder_base = cfg.queries.split('/')[-1]
 		res_folder_base += "_rerank_top_" + str(cfg.rerank_top_N) if cfg.rerank_top_N != -1 else ""
+		res_folder_base += "_report_top_" + str(cfg.report_top_N) if cfg.report_top_N != -1 else ""
 		cfg.model_folder += f'/{res_folder_base}/'
 
 		metric = None
@@ -82,14 +84,14 @@ def inference(cfg):
 	with torch.no_grad():
 		model.eval()
 		if metric:
-			metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder)
+			metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
 			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
 
 			metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
 			with open(metrics_file_path, 'w') as out:
 				out.write(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
 		else:
-			scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder)
+			scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
 			write_ranking_trec(scores, q_ids, cfg.model_folder + '/ranking.trec')
 			write_ranking(scores, q_ids, cfg.model_folder + '/ranking.tsv')
 
@@ -107,6 +109,9 @@ if __name__ == "__main__":
 	cfg = OmegaConf.merge(cfg_load, cl_cfg)
 	cfg_default = OmegaConf.load('config.yaml')
 	cfg = OmegaConf.merge(cfg_default, cfg)
+
+	if cfg.rerank_top_N is None:
+		cfg.rerank_top_N = -1 
 
 	if cfg.rerank_top_N is None:
 		cfg.rerank_top_N = -1 
