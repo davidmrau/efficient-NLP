@@ -95,6 +95,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				input_ids, attention_masks, token_type_ids, targets = minibatch
 				targets = targets.unsqueeze(0)
 			elif model_type == "interaction-based":
+				data, targets, lengths = minibatch
 				targets = targets.unsqueeze(0)
 			else:
 				data, targets, lengths = minibatch
