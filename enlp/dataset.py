@@ -193,10 +193,9 @@ class TrainingTriplets(data.Dataset):
 		doc2 = self.id2doc.get_tokenized_element(d2_id)
 		# truncating queries and documents:
 		query = query if self.max_query_len is None else query[:self.max_query_len]
-		doc1 = doc1 if self.max_doc_len is None else doc1[:self.max_doc_len]
-		doc2 = doc2 if self.max_doc_len is None else doc2[:self.max_doc_len]
-
-
+		
+		doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
+		doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
 		if random.random() > 0.5:
 			return [query, doc1, doc2], 1
 		else:

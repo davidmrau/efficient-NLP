@@ -53,5 +53,5 @@ class RankModel(nn.Module):
 		for layer in self.layers:
 			q_d = layer(q_d)
 		score = self.tanh(q_d)
-		return score
+		return score.squeeze(1)
 

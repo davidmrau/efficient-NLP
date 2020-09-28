@@ -200,7 +200,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				acc = ((relevance_out[:, 1] > relevance_out[:, 0]).int() == targets).float().mean()
 			else:
 				# calculating loss
-				loss = loss_fn(score_q_d1, score_q_d2, targets.unsqueeze(1))
+				loss = loss_fn(score_q_d1, score_q_d2, targets)
 				# calculating classification accuracy (whether the correct document was classified as more relevant)
 				targets_ = targets.clone()
 				targets[ targets == -1 ] = 0
