@@ -204,7 +204,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, epoch, writer, l
 				# calculating classification accuracy (whether the correct document was classified as more relevant)
 				targets_ = targets.clone()
 				targets[ targets == -1 ] = 0
-				acc = (((score_q_d1 > score_q_d2).float() == targets.unsqueeze(1)).float()).mean()
+				acc = (((score_q_d1 > score_q_d2).float() == targets).float()).mean()
 			# aggregating losses and running backward pass and update step
 			total_loss = loss + l1_loss * l1_scalar + balance_loss * balance_scalar
 
