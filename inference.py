@@ -113,7 +113,7 @@ if __name__ == "__main__":
 	if cfg.rerank_top_N is None:
 		cfg.rerank_top_N = -1 
 
-	if cfg.rerank_top_N is None:
-		cfg.rerank_top_N = -1 
+	if cfg.report_top_N is None:
+		cfg.report_top_N = -1 
 
 	inference(cfg)
