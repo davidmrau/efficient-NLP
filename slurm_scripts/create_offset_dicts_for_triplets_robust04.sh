@@ -1,0 +1,1 @@
+python3 util_scripts/offset_dict.py --fname data/robust04/weak_overfitting/all/test_top_2000.csv_TRIPLETS_train --line_index_is_id
