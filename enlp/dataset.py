@@ -202,6 +202,44 @@ class TrainingTriplets(data.Dataset):
 			return [query, doc2, doc1], -1
 
 
+class TripletsSequential(IterableDataset):
+	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510, max_doc_len = None):
+		# "open" triplets file
+		self.triplets = open(triplets_path, 'r')
+		if isinstance(id2query, FileInterface):
+			self.id2query = id2query
+		else:
+			self.id2query = FileInterface(id2query)
+
+		if isinstance(id2doc, FileInterface):
+			self.id2doc = id2doc
+		else:
+			self.id2doc = FileInterface(id2doc)
+
+		self.max_query_len = max_query_len
+		if max_doc_len is not None:
+			self.max_doc_len = max_doc_len
+		else:
+			self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
+
+
+	def __iter__(self):
+		for line in self.triplets:
+			# getting position of '\t' that separates the doc_id and the begining of the token ids
+			q_id, d1_id, d2_id = line.strip().split('\t')
+			query = self.id2query.get_tokenized_element(q_id)
+			doc1 = self.id2doc.get_tokenized_element(d1_id)
+			doc2 = self.id2doc.get_tokenized_element(d2_id)
+			# truncating queries and documents:
+			query = query if self.max_query_len is None else query[:self.max_query_len]
+			
+			doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
+			doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
+			if random.random() > 0.5:
+				yield [query, doc1, doc2], 1
+			else:
+				yield [query, doc2, doc1], -1
+
 class RankingResultsTest:
 
 	def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None, max_query_len = -1, max_complete_length = -1, max_doc_len = None, rerank_top_N = -1):
@@ -481,7 +519,6 @@ class WeakSupervision(IterableDataset):
 
 		# setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
 		self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
-
 		if sampler == 'top_n':
 			self.sampler_function = self.sample_top_n
 		elif sampler == 'uniform':
@@ -557,7 +594,6 @@ class WeakSupervision(IterableDataset):
 
 			#  if we are generating exactly one relevant sample for each query (and one negative)
 			if self.single_sample:
-
 				# sample candidates
 				candidate_indices = self.sampler_function(scores_list = query_results, n = 2, return_indices = True)
 
@@ -568,6 +604,7 @@ class WeakSupervision(IterableDataset):
 				doc2 = self.documents.get_tokenized_element(doc2_id)
 
 				candidates = [(doc1_id, score1, doc1), (doc2_id, score2, doc2)]
+				#print(q_id, doc1_id, doc2_id)
 
 				if (doc1 is not None) and (doc2 is not None):
 					# yield triplet of relevants
@@ -628,7 +665,6 @@ class WeakSupervision(IterableDataset):
 							# yield triplet of relevants
 							candidate1 = query_results[i]
 							candidate2 = query_results[j]
-
 							yield self.generate_triplet(query, [candidate1, candidate2])
 
 							if self.sample_random:
@@ -681,7 +717,7 @@ class WeakSupervision(IterableDataset):
 	def sample_uniform(self, scores_list, n, return_indices = False):
 		length = len(scores_list)
 		indices = self.candidate_indices[:length]
-		sampled_indices = np.random.choice(indices, size=n, replace=False)
+		sampled_indices = random.sample(indices, n)
 		if return_indices:
 			return sampled_indices
 		return [scores_list[i] for i in sampled_indices]
@@ -821,11 +857,10 @@ def get_data_loaders_robust(cfg):
 		triplets_train_path = cfg.robust_triplets_path + "_train"
 		triplets_val_path = cfg.robust_triplets_path + "_val"
 
-		train_dataset = TrainingTriplets(triplets_train_path, docs_fi, queries_fi, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
-		validation_dataset = TrainingTriplets(triplets_val_path, docs_fi, queries_fi, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
-
-		dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=True, num_workers = sequential_num_workers)
-		dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, shuffle=True,  num_workers = sequential_num_workers)
+		train_dataset = TripletsSequential(triplets_train_path, docs_fi, queries_fi, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
+		validation_dataset = TripletsSequential(triplets_val_path, docs_fi, queries_fi, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
+		dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
+		dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
 
 
 
