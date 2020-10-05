@@ -7,8 +7,8 @@ from torch.utils.data import DataLoader, IterableDataset
 import numpy as np
 from enlp.file_interface import FileInterface
 from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor, \
-				collate_fn_bert_interaction, create_bert_inretaction_input
-				
+				collate_fn_bert_interaction, create_bert_inretaction_input, File
+
 
 from transformers import BertTokenizer
 from torch.nn.utils.rnn import pad_sequence
@@ -129,7 +129,7 @@ class Sequential(IterableDataset):
 # 			for d1_id, score_1 in rel_docs:
 # 				# sample random doc
 
-# 				# if sample random  
+# 				# if sample random
 # 				rand = random.random() > 0.5
 # 				# take from negative samples in ranking results file if some left and sample_random=False
 # 				if len(non_rel_docs) > 0 and (rand or not self.sample_random):
@@ -162,18 +162,11 @@ class Sequential(IterableDataset):
 
 # class MSMarcoTrain(data.Dataset):
 class TrainingTriplets(data.Dataset):
-	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510, max_doc_len = None):
+	def __init__(self, triplets_path, id2query, id2doc, max_query_len = 64, max_complete_length = 510, max_doc_len = None):
 		# "open" triplets file
 		self.triplets = FileInterface(triplets_path)
-		if isinstance(id2query, FileInterface):
-			self.id2query = id2query
-		else:
-			self.id2query = FileInterface(id2query)
-
-		if isinstance(id2doc, FileInterface):
-			self.id2doc = id2doc
-		else:
-			self.id2doc = FileInterface(id2doc)
+		self.id2query = id2query
+		self.id2doc = id2doc
 
 		self.max_query_len = max_query_len
 		if max_doc_len is not None:
@@ -188,12 +181,12 @@ class TrainingTriplets(data.Dataset):
 
 		q_id, d1_id, d2_id = self.triplets.get_triplet(index)
 
-		query = self.id2query.get_tokenized_element(q_id)
-		doc1 = self.id2doc.get_tokenized_element(d1_id)
-		doc2 = self.id2doc.get_tokenized_element(d2_id)
+		query = self.id2query[q_id]
+		doc1 = self.id2doc[d1_id]
+		doc2 = self.id2doc[d2_id]
 		# truncating queries and documents:
 		query = query if self.max_query_len is None else query[:self.max_query_len]
-		
+
 		doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
 		doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
 		if random.random() > 0.5:
@@ -206,15 +199,8 @@ class TripletsSequential(IterableDataset):
 	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510, max_doc_len = None):
 		# "open" triplets file
 		self.triplets = open(triplets_path, 'r')
-		if isinstance(id2query, FileInterface):
-			self.id2query = id2query
-		else:
-			self.id2query = FileInterface(id2query)
-
-		if isinstance(id2doc, FileInterface):
-			self.id2doc = id2doc
-		else:
-			self.id2doc = FileInterface(id2doc)
+		self.id2query = id2query
+		self.id2doc = id2doc
 
 		self.max_query_len = max_query_len
 		if max_doc_len is not None:
@@ -227,12 +213,12 @@ class TripletsSequential(IterableDataset):
 		for line in self.triplets:
 			# getting position of '\t' that separates the doc_id and the begining of the token ids
 			q_id, d1_id, d2_id = line.strip().split('\t')
-			query = self.id2query.get_tokenized_element(q_id)
-			doc1 = self.id2doc.get_tokenized_element(d1_id)
-			doc2 = self.id2doc.get_tokenized_element(d2_id)
+			query = self.id2query[q_id]
+			doc1 = self.id2doc[d1_id]
+			doc2 = self.id2doc[d2_id]
 			# truncating queries and documents:
 			query = query if self.max_query_len is None else query[:self.max_query_len]
-			
+
 			doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
 			doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
 			if random.random() > 0.5:
@@ -249,15 +235,8 @@ class RankingResultsTest:
 		self.ranking_results = open(ranking_results, 'r')
 		self.min_len = min_len
 		self.indices = indices
-		if isinstance(id2query, FileInterface):
-			self.id2query = id2query
-		else:
-			self.id2query = FileInterface(id2query)
-
-		if isinstance(id2doc, FileInterface):
-			self.id2doc = id2doc
-		else:
-			self.id2doc = FileInterface(id2doc)
+		self.id2query = id2query
+		self.id2doc = id2doc
 
 		self.stop = False
 		self.index = 0
@@ -284,14 +263,14 @@ class RankingResultsTest:
 		return q_id, d_id
 
 	def get_tokenized(self, id_, id2tokens):
-		tokenized_ids = id2tokens.get_tokenized_element(id_)
+		tokenized_ids = id2tokens[id_]
 		if tokenized_ids is None:
 			return None
 
 		if len(tokenized_ids) < self.min_len:
 			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
 		return tokenized_ids
-		
+
 
 	def batch_generator(self):
 		self.stop = False
@@ -328,7 +307,7 @@ class RankingResultsTest:
 				#print('curr_id', curr_q_id, 'index', self.index)
 				#print('prev_id', prev_q_id)
 				if self.indices is not None:
-					if self.index not in self.indices:		
+					if self.index not in self.indices:
 						#print('>>', line, 'index', self.index)
 						continue
 				if curr_q_id != prev_q_id and started_query:
@@ -336,17 +315,17 @@ class RankingResultsTest:
 					self.stop = True
 					self.ranking_results.seek(file_pos)
 					break
-			
+
 				# extracting the token_ids and creating a numpy array
 
 
-				# if index of queries to load is provided check if query index is indices	
+				# if index of queries to load is provided check if query index is indices
 				doc = self.get_tokenized(doc_id, self.id2doc)
 
 
 
 				if doc is not None:
-					# truncate document data 
+					# truncate document data
 					if self.max_doc_len is not None:
 						doc = doc[:self.max_doc_len]
 
@@ -368,11 +347,11 @@ class RankingResultsTest:
 				print('Empty batch!')
 				return
 
-			query = self.get_tokenized(q_id[-1], self.id2query)	
+			query = self.get_tokenized(q_id[-1], self.id2query)
 			# truncate query
 			if self.max_query_len is not None:
 				query = query[:self.max_query_len]
-			
+
 			q_data = [torch.IntTensor(query)]
 			d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
 			q_length = torch.FloatTensor([len(q) for q in q_data])
@@ -409,7 +388,7 @@ class RankingResultsTest:
 					self.index += 1
 
 				if self.indices is not None:
-					if self.index not in self.indices:		
+					if self.index not in self.indices:
 						#print('>>', line, 'index', self.index)
 						continue
 				if curr_q_id != prev_q_id and started_query:
@@ -417,15 +396,15 @@ class RankingResultsTest:
 					self.stop = True
 					self.ranking_results.seek(file_pos)
 					break
-			
+
 				# extracting the token_ids and creating a numpy array
 
 
-				# if index of queries to load is provided check if query index is indices	
+				# if index of queries to load is provided check if query index is indices
 				# doc = self.get_tokenized(doc_id, self.id2doc)
 
-				doc_data = self.id2doc.get_tokenized_element(doc_id)
-				# truncate document data 
+				doc_data = self.id2doc[doc_id]
+				# truncate document data
 				if self.max_doc_len != None:
 					doc_data = doc_data[:self.max_doc_len]
 
@@ -435,7 +414,7 @@ class RankingResultsTest:
 					#print('+', line)
 					started_query = True
 					q_id = [curr_q_id]
-					q_data = self.id2query.get_tokenized_element(curr_q_id)
+					q_data = self.id2query[curr_q_id]
 					# truncate query
 					if self.max_query_len != None:
 						q_data = q_data[:self.max_query_len]
@@ -580,7 +559,7 @@ class WeakSupervision(IterableDataset):
 			q_id, query_results = self.weak_results_file.read_all_results_of_query_index(q_index, self.top_k_per_query)
 
 			# if the content of the query is empty, then skip this query
-			query = self.queries.get_tokenized_element(q_id)
+			query = self.queries[q_id]
 			if query is None:
 				continue
 
@@ -600,8 +579,8 @@ class WeakSupervision(IterableDataset):
 				doc1_id, score1 = query_results[candidate_indices[0]]
 				doc2_id, score2 = query_results[candidate_indices[1]]
 
-				doc1 = self.documents.get_tokenized_element(doc1_id)
-				doc2 = self.documents.get_tokenized_element(doc2_id)
+				doc1 = self.documents[doc1_id]
+				doc2 = self.documents[doc2_id]
 
 				candidates = [(doc1_id, score1, doc1), (doc2_id, score2, doc2)]
 				#print(q_id, doc1_id, doc2_id)
@@ -635,7 +614,7 @@ class WeakSupervision(IterableDataset):
 				# since we are reading the documents we are also saving their contents in memory as an extra item in the final tupples
 				non_empty_query_results_with_content = []
 				for doc_id, score in query_results:
-					document_content = self.documents.get_tokenized_element(doc_id)
+					document_content = self.documents[doc_id]
 					if document_content is not None:
 						# updating list with non empy_documents, and also adding the content of the document ot the tupple
 						non_empty_query_results_with_content.append((doc_id, score, document_content))
@@ -699,7 +678,7 @@ class WeakSupervision(IterableDataset):
 		# get the corresponding document id
 		random_doc_id = self.doc_ids_list[random_doc_index]
 		# retrieve content of the random document
-		document_content = self.documents.get_tokenized_element(random_doc_id)
+		document_content = self.documents[random_doc_id]
 
 		# make sure that the random document's id is not in the exclude list and its content is not empty
 		while random_doc_id in exclude_doc_ids_set or document_content is None:
@@ -708,7 +687,7 @@ class WeakSupervision(IterableDataset):
 		# get the corresponding document id
 			random_doc_id = self.doc_ids_list[random_doc_index]
 			# retrieve content of the random document
-			document_content = self.documents.get_tokenized_element(random_doc_id)
+			document_content = self.documents[random_doc_id]
 
 		return (random_doc_id, 0, document_content)
 
@@ -806,8 +785,11 @@ def get_data_loaders_msmarco(cfg):
 	else:
 		triples = cfg.msmarco_triplets_train
 
+
+	query_fi = File(cfg.msmarco_query_train)
+	docs_fi = File(cfg.msmarco_docs_train)
 	dataloaders = {}
-	dataset = TrainingTriplets(triples, cfg.msmarco_docs_train, cfg.msmarco_query_train, \
+	dataset = TrainingTriplets(triples, query_fi, docs_fi, \
 		max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
@@ -827,8 +809,11 @@ def get_data_loaders_msmarco(cfg):
 
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
+	docs_fi = File(cfg.msmarco_query_test)
+	queries_fi = File(cfg.msmarco_docs_test)
 
-	dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, cfg.msmarco_query_test, cfg.msmarco_docs_test, \
+
+	dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, queries_fi, docs_fi,  \
 				cfg.batch_size_test, rerank_top_N = cfg.rerank_top_N, max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
 
 	return dataloaders
@@ -840,8 +825,8 @@ def get_data_loaders_robust(cfg):
 	else:
 		ranking_results_train = cfg.robust_ranking_results_train
 
-	docs_fi = FileInterface(cfg.robust_docs)
-	queries_fi = FileInterface(cfg.robust_query_train)
+	docs_fi = File(cfg.robust_docs)
+	queries_fi = File(cfg.robust_query_train)
 	dataloaders = {}
 
 	test_queries_fi = FileInterface(cfg.robust_query_test)
@@ -853,6 +838,8 @@ def get_data_loaders_robust(cfg):
 
 		if cfg.weak_overfitting_test:
 			queries_fi = test_queries_fi
+
+
 
 		triplets_train_path = cfg.robust_triplets_path + "_train"
 		triplets_val_path = cfg.robust_triplets_path + "_val"
@@ -910,9 +897,9 @@ def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking
 	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 	#dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
 
-	train_dataset = TrainingTriplets(ranking_results, docs_fi, query_fi, max_query_len = max_q_len, max_doc_len = max_d_len)
+	train_dataset = TripletsSequential(ranking_results, query_fi, docs_fi, max_query_len = max_q_len, max_doc_len = max_d_len)
 
-	
+
 	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers, shuffle=True)
 	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test, max_query_len = max_q_len, max_doc_len = max_d_len, rerank_top_N = cfg.rerank_top_N)
 	return dataloaders

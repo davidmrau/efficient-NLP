@@ -38,16 +38,16 @@ def inference(cfg):
 	if cfg.model == "snrm":
 		min_len = cfg.snrm.n
 
-	
+
 	if cfg.metric == 'mrr':
 		metric = MRR(cfg.qrels, 10)
 	elif cfg.metric == 'map':
-		add_params = '-l 2' if cfg.dataset == 'msmarco' else ''	
+		add_params = '-l 2' if cfg.dataset == 'msmarco' else ''
 		res_folder_base = cfg.ranking_results.split('/')[-1]
 		res_folder_base += "_rerank_top_" + str(cfg.rerank_top_N) if cfg.rerank_top_N != -1 else ""
 		res_folder_base += "_report_top_" + str(cfg.report_top_N) if cfg.report_top_N != -1 else ""
 		cfg.model_folder += f'/{res_folder_base}/'
-		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, save_all_path=cfg.model_folder, add_params=add_params)
+		metric = MAPTrec(cfg.trec_eval, cfg.qrels, cfg.max_rank, ranking_file_path=cfg.model_folder, add_params=add_params)
 	elif cfg.metric == 'none':
 
 		res_folder_base = cfg.queries.split('/')[-1]
@@ -58,7 +58,7 @@ def inference(cfg):
 		metric = None
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
-	
+
 	os.makedirs(cfg.model_folder, exist_ok=True)
 
 	print('Loading data...')
@@ -66,7 +66,7 @@ def inference(cfg):
 	# calculate maximum lengths
 	if cfg.dataset == "robust04":
 		max_query_len = cfg.robust04.max_length
-		max_complete_length = -1 
+		max_complete_length = -1
 		max_doc_len = cfg.robust04.max_length
 	elif cfg.dataset == "msmarco":
 		max_query_len = cfg.msmarco.max_query_len
@@ -83,17 +83,13 @@ def inference(cfg):
 
 	with torch.no_grad():
 		model.eval()
-		if metric:
-			metric_score = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
-			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
+		metric_score, scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
 
+		if metric_score:
+			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
 			metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'
 			with open(metrics_file_path, 'w') as out:
 				out.write(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
-		else:
-			scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=None, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
-			write_ranking_trec(scores, q_ids, cfg.model_folder + '/ranking.trec')
-			write_ranking(scores, q_ids, cfg.model_folder + '/ranking.tsv')
 
 
 if __name__ == "__main__":
@@ -111,9 +107,9 @@ if __name__ == "__main__":
 	cfg = OmegaConf.merge(cfg_default, cfg)
 
 	if cfg.rerank_top_N is None:
-		cfg.rerank_top_N = -1 
+		cfg.rerank_top_N = -1
 
 	if cfg.report_top_N is None:
-		cfg.report_top_N = -1 
+		cfg.report_top_N = -1
 
 	inference(cfg)

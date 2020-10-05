@@ -13,8 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 warnings.filterwarnings("ignore")
 
-from enlp.file_interface import FileInterface
-from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu
+from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu, File
 from enlp.metrics import MAPTrec
 from enlp.utils import offset_dict_len
 from enlp.run_model import run
@@ -66,30 +65,30 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		add_params= '-l 2'
 	else:
 		add_params = ''
-	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank, add_params=add_params)
+
 	print('done')
 	max_len = 1500
+
+
+	metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank, add_params=add_params)
 
 #	dataset_len = offset_dict_len(cfg.robust_ranking_results_strong)
 #	folds = gen_folds(dataset_len, cfg.num_folds)
 	if cfg.debug:
-		cfg.robust_ranking_results_strong += '_rand_docs_debug'
-		folds = [[None, [152]], [None, [16, 222]], [None, [16,152, 222]], [None, None], [None, None]]
-		cfg.robust_ranking_results_test = 'data/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
+		cfg.robust_ranking_results_strong += '_debug'
+		folds = [[None, [226]], [None, [16, 222]], [None, [16,152, 222]], [None, None], [None, None]]
 	else:
 		folds = pickle.load(open(cfg.folds_file, 'rb'))
-	docs_fi = FileInterface(cfg.robust_docs)
-	query_fi = FileInterface(cfg.robust_query_test)
+
+
+	docs_fi = File(cfg.robust_docs)
+	query_fi = File(cfg.robust_query_test)
 
 	print('Start training...')
 	metric_scores = list()
 	fold_count = -1
 
 	for i, (indices_train, indices_test) in enumerate(folds):
-		#if i  < 1 :
-		#	fold_count += 1
-		#	continue
-		fold_count += 1
 		print(indices_train, indices_test)
 		ranking_results = f'{cfg.robust_ranking_results_strong}_{i}'
 		completed_model_folder = f'{completed_model_folder_general}/{i}/'
@@ -138,16 +137,16 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		# if max_samples_per_gpu is not set (-1), then dynamically calculate it
 		if cfg.max_samples_per_gpu == -1:
 			cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
-			print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)	
+			print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
 
 
 
 
-		
+
 		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, cfg.robust04.max_length, cfg.robust04.max_length)
 		data = dataloaders['test']
 		data.reset()
-		
+
 		metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 								   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 								   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,

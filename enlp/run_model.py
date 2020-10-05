@@ -443,9 +443,11 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, mod
 		if writer:
 			writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
 		print(f'{mode} -  {metric.name}: {metric_score}')
-		return metric_score
 	else:
-		return scores, q_ids
+		metric_score = None
+
+	return metric_score, scores, q_ids
+
 
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
 		  l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=20000,
@@ -530,9 +532,9 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 
 				# Run also proper evaluation script
 				print('Running test: ')
-				metric_score = test(model, 'test', dataloaders, device, max_rank,
+				metric_score, scores, q_ids = test(model, 'test', dataloaders, device, max_rank,
 																	total_trained_samples, model_folder=model_folder, writer=writer, metric=metric)
-
+				# calculate mectric
 				if telegram:
 					telegram_message = model_folder + '\n' + f'Test Metric Score:\n{metric_score}'
 					subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
@@ -548,5 +550,6 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 					print(f'Best model at current epoch {epoch}, av value: {metric_score}')
 					# save best model so far to file
 					torch.save(model.state_dict(), f'{model_folder}/best_model.model')
+					metric.score(scores, q_ids, save_path=f'{model_folder}/best_model')
 
 	return early_stopper.best, total_trained_samples

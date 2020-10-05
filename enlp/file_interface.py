@@ -69,7 +69,7 @@ class FileInterface:
 		return self.get(index).strip().split('\t')
 
 
-	def get_tokenized_element(self, id_):
+	def __getitem__(self, id_):
 		""" Used to read one Document OR Query from file, given the
 		"""
 		# return (str) element_id, and numpy array of token ids

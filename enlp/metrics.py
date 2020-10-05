@@ -9,57 +9,54 @@ from enlp.utils import write_ranking, write_ranking_trec
 
 class Metric(object):
 
-	def __init__(self, max_rank, qrel_file, file_path=None):
+	def __init__(self, max_rank, qrel_file, ranking_file_path=None):
 		self.name = None
 		self.max_rank = max_rank
-		tmp = tempfile.NamedTemporaryFile()
-		self.tmp_ranking_file = tmp.name 
 		self.qrel_file = qrel_file
-		if file_path:
-			self.file_path = file_path + '/ranking'
+		if ranking_file_path:
+			self.ranking_file_path = ranking_file_path
 		else:
-			self.file_path = file_path
-	
-	def write_scores(self, scores, qids):
+			tmp = tempfile.NamedTemporaryFile()
+			self.ranking_file_path = tmp.name
+
+	def write_scores(self, scores, qids, path):
 		raise NotImplementedError()
-	
+
 	def score(self):
 		raise NotImplementedError()
 
 
 class MRR(Metric):
-	def __init__(self, qrel_file, max_rank, file_path=None):
-		super().__init__(max_rank, qrel_file, file_path)
-		self.name = f'MRR@{max_rank}'	
-	def write_scores(self, scores, qids):
-		write_ranking(scores, qids, self.tmp_ranking_file)
-		if self.file_path:
-			write_ranking(scores, qids, self.file_path)
+	def __init__(self, qrel_file, max_rank, ranking_file_path=None):
+		super().__init__(max_rank, qrel_file, ranking_file_path)
+		self.name = f'MRR@{max_rank}'
+	def write_scores(self, scores, qids, path):
+		write_ranking(scores, qids, path)
 
 
 	def score(self, scores, qids):
-		self.write_scores(scores, qids)
-		metric = compute_metrics_from_files(path_to_reference=self.qrel_file, path_to_candidate=self.tmp_ranking_file,
+		self.write_scores(scores, qids, self.ranking_file_path)
+		metric = compute_metrics_from_files(path_to_reference=self.qrel_file, path_to_candidate=self.ranking_file_path,
 										  MaxMRRRank=self.max_rank)
 		return round(metric, 6)
-	
+
 class MAPTrec(Metric):
-	def __init__(self, trec_eval_path, qrel_file, max_rank, add_params='', save_all_path=None):
-		super().__init__(max_rank, qrel_file, save_all_path)
+	def __init__(self, trec_eval_path, qrel_file, max_rank, add_params='', ranking_file_path=None):
+		super().__init__(max_rank, qrel_file, ranking_file_path)
 		self.name = f'MAP@{max_rank}'
 		self.add_params = add_params
-		if save_all_path:
-			save_all_path += 'all_results.trec'
-		else:
-			save_all_path = None
-		self.trec_eval = TrecEval(trec_eval_path, save_all_path)
-	def write_scores(self, scores, qids):
-		write_ranking_trec(scores, qids, self.tmp_ranking_file)
-		if self.file_path:
-			write_ranking(scores, qids, self.file_path + '.tsv')
-			write_ranking_trec(scores, qids, self.file_path + '.trec')
+		self.trec_eval = TrecEval(trec_eval_path)
 
-	def score(self, scores, qids):
-		self.write_scores(scores, qids)
-		metric = self.trec_eval.score(self.qrel_file, self.tmp_ranking_file, self.max_rank, self.add_params)
+	def write_scores(self, scores, qids, path):
+		write_ranking(scores, qids, f'{path}.tsv')
+		write_ranking_trec(scores, qids, f'{path}.trec')
+
+	def score(self, scores, qids, save_path=''):
+		if save_path:
+			path = save_path
+		else:
+			path = self.ranking_file_path
+
+		self.write_scores(scores, qids, path)
+		metric = self.trec_eval.score(self.qrel_file, f'{path}.trec', self.max_rank, self.add_params)
 		return round(metric, 6)

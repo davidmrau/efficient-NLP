@@ -161,11 +161,11 @@ def utilize_pretrained_bert(cfg):
 			model = transformers.BertModel.from_pretrained('bert-base-uncased')
 		else:
 			model =  transformers.BertModel.from_pretrained(load_bert_path)
-		
+
 		#if isinstance(model, torch.nn.DataParallel):
 		#	model = model.module
 		#model = model.to('cpu')
-	
+
 		model_state_dict = model.state_dict()
 
 		# update the number of layers, depending on the layers that need to be copied
@@ -438,7 +438,7 @@ def create_bert_inretaction_input(q, doc):
 def collate_fn_bert_interaction(batch):
 	""" Collate function for aggregating samples into batch size.
 		returns:
-		batch_input_ids = Torch.int32([ 
+		batch_input_ids = Torch.int32([
 						["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d1_t1_id, ..., q1_d1_tM_id, "PAD", ... ],
 						["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d2_t1_id, ..., q1_d2_tM_id, "PAD", ... ], ... ])
 						size : BSZ X MAX_batch_length
@@ -853,7 +853,7 @@ def get_model_folder_name(cfg):
 				model_string = "POINT_wise_" + model_string
 			else:
 				model_string = "PAIR_wise_" + model_string
-		
+
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)
 
@@ -1082,7 +1082,7 @@ def load_model(cfg, load_model_folder, device):
 
 	new_state_dict = collections.OrderedDict()
 	for k, v in state_dict.items():
-	
+
 		if n_gpu < 2:
 			if 'module.' in k:
 				k = k.replace('module.', '')
@@ -1094,3 +1094,26 @@ def load_model(cfg, load_model_folder, device):
 
 	model.load_state_dict(state_dict)
 	return model
+
+
+
+class File():
+	def __init__(self, fname):
+		self.file = {}
+		with open(fname, 'r') as f:
+			for line in f:
+				delim_pos = line.find('\t')
+				id = line[:delim_pos]
+				# in case the tokenized of the line is empy, and the line only contains the id, then we return None
+				# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
+				if len(line[delim_pos+1:]) < 2:
+					self.file[id] = None
+				else:
+					# extracting the token_ids and creating a numpy array
+					self.file[id] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
+
+	def __getitem__(self, id):
+		return self.file[id]
+
+	def __len__(self):
+		return len(self.file)
