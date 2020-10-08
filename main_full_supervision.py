@@ -12,8 +12,8 @@ from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 
 warnings.filterwarnings("ignore")
-
-from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu, File
+from enlp.file_interface import File
+from enlp.utils import get_model_folder_name, _getThreads, instantiate_model, get_max_samples_per_gpu
 from enlp.metrics import MAPTrec
 from enlp.utils import offset_dict_len
 from enlp.run_model import run
@@ -113,6 +113,8 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 		print("Training :", temp_model_folder)
 		os.makedirs(temp_model_folder, exist_ok=True)
+		# create folder to store rankings in
+		os.makedirs(temp_model_folder + '/rankings', exist_ok=True)
 
 		# save config
 		OmegaConf.save(cfg, f'{temp_model_folder}/config.yaml')
@@ -127,8 +129,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 		model, device, n_gpu, vocab_size = instantiate_model(cfg)
 		# initialize loss function
-		loss_fn = nn.MarginRankingLoss(margin = 1).to(device)
-		#loss_fn = nn.MSELoss().to(device)
+		loss_fn = nn.MarginRankingLoss(margin = cfg.margin).to(device)
 
 		# initialize optimizer
 		optim = Adam(model.parameters(), lr=cfg.lr)
@@ -150,14 +151,14 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 								   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 								   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
-								   log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions, validate=False,
-								   max_samples_per_gpu = cfg.max_samples_per_gpu, n_gpu = n_gpu, telegram=cfg.telegram)
+								   log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, validate=False,
+									telegram=cfg.telegram)
 
 		metric_scores.append(metric_score)
 
 		os.makedirs(completed_model_folder, exist_ok=True)
 		os.renames(temp_model_folder, completed_model_folder)
-	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised {np.mean(metric_scores)}').close()
+	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised {np.mean(metric_scores)}')
 
 	# after the training is done, we remove the temp prefix from the dir name
 	print("Training completed! Changing from temporary name to final name.")

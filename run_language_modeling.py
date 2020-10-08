@@ -135,7 +135,7 @@ class LineByLineTextDataset(Dataset):
         with open(file_path, encoding="utf-8") as f:
             lines = []
             for line in f.read().splitlines():
-                if (len(line) > 0 and not line.isspace()): 
+                if (len(line) > 0 and not line.isspace()):
                     lines.append(line)
                     print(line)
 
@@ -153,7 +153,7 @@ def load_and_cache_examples(args, evaluate=False):
      #   return LineByLineTextDataset(tokenizer, args, file_path=file_path, block_size=args.block_size)
     #else:
     #    return TextDataset(tokenizer, args, file_path=file_path, block_size=args.block_size)
-    return MSMarcoLM(file_path, args.docs_path, args.query_path)
+    return MSMarcoLM(file_path, args.docs_path, args.query_path, tokenized=False)
 
 def set_seed(args):
     random.seed(args.seed)
@@ -215,7 +215,7 @@ def mask_tokens(inputs: torch.Tensor, tokenizer: PreTrainedTokenizer, args) -> T
         special_token_mask, segment_id_mask = tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True, ratio_first_second=args.ratio_first_second, exclude=args.exclude)
         special_tokens_mask.append(special_token_mask)
         segment_ids_mask.append(segment_id_mask)
-        
+
     probability_matrix.masked_fill_(torch.tensor(special_tokens_mask, dtype=torch.bool), value=0.0)
     if tokenizer._pad_token is not None:
         padding_mask = labels.eq(tokenizer.pad_token_id)
@@ -291,7 +291,8 @@ def train(args, train_dataset, model: PreTrainedModel, tokenizer: PreTrainedToke
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
 
     # multi-gpu training (should be after apex fp16 initialization)
-    if args.n_gpu > 1:
+# multi-gpu eval
+    if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
         model = torch.nn.DataParallel(model)
 
     # Distributed training (should be after apex fp16 initialization)
@@ -453,7 +454,7 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
     )
 
     # multi-gpu evaluate
-    if args.n_gpu > 1:
+    if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
         model = torch.nn.DataParallel(model)
 
     # Eval!
@@ -465,7 +466,7 @@ def evaluate(args, model: PreTrainedModel, tokenizer: PreTrainedTokenizer, prefi
     model.eval()
 
     for batch in tqdm(eval_dataloader, desc="Evaluating"):
-        inputs, labels, segement_mask = mask_tokens(batch, tokenizer, args) if args.mlm else (batch, batch)
+        inputs, labels, segment_mask = mask_tokens(batch, tokenizer, args) if args.mlm else (batch, batch)
         inputs = inputs.to(args.device)
         labels = labels.to(args.device)
         segment_mask = segment_mask.to(args.device)
@@ -632,7 +633,7 @@ def main():
         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
         "See details at https://nvidia.github.io/apex/amp.html",
     )
-    
+
     parser.add_argument("--ratio_first_second", default=0.2, type=float, help="Ratio of excluding first sentence from masking.")
     parser.add_argument("--exclude",action='store_true', help="Excluding sentence from masking.")
     parser.add_argument("--docs_path", type=str, default=f'collection.bert.tsv', help="Docs path.")

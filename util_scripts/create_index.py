@@ -3,9 +3,9 @@ import torch
 from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 
-from enlp.dataset import Sequential
+from enlp.dataset import Sequential, collate_fn_padd_single
 from enlp.inverted_index import InvertedIndex
-from enlp.utils import collate_fn_padd_single, load_model
+from enlp.utils import load_model
 
 
 # usage: create_index.py model_folder=FOLDER_TO_MODEL

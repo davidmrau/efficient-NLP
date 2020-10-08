@@ -1,905 +1,583 @@
-
 import random
 import torch
 from enlp.tokenizer import Tokenizer
-from torch.utils import data
 from torch.utils.data import DataLoader, IterableDataset
 import numpy as np
-from enlp.file_interface import FileInterface
-from enlp.utils import collate_fn_padd_triples, offset_dict_len, split_by_len, split_dataset, padd_tensor, \
-				collate_fn_bert_interaction, create_bert_inretaction_input, File
-
+from enlp.file_interface import FileInterface, File
+from enlp.utils import split_dataset
 
 from transformers import BertTokenizer
 from torch.nn.utils.rnn import pad_sequence
 
 
+class MSMarcoLM(torch.utils.data.Dataset):
+
+    def __init__(self, data_path, documents_path, queries_path, max_length=512, tokenized=True):
+        self.data = open(data_path, 'r').readlines()
+        # subtract 3 for the special tokens that are added
+        self.max_length = max_length - 3
+        # "open" documents file
+        self.documents = File(documents_path, tokenized)
+        # "open" queries file
+        self.queries = File(queries_path, tokenized)
+
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+    def __len__(self):
+        return len(self.data)
+
+    def get_content(self, line):
+        delim_pos = line.find('\t')
+        return line[delim_pos + 1:]
+
+    def __getitem__(self, index):
+        q_id, _, d1_id, _ = self.data[index].split()
+        query = self.queries[q_id]
+        doc = self.documents[d1_id]
+        query = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(query))
+        doc = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(doc))
+        len_doc = self.max_length - len(query)
+        cls_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.cls_token)
+        sep_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.sep_token)
+        inp = [cls_id] + query + [sep_id] + doc[:len_doc] + [sep_id]
+        inp = torch.LongTensor(inp)
+        return inp
+
+
+def create_bert_inretaction_input(q, doc):
+    # inputs: query and document token ids in the form of numpy array
+    # creates one input in the form : ["CLS"_id, q_t1_id, ..., q_tN_id, "SEP"_id, d_t1_id, ..., d_tM_id]
+    # and the return the above input_ids, along with the corresponding attention mask and token type ids
+
+    # Hard-coding token IDS of CLS, SEP and PAD
+    cls_token_id = np.array([101])
+    sep_token_id = np.array([102])
+    pad_token_id = 0
+
+    np_zero = np.array([0])
+
+    q_token_type_ids = np.zeros(q.shape[0])
+    d_token_type_ids = np.ones(doc.shape[0])
+
+    q_d = np.concatenate([cls_token_id, q, sep_token_id, doc])
+    q_d = torch.LongTensor(q_d)
+
+    q_d_attention_mask = torch.ones(q_d.shape[0], dtype=torch.bool)
+
+    q_d_token_type_ids = np.concatenate([np_zero, q_token_type_ids, np_zero, d_token_type_ids])
+    q_d_token_type_ids = torch.LongTensor(q_d_token_type_ids)
+
+    return q_d, q_d_attention_mask, q_d_token_type_ids
+
+
 class Sequential(IterableDataset):
-	def __init__(self, fname, tokenize=False, min_len=5, max_len=150, stopwords='lucene', tokenizer='glove', remove_unk=True):
+    def __init__(self, fname, tokenize=False, min_len=5, max_len=150, stopwords='lucene', tokenizer='glove',
+                 remove_unk=True):
 
-		# open file
-		self.file_ = open(fname, 'r')
-		self.tokenize = tokenize
-		self.min_len = min_len
-		self.tokenizer = Tokenizer(tokenizer = tokenizer, max_len = max_len, stopwords=stopwords, remove_unk = remove_unk, unk_words_filename=None)
+        # open file
+        self.file_ = open(fname, 'r')
+        self.tokenize = tokenize
+        self.min_len = min_len
+        self.tokenizer = Tokenizer(tokenizer=tokenizer, max_len=max_len, stopwords=stopwords, remove_unk=remove_unk,
+                                   unk_words_filename=None)
 
-	def __iter__(self):
-			for line in self.file_:
-				# getting position of '\t' that separates the doc_id and the begining of the token ids
-				delim_pos = line.find('\t')
-				# extracting the id
-				id_ = line[:delim_pos]
-				# extracting the token_ids and creating a numpy array
-				if self.tokenize:
-					tokens_list = self.tokenizer.encode(line[delim_pos+1:])
-				else:
-					tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
+    def __iter__(self):
+        for line in self.file_:
+            # getting position of '\t' that separates the doc_id and the begining of the token ids
+            delim_pos = line.find('\t')
+            # extracting the id
+            id_ = line[:delim_pos]
+            # extracting the token_ids and creating a numpy array
+            if self.tokenize:
+                tokens_list = self.tokenizer.encode(line[delim_pos + 1:])
+            else:
+                tokens_list = np.fromstring(line[delim_pos + 1:], dtype=int, sep=' ')
 
-				if len(tokens_list) < self.min_len:
-					tokens_list = np.pad(tokens_list, (0, self.min_len - len(tokens_list)))
+            if len(tokens_list) < self.min_len:
+                tokens_list = np.pad(tokens_list, (0, self.min_len - len(tokens_list)))
 
-				yield [id_, tokens_list]
-
-# currently StrongData is not used
-# If it is to be used, the parameters: {max_query_len = 64, max_complete_length = 510, max_doc_len = None} need to be created and set according to :
-# cfg params :
-# msmarco:
-#   max_query_len: 64
-#   max_complete_length: 512
-# robust04:
-#   max_length: 1500
-
-# class StrongData(IterableDataset):
-# 	def __init__(self, strong_results, documents_fi, queries, target, indices=None, sample_random=True):
-
-# 		# "open" triplets file
-# 		if isinstance(strong_results, FileInterface):
-# 			self.strong_results_file = strong_results
-# 		else:
-# 			self.strong_results_file = FileInterface(strong_results)
-
-# 		# "open" documents file
-# 		self.documents = documents_fi
-# 		if indices == None:
-# 			self.indices = list(range(len(self)))
-# 		else:
-# 			self.indices = indices
-
-# 		# create a list of docment ids
-# 		self.doc_ids_list = list(self.documents.seek_dict)
-
-# 		# "open" queries file
-
-# 		if isinstance(queries, FileInterface):
-# 			self.queries = queries
-# 		else:
-# 			self.queries = FileInterface(queries)
-
-# 		if target == 'binary':
-# 			self.target_function = self.binary_target
-# 		elif target == 'rank_prob':
-# 			self.target_function = self.probability_difference_target
-# 		else:
-# 			raise ValueError("Param 'target' of StrongData, was not among {'binary', 'rank_prob'}, but :" + str( target))
-# 		self.sample_random = sample_random
-
-# 	def __len__(self):
-# 		return len(self.strong_results_file)
-
-# 	def binary_target(self, result1, result2):
-# 		# 1 if result1 is better and -1 if result2 is better
-# 		target = 1 if result1[1] > result2[1] else -1
-# 		return  target
-# 		# implementation of the rank_prob model's target from paper : Neural Ranking Models with Weak Supervision (https://arxiv.org/abs/1704.08803)
-# 	def probability_difference_target(self, result1, result2):
-# 		target = result1[1] / (result1[1] + result2[1])
-# 		return target
-
-# 	# sampling candidates functions
-# 	# sample a negative candidate from the collection
-# 	def sample_negative_document_result(self, exclude_doc_ids_set):
-# 		# get a random index from documents' list
-# 		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
-# 		# get the corresponding document id
-# 		random_doc_id = self.doc_ids_list[random_doc_index]
-# 		# retrieve content of the random document
-# 		document_content = self.documents.get_tokenized_element(random_doc_id)
-# 		# make sure that the random document's id is not in the exclude list and its content is not empty
-# 		while random_doc_id in exclude_doc_ids_set or document_content is None:
-# 		# get a random index from documents' list
-# 			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
-# 		# get the corresponding document id
-# 			random_doc_id = self.doc_ids_list[random_doc_index]
-# 			# retrieve content of the random document
-# 			document_content = self.documents.get_tokenized_element(random_doc_id)
-# 		return (random_doc_id, 0, document_content)
-
-# 	def __iter__(self):
-# 		for index in self.indices:
-# 			q_id, query_results = self.strong_results_file.read_all_results_of_query_index(index, top_k_per_query = -1)
-# 			rel_docs, non_rel_docs = list(), list()
-
-# 			for el in query_results:
-# 				if el[1] > 0:
-# 					rel_docs.append(el)
-# 				else:
-# 					non_rel_docs.append(el)
-
-# 			rel_docs_set = {doc_id for doc_id, score in rel_docs}
-# 			for d1_id, score_1 in rel_docs:
-# 				# sample random doc
-
-# 				# if sample random
-# 				rand = random.random() > 0.5
-# 				# take from negative samples in ranking results file if some left and sample_random=False
-# 				if len(non_rel_docs) > 0 and (rand or not self.sample_random):
-# 					d2_id, d2_score = non_rel_docs.pop()
-# 					content_2 = self.documents.get_tokenized_element(d2_id)
-# 					result_2 = (d2_id, d2_score, content_2)
-
-# 				else:
-# 					#otherwise take random doc
-# 					result_2 = self.sample_negative_document_result(rel_docs_set)
-# 				# after tokenizing / preprocessing, some queries/documents have empty content.
-# 				# If any of these are among 3 the selected ones, then we do not create this triplet sample
-# 				# In that case, we return None, as soon as possible, so that other file reading operations can be avoided
-
-# 				# retrieve tokenized content, given id
-# 				query = self.queries.get_tokenized_element(q_id)
-# 				content_1 = self.documents.get_tokenized_element(d1_id)
-# 				result_1 = (d1_id, score_1, content_1)
-# 				if result_1[2] is None or result_2[2] is None:
-# 					yield None
-# 					continue
-# 				# randomly swap positions
-# 				if random.random() > 0.5:
-# 					temp = result_1
-# 					result_1 = result_2
-# 					result_2 = temp
-
-# 				target = self.target_function(result_1, result_2)
-# 				yield [query, result_1[2], result_2[2]], target
-
-# class MSMarcoTrain(data.Dataset):
-class TrainingTriplets(data.Dataset):
-	def __init__(self, triplets_path, id2query, id2doc, max_query_len = 64, max_complete_length = 510, max_doc_len = None):
-		# "open" triplets file
-		self.triplets = FileInterface(triplets_path)
-		self.id2query = id2query
-		self.id2doc = id2doc
-
-		self.max_query_len = max_query_len
-		if max_doc_len is not None:
-			self.max_doc_len = max_doc_len
-		else:
-			self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
-
-	def __len__(self):
-		return len(self.triplets)
-
-	def __getitem__(self, index):
-
-		q_id, d1_id, d2_id = self.triplets.get_triplet(index)
-
-		query = self.id2query[q_id]
-		doc1 = self.id2doc[d1_id]
-		doc2 = self.id2doc[d2_id]
-		# truncating queries and documents:
-		query = query if self.max_query_len is None else query[:self.max_query_len]
-
-		doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
-		doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
-		if random.random() > 0.5:
-			return [query, doc1, doc2], 1
-		else:
-			return [query, doc2, doc1], -1
+            yield [id_, tokens_list]
 
 
 class TripletsSequential(IterableDataset):
-	def __init__(self, triplets_path, id2doc, id2query, max_query_len = 64, max_complete_length = 510, max_doc_len = None):
-		# "open" triplets file
-		self.triplets = open(triplets_path, 'r')
-		self.id2query = id2query
-		self.id2doc = id2doc
+    def __init__(self, triplets_path, id2query, id2doc, max_query_len=64, max_complete_length=510, max_doc_len=None):
+        # "open" triplets file
+        self.triplets = open(triplets_path, 'r')
+        self.id2query = id2query
+        self.id2doc = id2doc
 
-		self.max_query_len = max_query_len
-		if max_doc_len is not None:
-			self.max_doc_len = max_doc_len
-		else:
-			self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
+        self.max_query_len = max_query_len
+        if max_doc_len is not None:
+            self.max_doc_len = max_doc_len
+        else:
+            self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
 
+    def __iter__(self):
+        for line in self.triplets:
+            # getting position of '\t' that separates the doc_id and the begining of the token ids
+            q_id, d1_id, d2_id = line.strip().split('\t')
+            query = self.id2query[q_id]
+            doc1 = self.id2doc[d1_id]
+            doc2 = self.id2doc[d2_id]
+            # truncating queries and documents:
+            query = query if self.max_query_len is None else query[:self.max_query_len]
 
-	def __iter__(self):
-		for line in self.triplets:
-			# getting position of '\t' that separates the doc_id and the begining of the token ids
-			q_id, d1_id, d2_id = line.strip().split('\t')
-			query = self.id2query[q_id]
-			doc1 = self.id2doc[d1_id]
-			doc2 = self.id2doc[d2_id]
-			# truncating queries and documents:
-			query = query if self.max_query_len is None else query[:self.max_query_len]
+            doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
+            doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
+            if random.random() > 0.5:
+                yield query, doc1, doc2, 1
+            else:
+                yield query, doc2, doc1, -1
 
-			doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
-			doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
-			if random.random() > 0.5:
-				yield [query, doc1, doc2], 1
-			else:
-				yield [query, doc2, doc1], -1
 
 class RankingResultsTest:
 
-	def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None, max_query_len = -1, max_complete_length = -1, max_doc_len = None, rerank_top_N = -1):
-		# open file
-		self.batch_size = batch_size
-
-		self.ranking_results = open(ranking_results, 'r')
-		self.min_len = min_len
-		self.indices = indices
-		self.id2query = id2query
-		self.id2doc = id2doc
-
-		self.stop = False
-		self.index = 0
-
-		self.max_query_len = max_query_len
-		if max_doc_len is not None:
-			self.max_doc_len = max_doc_len
-		else:
-			self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
-
-		self.rerank_top_N = rerank_top_N
-
-	def reset(self):
-		self.ranking_results.seek(0)
-		self.line = None
-		self.index = 0
-		return self
-
-
-	def get_id(self, line):
-		spl = line.split(' ')
-		q_id = str(spl[0].strip())
-		d_id = str(spl[2].strip())
-		return q_id, d_id
-
-	def get_tokenized(self, id_, id2tokens):
-		tokenized_ids = id2tokens[id_]
-		if tokenized_ids is None:
-			return None
-
-		if len(tokenized_ids) < self.min_len:
-			tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
-		return tokenized_ids
-
-
-	def batch_generator(self):
-		self.stop = False
-		file_pos = self.ranking_results.tell()
-		line = self.ranking_results.readline()
-		if len(line) < 1:
-			print('Read empty line, assuming file end.')
-			return
-		curr_q_id, _ = self.get_id(line)
-		self.ranking_results.seek(file_pos)
-		started_query = False
-
-		# keeping count of documents that refer to the current query
-		doc_count = 0
-
-		while not self.stop:
-			# read a number of lines equal to batch_size
-			d_batch_ids = []
-			d_batch_data = []
-
-
-			while len(d_batch_ids) < self.batch_size:
-				prev_q_id = curr_q_id
-				file_pos = self.ranking_results.tell()
-				line = self.ranking_results.readline()
-				if len(line) < 1:
-					break
-				curr_q_id, doc_id = self.get_id(line)
-
-				if curr_q_id != prev_q_id:
-					self.index += 1
-
-				#print('-line', line.strip())
-				#print('curr_id', curr_q_id, 'index', self.index)
-				#print('prev_id', prev_q_id)
-				if self.indices is not None:
-					if self.index not in self.indices:
-						#print('>>', line, 'index', self.index)
-						continue
-				if curr_q_id != prev_q_id and started_query:
-					#print('break new q_id', line)
-					self.stop = True
-					self.ranking_results.seek(file_pos)
-					break
-
-				# extracting the token_ids and creating a numpy array
-
-
-				# if index of queries to load is provided check if query index is indices
-				doc = self.get_tokenized(doc_id, self.id2doc)
-
-
-
-				if doc is not None:
-					# truncate document data
-					if self.max_doc_len is not None:
-						doc = doc[:self.max_doc_len]
-
-					# ignoring everything lower than the  top N documents, regarding the reranking
-					if doc_count == self.rerank_top_N:
-						continue
-
-
-					doc_count += 1
-					d_batch_ids.append(doc_id)
-					d_batch_data.append(torch.IntTensor(doc))
-					#print('+', line)
-					started_query = True
-					q_id = [curr_q_id]
-
-
-
-			if len(d_batch_data) < 1:
-				print('Empty batch!')
-				return
-
-			query = self.get_tokenized(q_id[-1], self.id2query)
-			# truncate query
-			if self.max_query_len is not None:
-				query = query[:self.max_query_len]
-
-			q_data = [torch.IntTensor(query)]
-			d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
-			q_length = torch.FloatTensor([len(q) for q in q_data])
-
-			#padd data along axis 1
-			d_batch_data = pad_sequence(d_batch_data,1).long()
-			q_data = padd_tensor(q_data, d_batch_data.shape[1]).long()
-			yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
-
-	def batch_generator_bert_interaction(self):
-
-		self.stop = False
-		file_pos = self.ranking_results.tell()
-		line = self.ranking_results.readline()
-		if len(line) < 1:
-			print('Read empty line, assuming file end.')
-			return
-		curr_q_id, _ = self.get_id(line)
-		self.ranking_results.seek(file_pos)
-		started_query = False
-		while not self.stop:
-			# read a number of lines equal to batch_size
-			d_batch_ids = []
-			d_batch_data = []
-			while len(d_batch_ids) < self.batch_size:
-				prev_q_id = curr_q_id
-				file_pos = self.ranking_results.tell()
-				line = self.ranking_results.readline()
-				if len(line) < 1:
-					break
-				curr_q_id, doc_id = self.get_id(line)
-
-				if curr_q_id != prev_q_id:
-					self.index += 1
-
-				if self.indices is not None:
-					if self.index not in self.indices:
-						#print('>>', line, 'index', self.index)
-						continue
-				if curr_q_id != prev_q_id and started_query:
-					#print('break new q_id', line)
-					self.stop = True
-					self.ranking_results.seek(file_pos)
-					break
-
-				# extracting the token_ids and creating a numpy array
-
-
-				# if index of queries to load is provided check if query index is indices
-				# doc = self.get_tokenized(doc_id, self.id2doc)
-
-				doc_data = self.id2doc[doc_id]
-				# truncate document data
-				if self.max_doc_len != None:
-					doc_data = doc_data[:self.max_doc_len]
-
-				if doc_data is not None:
-					d_batch_ids.append(doc_id)
-					d_batch_data.append(doc_data)
-					#print('+', line)
-					started_query = True
-					q_id = [curr_q_id]
-					q_data = self.id2query[curr_q_id]
-					# truncate query
-					if self.max_query_len != None:
-						q_data = q_data[:self.max_query_len]
-
-
-			if len(d_batch_data) < 1:
-				# print('Empty batch!')
-				return
-
-
-			# at this point we have :
-			# q_id : [ query_id ]
-			# q_data: numpy array of the query token ids.
-
-			# lists of document ids and document content that do not exceed the batch size
-			# d_batch_ids : list of document ids
-			# d_batch_data : list of numpy arrays that contain the token ids of the documents
-
-			# need to create final form of bert input + attention masks + token type ids
-
-			batch_input_ids = []
-			batch_attention_masks = []
-			batch_token_type_ids = []
-
-			# creating batch:
-			for doc_data in d_batch_data:
-				input_ids, attention_masks, token_type_ids = create_bert_inretaction_input(q_data, doc_data)
-
-				batch_input_ids.append(input_ids)
-				batch_attention_masks.append(attention_masks)
-				batch_token_type_ids.append(token_type_ids)
-
-
-			# the output should be in the form : [q_id], [doc_ids], input_ids, attention_masks, token_type_ids
-
-			batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
-			batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
-			batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
-
-			yield q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids
-
-
-class WeakSupervision(IterableDataset):
-	def __init__(self, weak_results_fi, documents_fi, queries_fi, top_k_per_query=-1, sampler = 'uniform', target='binary',
-			samples_per_query = -1, single_sample = False, shuffle = True, min_results = 2, strong_negatives = True, indices_to_use = None,
-			sample_j = False, sample_random = False, max_length = -1):
-
-		# "open" triplets file
-		self.weak_results_file = weak_results_fi
-
-		# "open" documents file
-		self.documents = documents_fi
-
-		# create a list of docment ids
-		self.doc_ids_list = list(self.documents.seek_dict)
-
-		# "open" queries file
-		self.queries = queries_fi
-
-		self.top_k_per_query = top_k_per_query
-		# defines the full(~1000) combinations to be calculated for a number of (samples_per_query) queries
-		self.samples_per_query = samples_per_query
-
-		# if True, then we create exactly one positive sample for each query
-		self.single_sample = single_sample
-		# if strong_negatives == True then then reassuring that negative samples are not among the (weakly) relevant ones
-		self.strong_negatives = strong_negatives
-
-		self.shuffle = shuffle
-		# if sample_j is True, then we sample samples_per_query samples for creating the cpmbinations. sample different ones for each (i)
-		self.sample_j = sample_j
-
-		self.min_results = min_results
-
-		if target == 'binary':
-			self.target_function = self.binary_target
-		elif target == 'rank_prob':
-			self.target_function = self.probability_difference_target
-		else:
-			raise ValueError("Param 'target' of WeakSupervision, was not among {'binary', 'rank_prob'}, but :" + str( target))
-
-		# setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
-		self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
-		if sampler == 'top_n':
-			self.sampler_function = self.sample_top_n
-		elif sampler == 'uniform':
-			self.sampler_function = self.sample_uniform
-		elif sampler == 'linear':
-			self.sample_weights =  np.linspace(1,0,self.max_candidates)
-			self.sampler_function = self.sample_linear
-		elif sampler == 'zipf':
-			# initialize common calculations
-			self.sample_weights = np.asarray([1/(i+1) for i in range(self.max_candidates)])
-			self.sampler_function = self.sample_zipf
-		# top-N sampling methods, refer to uniform probability to the top N candidates and very small probability to the rest of the canidates
-		elif "top-" in sampler:
-			N = int(sampler.split('-')[1])
-			self.sample_weights = np.asarray([1 for i in range(N)] + [0.0001 for i in range(self.max_candidates - N)])
-			self.sampler_function = self.sample_top_n_probabilistically
-		else:
-			raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf', 'linear', 'top-\{INTEGER}'}, but :" + str( sampler))
-		# having a calculated list of indices, that will be used while sampling
-		self.candidate_indices = list(range(self.max_candidates))
-
-		# this will be used later in case suffle is True
-		if indices_to_use is None:
-			self.query_indices = list(range(len(self.weak_results_file)))
-		else:
-			self.query_indices = indices_to_use
-
-		# whether to also generate triplets using a relevand and a random strong negative document from corpus
-		self.sample_random = sample_random
-
-		self.max_length = max_length
-
-	def __len__(self):
-		raise NotImplementedError()
-
-	def generate_triplet(self, query, candidates):
-		# shuffle order of candidates
-		random.shuffle(candidates)
-		# get target
-		target = self.target_function(candidates[0], candidates[1])
-		# get document content from tupples
-		doc1 = candidates[0][2]
-		doc2 = candidates[1][2]
-
-		if self.max_length != -1:
-			query = query[:self.max_length]
-			doc1 = doc1[:self.max_length]
-			doc2 = doc2[:self.max_length]
-
-		return [query, doc1, doc2], target
-
-
-	def __iter__(self):
-
-		if self.shuffle:
-			random.shuffle(self.query_indices)
-
-		for q_index in self.query_indices:
-			q_id, query_results = self.weak_results_file.read_all_results_of_query_index(q_index, self.top_k_per_query)
-
-			# if the content of the query is empty, then skip this query
-			query = self.queries[q_id]
-			if query is None:
-				continue
-
-			# skip queries that do not have the necessary nuber of results
-			if len(query_results) < self.min_results:
-				continue
-
-			# reassuring that negative results are not among the weak scorer results, by creting a set with all relevant ids
-			if self.strong_negatives:
-				relevant_doc_ids_set = {doc_id for doc_id , _ in query_results }
-
-			#  if we are generating exactly one relevant sample for each query (and one negative)
-			if self.single_sample:
-				# sample candidates
-				candidate_indices = self.sampler_function(scores_list = query_results, n = 2, return_indices = True)
-
-				doc1_id, score1 = query_results[candidate_indices[0]]
-				doc2_id, score2 = query_results[candidate_indices[1]]
-
-				doc1 = self.documents[doc1_id]
-				doc2 = self.documents[doc2_id]
-
-				candidates = [(doc1_id, score1, doc1), (doc2_id, score2, doc2)]
-				#print(q_id, doc1_id, doc2_id)
-
-				if (doc1 is not None) and (doc2 is not None):
-					# yield triplet of relevants
-					yield self.generate_triplet(query, candidates)
-
-				else:
-					continue
-
-				if self.sample_random:
-
-					# get the first of the candidates in order to be matched with a random negative document
-					result1 = candidates[0]
-
-					# add the relevant document id to the excluding list if we haven't already
-					if self.strong_negatives == False:
-						rel_doc_id = result1[0]
-						relevant_doc_ids_set = {rel_doc_id}
-
-					negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
-
-					yield self.generate_triplet(query, [result1, negative_result])
-
-			#  if we are generating all combinations from samples_per_query candidates with all the candidates samples
-			# (plus 1 negative sample for each of the afforementioned samples)
-			else:
-
-				# make sure that there are not any empty documents on the retrieved documents list (query_results)
-				# since we are reading the documents we are also saving their contents in memory as an extra item in the final tupples
-				non_empty_query_results_with_content = []
-				for doc_id, score in query_results:
-					document_content = self.documents[doc_id]
-					if document_content is not None:
-						# updating list with non empy_documents, and also adding the content of the document ot the tupple
-						non_empty_query_results_with_content.append((doc_id, score, document_content))
-				query_results = non_empty_query_results_with_content
-
-
-				# inb case we will end up using all the candidaes to create combinations
-				if self.samples_per_query == -1 or len(query_results) <= self.samples_per_query :
-					candidate_indices = [i for i in range( len(query_results) )]
-				else:
-					candidate_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
-					candidate_indices.sort()
-
-				# generating a sample for each combination of i_th candidate with j_th candidate, without duplicates
-				for i in candidate_indices:
-					# if we do not request sampling, or there are not enough results to sample from, then we use all of them
-					if (self.sample_j == False) or (self.samples_per_query == -1) or (len(query_results) <= self.samples_per_query):
-						j_indices = list(range(len(query_results)))
-					# otherwise we are able and requested to sample for the nested loop of combinations (j), so we do sample
-					else:
-						j_indices = self.sampler_function(scores_list = query_results, n = self.samples_per_query, return_indices = True)
-
-					for j in j_indices:
-						# making sure that we do not have any duplicates
-						if (j not in candidate_indices) or (j > i):
-
-							# yield triplet of relevants
-							candidate1 = query_results[i]
-							candidate2 = query_results[j]
-							yield self.generate_triplet(query, [candidate1, candidate2])
-
-							if self.sample_random:
-								# yield triplet of irrelevants
-								# add the relevant document id to the excluding list if we haven't already
-								if self.strong_negatives == False:
-									rel_doc_id = candidate1[0]
-									relevant_doc_ids_set = {rel_doc_id}
-
-								negative_result = self.sample_negative_document_result(exclude_doc_ids_set = relevant_doc_ids_set)
-
-								yield self.generate_triplet(query, [candidate1, negative_result])
-
-
-# target value calculation functions
-	# binary targets -1/1 defining which is the more relevant candidate out of the two candidates
-	def binary_target(self, result1, result2):
-		# 1 if result1 is better and -1 if result2 is better
-		target = 1 if result1[1] > result2[1] else -1
-		return  target
-
-	# implementation of the rank_prob model's target from paper : Neural Ranking Models with Weak Supervision (https://arxiv.org/abs/1704.08803)
-	def probability_difference_target(self, result1, result2):
-		target = result1[1] / (result1[1] + result2[1])
-		return target
-
-# sampling candidates functions
-	# sample a negative candidate from the collection
-	def sample_negative_document_result(self, exclude_doc_ids_set):
-		# get a random index from documents' list
-		random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
-		# get the corresponding document id
-		random_doc_id = self.doc_ids_list[random_doc_index]
-		# retrieve content of the random document
-		document_content = self.documents[random_doc_id]
-
-		# make sure that the random document's id is not in the exclude list and its content is not empty
-		while random_doc_id in exclude_doc_ids_set or document_content is None:
-		# get a random index from documents' list
-			random_doc_index = random.randint(0, len(self.doc_ids_list) - 1)
-		# get the corresponding document id
-			random_doc_id = self.doc_ids_list[random_doc_index]
-			# retrieve content of the random document
-			document_content = self.documents[random_doc_id]
-
-		return (random_doc_id, 0, document_content)
-
-	# sampling out of relevant documents functions :
-
-	def sample_uniform(self, scores_list, n, return_indices = False):
-		length = len(scores_list)
-		indices = self.candidate_indices[:length]
-		sampled_indices = random.sample(indices, n)
-		if return_indices:
-			return sampled_indices
-		return [scores_list[i] for i in sampled_indices]
-
-	def sample_zipf(self, scores_list, n, return_indices = False):
-		length = len(scores_list)
-		indices = self.candidate_indices[:length]
-		# normalize sampling probabilities depending on the number of candidates
-		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
-		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
-		if return_indices:
-			return sampled_indices
-		return [scores_list[i] for i in sampled_indices]
-
-	def sample_top_n(self, scores_list, n, return_indices = False):
-		if return_indices:
-			return [i for i in range(n)]
-		return scores_list[:n]
-
-	def sample_linear(self, scores_list, n, return_indices = False):
-		length = len(scores_list)
-		indices = self.candidate_indices[:length]
-		# normalize sampling probabilities depending on the number of candidates
-		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
-		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
-		if return_indices:
-			return sampled_indices
-		return [scores_list[i] for i in sampled_indices]
-
-	# top-N sampling methods, refer to uniform probability to the top N candidates and very small probability to the rest of the canidates
-	def sample_top_n_probabilistically(self, scores_list, n, return_indices = False):
-		length = len(scores_list)
-		indices = self.candidate_indices[:length]
-		# normalize sampling probabilities depending on the number of candidates
-		p = self.sample_weights[:length] / sum(self.sample_weights[:length])
-		sampled_indices = np.random.choice(indices, size=n, replace=False, p=p)
-		if return_indices:
-			return sampled_indices
-		return [scores_list[i] for i in sampled_indices]
-
-
-
-
-class MSMarcoLM(data.Dataset):
-
-	def __init__(self, data_path, documents_path, queries_path, max_length=512):
-
-
-		self.data = open(data_path, 'r').readlines()
-		# subtract 3 for the special tokens that are added
-		self.max_length = max_length - 3
-		# "open" documents file
-		self.documents = FileInterface(documents_path)
-		# "open" queries file
-		self.queries = FileInterface(queries_path)
-
-		self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-	def __len__(self):
-		return len(self.data)
-
-	def get_content(self, line):
-		delim_pos = line.find('\t')
-		return line[delim_pos+1:]
-
-	def __getitem__(self, index):
-		q_id, _, d1_id, _  = self.data[index].split(' ')
-		query = self.get_content(self.queries.get(q_id))
-		doc = self.get_content(self.get_content(self.documents.get(d1_id)))
-		query = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(query))
-		doc = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(doc))
-		len_doc = self.max_length - len(query)
-		cls_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.cls_token)
-		sep_id = self.tokenizer.convert_tokens_to_ids(self.tokenizer.sep_token)
-		inp = [cls_id] + query + [sep_id] + doc[:len_doc] + [sep_id]
-		inp = torch.LongTensor(inp)
-		return inp
-
-
+    def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None, max_query_len=-1,
+                 max_complete_length=-1, max_doc_len=None, rerank_top_N=-1):
+        # open file
+        self.batch_size = batch_size
+
+        self.ranking_results = open(ranking_results, 'r')
+        self.min_len = min_len
+        self.indices = indices
+        self.id2query = id2query
+        self.id2doc = id2doc
+
+        self.stop = False
+        self.index = 0
+
+        self.max_query_len = max_query_len
+        if max_doc_len is not None:
+            self.max_doc_len = max_doc_len
+        else:
+            self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
+
+        self.rerank_top_N = rerank_top_N
+
+    def reset(self):
+        self.ranking_results.seek(0)
+        self.line = None
+        self.index = 0
+        return self
+
+    def padd_tensor(self, sequences, max_len):
+        """
+        :param sequences: list of tensors
+        :return:
+        """
+        num = len(sequences)
+        out_dims = (num, max_len, *sequences[0].shape[1:])
+        out_tensor = sequences[0].data.new(*out_dims).fill_(0)
+        for i, tensor in enumerate(sequences):
+            length = tensor.size(0)
+            out_tensor[i, :length] = tensor
+        return out_tensor
+
+    def get_id(self, line):
+        spl = line.split(' ')
+        q_id = str(spl[0].strip())
+        d_id = str(spl[2].strip())
+        return q_id, d_id
+
+    def get_tokenized(self, id_, id2tokens):
+        tokenized_ids = id2tokens[id_]
+        if tokenized_ids is None:
+            return None
+
+        if len(tokenized_ids) < self.min_len:
+            tokenized_ids = np.pad(tokenized_ids, (0, self.min_len - len(tokenized_ids)))
+        return tokenized_ids
+
+    def batch_generator(self):
+        self.stop = False
+        file_pos = self.ranking_results.tell()
+        line = self.ranking_results.readline()
+        if len(line) < 1:
+            print('Read empty line, assuming file end.')
+            return
+        curr_q_id, _ = self.get_id(line)
+        self.ranking_results.seek(file_pos)
+        started_query = False
+
+        # keeping count of documents that refer to the current query
+        doc_count = 0
+
+        while not self.stop:
+            # read a number of lines equal to batch_size
+            d_batch_ids = []
+            d_batch_data = []
+
+            while len(d_batch_ids) < self.batch_size:
+                prev_q_id = curr_q_id
+                file_pos = self.ranking_results.tell()
+                line = self.ranking_results.readline()
+                if len(line) < 1:
+                    break
+                curr_q_id, doc_id = self.get_id(line)
+
+                if curr_q_id != prev_q_id:
+                    self.index += 1
+
+                # print('-line', line.strip())
+                # print('curr_id', curr_q_id, 'index', self.index)
+                # print('prev_id', prev_q_id)
+                if self.indices is not None:
+                    if self.index not in self.indices:
+                        # print('>>', line, 'index', self.index)
+                        continue
+                if curr_q_id != prev_q_id and started_query:
+                    # print('break new q_id', line)
+                    self.stop = True
+                    self.ranking_results.seek(file_pos)
+                    break
+
+                # extracting the token_ids and creating a numpy array
+
+                # if index of queries to load is provided check if query index is indices
+                doc = self.get_tokenized(doc_id, self.id2doc)
+
+                if doc is not None:
+                    # truncate document data
+                    if self.max_doc_len is not None:
+                        doc = doc[:self.max_doc_len]
+
+                    # ignoring everything lower than the  top N documents, regarding the reranking
+                    if doc_count == self.rerank_top_N:
+                        continue
+
+                    doc_count += 1
+                    d_batch_ids.append(doc_id)
+                    d_batch_data.append(torch.IntTensor(doc))
+                    # print('+', line)
+                    started_query = True
+                    q_id = [curr_q_id]
+
+            if len(d_batch_data) < 1:
+                print('Empty batch!')
+                return
+
+            query = self.get_tokenized(q_id[-1], self.id2query)
+            # truncate query
+            if self.max_query_len is not None:
+                query = query[:self.max_query_len]
+
+            q_data = [torch.IntTensor(query)]
+            d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
+            q_length = torch.FloatTensor([len(q) for q in q_data])
+
+            # padd data along axis 1
+            d_batch_data = pad_sequence(d_batch_data, 1).long()
+            q_data = self.padd_tensor(q_data, d_batch_data.shape[1]).long()
+            yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
+
+    def batch_generator_bert_interaction(self):
+
+        self.stop = False
+        file_pos = self.ranking_results.tell()
+        line = self.ranking_results.readline()
+        if len(line) < 1:
+            print('Read empty line, assuming file end.')
+            return
+        curr_q_id, _ = self.get_id(line)
+        self.ranking_results.seek(file_pos)
+        started_query = False
+        while not self.stop:
+            # read a number of lines equal to batch_size
+            d_batch_ids = []
+            d_batch_data = []
+            while len(d_batch_ids) < self.batch_size:
+                prev_q_id = curr_q_id
+                file_pos = self.ranking_results.tell()
+                line = self.ranking_results.readline()
+                if len(line) < 1:
+                    break
+                curr_q_id, doc_id = self.get_id(line)
+
+                if curr_q_id != prev_q_id:
+                    self.index += 1
+
+                if self.indices is not None:
+                    if self.index not in self.indices:
+                        # print('>>', line, 'index', self.index)
+                        continue
+                if curr_q_id != prev_q_id and started_query:
+                    # print('break new q_id', line)
+                    self.stop = True
+                    self.ranking_results.seek(file_pos)
+                    break
+
+                # extracting the token_ids and creating a numpy array
+
+                # if index of queries to load is provided check if query index is indices
+                # doc = self.get_tokenized(doc_id, self.id2doc)
+
+                doc_data = self.id2doc[doc_id]
+                # truncate document data
+                if self.max_doc_len != None:
+                    doc_data = doc_data[:self.max_doc_len]
+
+                if doc_data is not None:
+                    d_batch_ids.append(doc_id)
+                    d_batch_data.append(doc_data)
+                    # print('+', line)
+                    started_query = True
+                    q_id = [curr_q_id]
+                    q_data = self.id2query[curr_q_id]
+                    # truncate query
+                    if self.max_query_len != None:
+                        q_data = q_data[:self.max_query_len]
+
+            if len(d_batch_data) < 1:
+                # print('Empty batch!')
+                return
+
+            # at this point we have :
+            # q_id : [ query_id ]
+            # q_data: numpy array of the query token ids.
+
+            # lists of document ids and document content that do not exceed the batch size
+            # d_batch_ids : list of document ids
+            # d_batch_data : list of numpy arrays that contain the token ids of the documents
+
+            # need to create final form of bert input + attention masks + token type ids
+
+            batch_input_ids = []
+            batch_attention_masks = []
+            batch_token_type_ids = []
+
+            # creating batch:
+            for doc_data in d_batch_data:
+                input_ids, attention_masks, token_type_ids = create_bert_inretaction_input(q_data, doc_data)
+
+                batch_input_ids.append(input_ids)
+                batch_attention_masks.append(attention_masks)
+                batch_token_type_ids.append(token_type_ids)
+
+            # the output should be in the form : [q_id], [doc_ids], input_ids, attention_masks, token_type_ids
+
+            batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
+            batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
+            batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
+
+            yield q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids
+
+
+def collate_fn_bert_interaction(batch):
+    """ Collate function for aggregating samples into batch size.
+        returns:
+        batch_input_ids = Torch.int32([
+                        ["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d1_t1_id, ..., q1_d1_tM_id, "PAD", ... ],
+                        ["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d2_t1_id, ..., q1_d2_tM_id, "PAD", ... ], ... ])
+                        size : BSZ X MAX_batch_length
+                        The first "PAD" at the beginning will be replaced with "CLS" during the forward pass of the model, using batch_pad_mask
+                        The second "PAD" between the query and the document will be replaced with "SEP" during the forward pass of the model, using batch_sep_mask
+
+        batch_attention_masks = bollean where non padded tokens are True, size equal with batch_input_ids : BSZ X MAX_batch_length
+
+        batch_attention_masks = mask that defines if the token is from query (value = 0) or document (value = 1),
+                                size equal with batch_input_ids : BSZ X MAX_batch_length
+
+        batch_targets = [q1_d1_sim_score, q1_d2_sim_score, ...], scores are in {-1,1}
+
+    """
+
+    batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets = list(), list(), list(), list()
+
+    for item in batch:
+        # for weak supervision datasets, some queries/documents have empty text.
+        # In that case the sample is None, and we skip these samples
+        if item is None:
+            continue
+
+        q, doc1, doc2, target = item
+
+        if target == 1:
+            q_d1_target = 1
+            q_d2_target = 0
+        else:
+            q_d1_target = 0
+            q_d2_target = 1
+
+        q_d1, q_d1_attention_mask, q_d1_token_type_ids = create_bert_inretaction_input(q, doc1)
+        q_d2, q_d2_attention_mask, q_d2_token_type_ids = create_bert_inretaction_input(q, doc2)
+
+        batch_input_ids.append(q_d1)
+        batch_input_ids.append(q_d2)
+
+        batch_attention_masks.append(q_d1_attention_mask)
+        batch_attention_masks.append(q_d2_attention_mask)
+
+        batch_token_type_ids.append(q_d1_token_type_ids)
+        batch_token_type_ids.append(q_d2_token_type_ids)
+
+        batch_targets.append(q_d1_target)
+        batch_targets.append(q_d2_target)
+
+    # in case this batch does not contain any samples, then we return None
+    if len(batch_input_ids) == 0:
+        return None
+
+    batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
+    batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
+    batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
+    batch_targets = torch.LongTensor(batch_targets)
+
+    return batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets
+
+
+def collate_fn_padd_single(batch):
+    """ Collate function for aggregating samples into batch size.
+        returns:
+        batch_data = Torch([ id_1, tokens_2, ..., id_2, tokens_2, ... ])
+        batch_lengths = length of each query/document,
+            that is used for proper averaging ignoring 0 padded inputs
+    """
+    # batch * [id, tokens]
+
+    batch_lengths = list()
+    batch_ids, batch_data = list(), list()
+
+    for item in batch:
+        # for weak supervision datasets, some queries/documents have empty text.
+        # In that case the sample is None, and we skip this samples
+        if item is None:
+            continue
+
+        id_, tokens = item
+        batch_data.append(torch.IntTensor(tokens))
+        batch_ids.append(id_)
+
+    # in case this batch does not contain any samples, then we return None
+    if len(batch_data) == 0:
+        return None
+
+    batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
+    # pad data along axis 1
+    batch_data = pad_sequence(batch_data, 1).long()
+    return batch_ids, batch_data, batch_lengths
+
+
+def collate_fn_padd_triples(batch):
+    """ Collate function for aggregating samples into batch size.
+		returns:
+
+	"""
+
+    batch_q, batch_doc1, batch_doc2, batch_targets = list(), list(), list(), list()
+
+    for i, item in enumerate(batch):
+
+        if item is None:
+            continue
+
+        q, doc1, doc2, target = item
+
+        if doc1 is not None and doc2 is not None:
+            batch_q.append(torch.IntTensor(q))
+            batch_doc1.append(torch.IntTensor(doc1))
+            batch_doc2.append(torch.IntTensor(doc2))
+            batch_targets.append(target)
+
+    if len(batch_targets) == 0:
+        return None
+
+    batch_targets = torch.Tensor(batch_targets)
+
+    batch_lengths_q = torch.FloatTensor([len(q) for q in batch_q])
+    batch_lengths_doc1 = torch.FloatTensor([len(d) for d in batch_doc1])
+    batch_lengths_doc2 = torch.FloatTensor([len(d) for d in batch_doc2])
+    # pad data along axis 1
+    batch_q = pad_sequence(batch_q, 1).long()
+    batch_doc1 = pad_sequence(batch_doc1, 1).long()
+    batch_doc2 = pad_sequence(batch_doc2, 1).long()
+
+    return batch_q, batch_doc1, batch_doc2, batch_lengths_q, batch_lengths_doc1, batch_lengths_doc2, batch_targets
 
 
 def get_data_loaders_msmarco(cfg):
+    if cfg.debug:
+        triples = cfg.msmarco_triplets_train_debug
+    else:
+        triples = cfg.msmarco_triplets_train
 
-	if cfg.debug:
-		triples = cfg.msmarco_triplets_train_debug
-	else:
-		triples = cfg.msmarco_triplets_train
+    query_fi_train = File(cfg.msmarco_query_train)
+    docs_fi_train = File(cfg.msmarco_docs_train)
+    dataloaders = {}
+    dataset = TripletsSequential(triples, query_fi_train, docs_fi_train,
+                                 max_query_len=cfg.msmarco.max_query_len,
+                                 max_complete_length=cfg.msmarco.max_complete_length)
 
+    train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
 
-	query_fi = File(cfg.msmarco_query_train)
-	docs_fi = File(cfg.msmarco_docs_train)
-	dataloaders = {}
-	dataset = TrainingTriplets(triples, query_fi, docs_fi, \
-		max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
+    if cfg.model_type == "bert-interaction":
+        collate_fn = collate_fn_bert_interaction
+    else:
+        collate_fn = collate_fn_padd_triples
 
-	train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
+    dataloaders['train'] = DataLoader(train_dataset,
+                                      batch_size=cfg.batch_size_train, collate_fn=collate_fn,
+                                      num_workers=cfg.num_workers)
+    dataloaders['val'] = DataLoader(validation_dataset,
+                                    batch_size=cfg.batch_size_train, collate_fn=collate_fn,
+                                    num_workers=cfg.num_workers)
 
+    queries_fi_test = File(cfg.msmarco_query_test)
+    docs_fi_test = File(cfg.msmarco_docs_test)
 
-	if cfg.model_type == "bert-interaction" or cfg.model_type == "bert-interaction_pair_wise":
-		collate_fn = collate_fn_bert_interaction
-	else:
-		collate_fn = collate_fn_padd_triples
+    dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, queries_fi_test, docs_fi_test,
+                                             cfg.batch_size_test, rerank_top_N=cfg.rerank_top_N,
+                                             max_query_len=cfg.msmarco.max_query_len,
+                                             max_complete_length=cfg.msmarco.max_complete_length)
 
-
-	dataloaders['train'] = DataLoader(train_dataset,
-	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn, shuffle=True, num_workers = cfg.num_workers)
-	dataloaders['val'] = DataLoader(validation_dataset,
-	                                  batch_size=cfg.batch_size_train, collate_fn=collate_fn, shuffle=False, num_workers = cfg.num_workers)
-
-
-	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-
-	docs_fi = File(cfg.msmarco_query_test)
-	queries_fi = File(cfg.msmarco_docs_test)
-
-
-	dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, queries_fi, docs_fi,  \
-				cfg.batch_size_test, rerank_top_N = cfg.rerank_top_N, max_query_len = cfg.msmarco.max_query_len, max_complete_length = cfg.msmarco.max_complete_length)
-
-	return dataloaders
+    return dataloaders
 
 
 def get_data_loaders_robust(cfg):
-	if cfg.debug:
-		ranking_results_train = cfg.robust_ranking_results_train_debug
-	else:
-		ranking_results_train = cfg.robust_ranking_results_train
+    docs_fi = File(cfg.robust_docs)
+    queries_fi = File(cfg.robust_query_train)
+    dataloaders = {}
 
-	docs_fi = File(cfg.robust_docs)
-	queries_fi = File(cfg.robust_query_train)
-	dataloaders = {}
+    test_queries_fi = FileInterface(cfg.robust_query_test)
 
-	test_queries_fi = FileInterface(cfg.robust_query_test)
+    sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
+    if cfg.weak_overfitting_test:
+        queries_fi = test_queries_fi
 
-	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
+    if cfg.model_type == "bert-interaction":
+        collate_fn = collate_fn_bert_interaction
+    else:
+        collate_fn = collate_fn_padd_triples
 
-	if cfg.provided_triplets:
+    triplets_train_path = cfg.robust_triplets_path + "_train"
+    triplets_val_path = cfg.robust_triplets_path + "_val"
 
-		if cfg.weak_overfitting_test:
-			queries_fi = test_queries_fi
+    train_dataset = TripletsSequential(triplets_train_path, queries_fi, docs_fi,
+                                       max_query_len=cfg.robust04.max_length, max_doc_len=cfg.robust04.max_length)
+    validation_dataset = TripletsSequential(triplets_val_path, queries_fi, docs_fi,
+                                            max_query_len=cfg.robust04.max_length,
+                                            max_doc_len=cfg.robust04.max_length)
+    dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train,
+                                      collate_fn=collate_fn, num_workers=sequential_num_workers)
+    dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train,
+                                    collate_fn=collate_fn, num_workers=sequential_num_workers)
 
+    dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, test_queries_fi, docs_fi,
+                                             cfg.batch_size_test, max_query_len=cfg.robust04.max_length,
+                                             max_doc_len=cfg.robust04.max_length, rerank_top_N=cfg.rerank_top_N)
 
+    return dataloaders
 
-		triplets_train_path = cfg.robust_triplets_path + "_train"
-		triplets_val_path = cfg.robust_triplets_path + "_val"
-
-		train_dataset = TripletsSequential(triplets_train_path, docs_fi, queries_fi, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
-		validation_dataset = TripletsSequential(triplets_val_path, docs_fi, queries_fi, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length)
-		dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
-		dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
-
-
-
-	else:
-
-
-		weak_results_fi = FileInterface(ranking_results_train)
-
-		if cfg.weak_overfitting_test:
-			# using all given queries both for training and validating
-			indices_train = None
-			indices_val = None
-		else:
-			# calculate train and validation size according to train_val_ratio
-			dataset_len = offset_dict_len(ranking_results_train)
-			indices_train, indices_val = split_by_len(dataset_len, ratio = 0.9)
-
-		train_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = cfg.sampler, target=cfg.target, single_sample=cfg.single_sample,
-						 shuffle=True, indices_to_use = indices_train, samples_per_query = cfg.samples_per_query, sample_j = cfg.sample_j, min_results=cfg.weak_min_results,
-						 sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query, max_length = cfg.robust04.max_length)
-
-		# if requested to validate on the weak results of the test set, then we change the FileInterface parameter values, and to be used all weak ranking results (indices)
-		if cfg.validate_on_weak_test_results:
-			queries_fi = test_queries_fi
-			weak_results_fi = FileInterface(cfg.robust_ranking_results_test)
-			indices_val = None
-
-		validation_dataset = WeakSupervision(weak_results_fi, docs_fi, queries_fi, sampler = 'uniform', target=cfg.target, single_sample = True,
-						shuffle=False, indices_to_use = indices_val, samples_per_query = cfg.samples_per_query, min_results=cfg.weak_min_results,
-						sample_random = cfg.sample_random, top_k_per_query = cfg.top_k_per_query, max_length = cfg.robust04.max_length)
-
-
-		dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
-		dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples,  num_workers = sequential_num_workers)
-
-
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, test_queries_fi, docs_fi, cfg.batch_size_test, max_query_len = cfg.robust04.max_length, max_doc_len = cfg.robust04.max_length, rerank_top_N = cfg.rerank_top_N)
-
-	return dataloaders
 
 def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, max_q_len, max_d_len):
+    dataloaders = {}
+    sequential_num_workers = 1 if cfg.num_workers > 0 else 0
+    train_dataset = TripletsSequential(ranking_results, query_fi, docs_fi, max_query_len=max_q_len,
+                                       max_doc_len=max_d_len)
 
-
-	dataloaders = {}
-
-	#indices_test = indices_train
-	sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-	#dataloaders['train'] = DataLoader(StrongData(ranking_results_fi, docs_fi, query_fi, indices=indices_train, target=cfg.target, sample_random=sample_random), batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers)
-
-	train_dataset = TripletsSequential(ranking_results, query_fi, docs_fi, max_query_len = max_q_len, max_doc_len = max_d_len)
-
-
-	dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train, collate_fn=collate_fn_padd_triples, num_workers = sequential_num_workers, shuffle=True)
-	dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi,  docs_fi, cfg.batch_size_test, indices=indices_test, max_query_len = max_q_len, max_doc_len = max_d_len, rerank_top_N = cfg.rerank_top_N)
-	return dataloaders
+    dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train,
+                                      collate_fn=collate_fn_padd_triples, num_workers=sequential_num_workers)
+    dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi, docs_fi, cfg.batch_size_test,
+                                             indices=indices_test, max_query_len=max_q_len, max_doc_len=max_d_len,
+                                             rerank_top_N=cfg.rerank_top_N)
+    return dataloaders

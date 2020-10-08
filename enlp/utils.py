@@ -39,9 +39,6 @@ class EarlyStopping(object):
 		self._init_is_better(mode, min_delta)
 
 		self.stop = False
-		#if patience == 0:
-		#	 self.is_better = lambda a, b: True
-		#	 self.step = lambda a: False
 
 	def step(self, metrics):
 		if self.best is None:
@@ -88,20 +85,6 @@ class Average(object):
 			self.val = x
 		else:
 			self.val = self.val + (x - self.val) / self.count
-
-
-def padd_tensor(sequences, max_len):
-    """
-    :param sequences: list of tensors
-    :return:
-    """
-    num = len(sequences)
-    out_dims = (num, max_len, *sequences[0].shape[1:])
-    out_tensor = sequences[0].data.new(*out_dims).fill_(0)
-    for i, tensor in enumerate(sequences):
-        length = tensor.size(0)
-        out_tensor[i, :length] = tensor
-    return out_tensor
 
 
 def split_sizes(dataset_len, train_val_ratio):
@@ -249,8 +232,7 @@ def instantiate_model(cfg):
 
 		model = BERT_inter(hidden_size = cfg.bert.hidden_size, num_of_layers = cfg.bert.num_of_layers,
 							num_attention_heads = cfg.bert.num_attention_heads, input_length_limit = cfg.bert.input_length_limit,
-							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy,
-							point_wise = cfg.bert.point_wise)
+							vocab_size = cfg.vocab_size, embedding_parameters = embedding_parameters, params_to_copy = params_to_copy)
 
 		vocab_size = model.encoder.config.vocab_size
 
@@ -283,275 +265,10 @@ def instantiate_model(cfg):
 
 	return model, device, n_gpu, vocab_size
 
-def collate_fn_padd_single(batch):
-	""" Collate function for aggregating samples into batch size.
-		returns:
-		batch_data = Torch([ id_1, tokens_2, ..., id_2, tokens_2, ... ])
-		batch_lengths = length of each query/document,
-			that is used for proper averaging ignoring 0 padded inputs
-	"""
-	#batch * [id, tokens]
 
-	batch_lengths = list()
-	batch_ids, batch_data = list(), list()
 
-	for item in batch:
-		# for weak supervision datasets, some queries/documents have empty text.
-		# In that case the sample is None, and we skip this samples
-		if item is None:
-			continue
 
-		id_, tokens = item
-		batch_data.append(torch.IntTensor(tokens))
-		batch_ids.append(id_)
 
-	# in case this batch does not contain any samples, then we return None
-	if len(batch_data) == 0:
-		return None
-
-	batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
-	#pad data along axis 1
-	batch_data = pad_sequence(batch_data,1).long()
-	return batch_ids, batch_data, batch_lengths
-
-
-def collate_fn_padd_triples(batch):
-	""" Collate function for aggregating samples into batch size.
-		returns:
-		batch_data = Torch([ q_1, q_2, ..., q1_d1, q2_d1, ..., q2_d1, q2_d2, ... ])
-		batch_targets = -1 or 1 for each sample
-		batch_lenghts = lenght of each query/document,
-			that is used for proper averaging ignoring 0 padded inputs
-	"""
-
-	#batch * [q, d1, d2], target
-
-	batch_lengths = list()
-	batch_targets = list()
-	batch_q, batch_doc1, batch_doc2 = list(), list(), list()
-
-	for item in batch:
-		# for weak supervision datasets, some queries/documents have empty text.
-		# In that case the sample is None, and we skip these samples
-		if item is None:
-			continue
-
-
-		q, doc1, doc2 = item[0]
-		if doc1 is not None and doc2 is not None:
-			batch_q.append(torch.IntTensor(q))
-			batch_doc1.append(torch.IntTensor(doc1))
-			batch_doc2.append(torch.IntTensor(doc2))
-			batch_targets.append(item[1])
-
-	batch_data = batch_q + batch_doc1 + batch_doc2
-	# in case this batch does not contain any samples, then we return None
-	if len(batch_data) == 0:
-		return None
-
-	batch_targets = torch.Tensor(batch_targets)
-
-	batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
-	#pad data along axis 1
-	batch_data = pad_sequence(batch_data,1).long()
-	return batch_data, batch_targets, batch_lengths
-
-
-def split_batch_to_minibatches_bert_interaction(batch, max_samples_per_gpu = 2, n_gpu = 1, pairwise_training = False):
-
-	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
-	size_of_minibatch = max_samples_per_gpu * n_gpu
-
-	batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets = batch
-
-	number_of_samples_in_batch = batch_input_ids.size(0)
-
-	if number_of_samples_in_batch <= max_samples_per_gpu:
-
-		if pairwise_training:
-			# rows represent sample pairs, column 1 and 2 represent target of d1 and d2 respecttively
-			batch_targets = batch_targets.view(-1,2)
-			# rows represent sample pairs, 1 means d1 is more relevant, -1 means d2 is more relevant
-			batch_targets = (batch_targets[:,0] > batch_targets[:,1]).int()*2 -1
-
-			batch = [batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets]
-
-		return [batch]
-
-	number_of_minibatches = math.ceil(number_of_samples_in_batch / size_of_minibatch)
-
-	minibatches = []
-
-	if pairwise_training == False:
-
-		for i in range(number_of_minibatches):
-			minibatches.append([ batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], \
-				batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
-				batch_token_type_ids[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
-				batch_targets[i*size_of_minibatch : (i+1)*size_of_minibatch] ])
-
-	else:
-
-		# preprocess targets so that they prepresent pair targets
-
-		# rows represent sample pairs, column 1 and 2 represent target of d1 and d2 respecttively
-		batch_targets = batch_targets.view(-1,2)
-		# rows represent sample pairs, 1 means d1 is more relevant, -1 means d2 is more relevant
-		batch_targets = (batch_targets[:,0] > batch_targets[:,1]).int()*2 -1
-		# in a pairwise training case, the number of targets are half of the size of the input samples
-		size_of_minibatch_targets = int(size_of_minibatch/2)
-
-		for i in range(number_of_minibatches):
-			minibatches.append([ batch_input_ids[i*size_of_minibatch : (i+1)*size_of_minibatch], \
-				batch_attention_masks[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
-				batch_token_type_ids[i*size_of_minibatch : (i+1)*size_of_minibatch],  \
-				batch_targets[i*size_of_minibatch_targets : (i+1)*size_of_minibatch_targets] ])
-
-	return minibatches
-
-def create_bert_inretaction_input(q, doc):
-	# inputs: query and document token ids in the form of numpy array
-	# creates one input in the form : ["CLS"_id, q_t1_id, ..., q_tN_id, "SEP"_id, d_t1_id, ..., d_tM_id]
-	# and the return the above input_ids, along with the corresponding attention mask and token type ids
-
-	# Hard-coding token IDS of CLS, SEP and PAD
-	cls_token_id = np.array([101])
-	sep_token_id = np.array([102])
-	pad_token_id = 0
-
-	np_zero = np.array([0])
-
-	q_token_type_ids = np.zeros(q.shape[0])
-	d_token_type_ids = np.ones(doc.shape[0])
-
-	q_d = np.concatenate([cls_token_id, q, sep_token_id, doc])
-	q_d = torch.LongTensor(q_d)
-
-	q_d_attention_mask = torch.ones(q_d.shape[0], dtype=torch.bool)
-
-	q_d_token_type_ids = np.concatenate([np_zero, q_token_type_ids, np_zero, d_token_type_ids])
-	q_d_token_type_ids = torch.LongTensor(q_d_token_type_ids)
-
-	return q_d, q_d_attention_mask, q_d_token_type_ids
-
-
-def collate_fn_bert_interaction(batch):
-	""" Collate function for aggregating samples into batch size.
-		returns:
-		batch_input_ids = Torch.int32([
-						["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d1_t1_id, ..., q1_d1_tM_id, "PAD", ... ],
-						["CLS"_id, q1_t1_id, ..., q1_tN_id, "SEP"_id, q1_d2_t1_id, ..., q1_d2_tM_id, "PAD", ... ], ... ])
-						size : BSZ X MAX_batch_length
-						The first "PAD" at the beginning will be replaced with "CLS" during the forward pass of the model, using batch_pad_mask
-						The second "PAD" between the query and the document will be replaced with "SEP" during the forward pass of the model, using batch_sep_mask
-
-		batch_attention_masks = bollean where non padded tokens are True, size equal with batch_input_ids : BSZ X MAX_batch_length
-
-		batch_attention_masks = mask that defines if the token is from query (value = 0) or document (value = 1),
-								size equal with batch_input_ids : BSZ X MAX_batch_length
-
-		batch_targets = [q1_d1_sim_score, q1_d2_sim_score, ...], scores are in {-1,1}
-
-	"""
-
-
-	batch_input_ids =list()
-	batch_attention_masks =list()
-	batch_token_type_ids = list()
-	batch_targets =list()
-
-	for item in batch:
-		# for weak supervision datasets, some queries/documents have empty text.
-		# In that case the sample is None, and we skip these samples
-		if item is None:
-			continue
-
-		q, doc1, doc2 = item[0]
-
-		target = item[1]
-
-		if target == 1:
-			q_d1_target = 1
-			q_d2_target = 0
-		else:
-			q_d1_target = 0
-			q_d2_target = 1
-
-
-		q_d1, q_d1_attention_mask, q_d1_token_type_ids = create_bert_inretaction_input(q, doc1)
-		q_d2, q_d2_attention_mask, q_d2_token_type_ids = create_bert_inretaction_input(q, doc2)
-
-		batch_input_ids.append(q_d1)
-		batch_input_ids.append(q_d2)
-
-		batch_attention_masks.append(q_d1_attention_mask)
-		batch_attention_masks.append(q_d2_attention_mask)
-
-		batch_token_type_ids.append(q_d1_token_type_ids)
-		batch_token_type_ids.append(q_d2_token_type_ids)
-
-
-		batch_targets.append(q_d1_target)
-		batch_targets.append(q_d2_target)
-
-	# in case this batch does not contain any samples, then we return None
-	if len(batch_input_ids) == 0:
-		return None
-
-	batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
-	batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
-	batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
-	batch_targets = torch.LongTensor(batch_targets)
-
-	return batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets
-
-
-
-def split_batch_to_minibatches(batch, max_samples_per_gpu = 2, n_gpu = 1):
-
-	if max_samples_per_gpu == -1:
-		return [batch]
-
-	data, targets, lengths = batch
-
-	# calculate the number of minibatches so that the maximum number of samples per gpu is maintained
-	size_of_minibatch = max_samples_per_gpu * n_gpu
-
-	split_size = data.size(0) // 3
-	queries, doc1, doc2 = torch.split(data, split_size)
-	queries_len, doc1_len, doc2_len = torch.split(lengths, split_size)
-
-	number_of_samples_in_batch = queries.size(0)
-
-	if number_of_samples_in_batch <= max_samples_per_gpu:
-		return [batch]
-
-
-	number_of_minibatches = math.ceil(number_of_samples_in_batch / size_of_minibatch)
-
-	# arrange the minibatches
-	minibatches = []
-	for i in range(number_of_minibatches):
-
-		minibatch_queries =  queries[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
-
-		minibatch_d1 =  doc1[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
-		minibatch_d2 =  doc2[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
-
-		minibatch_queries_lengths =  queries_len[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
-
-		minibatch_d1_lengths =  doc1_len[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
-		minibatch_d2_lengths =  doc2_len[  i * size_of_minibatch : (i+1) * size_of_minibatch ]
-
-		minibatch_targets =  targets[ i * size_of_minibatch : (i+1) * size_of_minibatch ]
-
-		minibatch_data = torch.cat([minibatch_queries , minibatch_d1 , minibatch_d2], dim = 0)
-		minibatch_lengths = torch.cat([minibatch_queries_lengths , minibatch_d1_lengths , minibatch_d2_lengths], dim = 0)
-
-		minibatch = [minibatch_data, minibatch_targets, minibatch_lengths]
-
-		minibatches.append(minibatch)
-	return minibatches
 
 
 def get_pretrained_BERT_embeddings():
@@ -849,10 +566,6 @@ def get_model_folder_name(cfg):
 				temp_load_bert_path = load_bert_path.replace("/", ".")
 				model_string = "BERT_loaded_" + temp_load_bert_path + "_Layers_" + str(cfg.bert.load_bert_layers)
 
-			if cfg.bert.point_wise:
-				model_string = "POINT_wise_" + model_string
-			else:
-				model_string = "PAIR_wise_" + model_string
 
 		else:
 			raise ValueError("Model not set properly!:", cfg.model)
@@ -925,13 +638,9 @@ def create_random_batch(bsz, max_len, vocab_size):
 
 	return input, lengths, targets
 
-def create_random_batch_bert_interaction(bsz, max_len, point_wise, vocab_size):
+def create_random_batch_bert_interaction(bsz, max_len, vocab_size):
 
-	if point_wise:
-		targets = (torch.randn(bsz) > 0.5).long()
-	else:
-		targets = (torch.randn(bsz) > 0.5).int()*2 -1
-
+	targets = (torch.randn(bsz) > 0.5).long()
 
 	input_ids = torch.randint(0, vocab_size, (bsz , max_len))
 	attention_masks = torch.randint(0,2, (bsz , max_len)).bool()
@@ -941,7 +650,7 @@ def create_random_batch_bert_interaction(bsz, max_len, point_wise, vocab_size):
 
 def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size):
 
-	bsz = 2
+	bsz = 1
 
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
@@ -951,10 +660,9 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 	try:
 		while True :
 
-			if model_type == "bert-interaction" or model_type == "bert-interaction_pair_wise":
-				point_wise = model_type == "bert-interaction"
+			if model_type == "bert-interaction":
 
-				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len, point_wise = point_wise, vocab_size=vocab_size)
+				input_ids, attention_masks, token_type_ids, targets = create_random_batch_bert_interaction(bsz * n_gpu, max_len, vocab_size=vocab_size)
 				input_ids, attention_masks, token_type_ids, targets = input_ids.to(device), attention_masks.to(device), token_type_ids.to(device), targets.to(device)
 
 			else:
@@ -1008,28 +716,6 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 
 				output = model(input_ids, attention_masks, token_type_ids)
 
-			elif model_type == "bert-interaction_pair_wise":
-
-				num_of_samples = int(input_ids.size(0) / 2)
-
-				# every second sample corresponds to d2, so we split inputs accordingly
-				input_ids = input_ids.view(num_of_samples,2, -1)
-				attention_masks = attention_masks.view(num_of_samples,2,-1)
-				token_type_ids = token_type_ids.view(num_of_samples,2,-1)
-
-				qd1_input_ids = input_ids[:,0]
-				qd2_input_ids = input_ids[:,1]
-				qd1_attention_masks = attention_masks[:,0]
-				qd2_attention_masks = attention_masks[:,1]
-				qd1_token_type_ids = token_type_ids[:,0]
-				qd2_token_type_ids = token_type_ids[:,1]
-
-				score_q_d1 = model(qd1_input_ids, qd1_attention_masks, qd1_token_type_ids)
-				score_q_d2 = model(qd2_input_ids, qd2_attention_masks, qd2_token_type_ids)
-
-				score_q_d1 = torch.tanh(score_q_d1)
-				score_q_d2 = torch.tanh(score_q_d2)
-
 			else:
 				raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
@@ -1044,11 +730,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 			optim.step()
 			optim.zero_grad()
 
-			#  keeping an even number of samples for this case
-			if model_type == "bert-interaction_pair_wise":
-				bsz += 2
-			else:
-				bsz +=1
+			bsz *= 2
 
 
 	except RuntimeError as e:
@@ -1094,26 +776,3 @@ def load_model(cfg, load_model_folder, device):
 
 	model.load_state_dict(state_dict)
 	return model
-
-
-
-class File():
-	def __init__(self, fname):
-		self.file = {}
-		with open(fname, 'r') as f:
-			for line in f:
-				delim_pos = line.find('\t')
-				id = line[:delim_pos]
-				# in case the tokenized of the line is empy, and the line only contains the id, then we return None
-				# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
-				if len(line[delim_pos+1:]) < 2:
-					self.file[id] = None
-				else:
-					# extracting the token_ids and creating a numpy array
-					self.file[id] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
-
-	def __getitem__(self, id):
-		return self.file[id]
-
-	def __len__(self):
-		return len(self.file)

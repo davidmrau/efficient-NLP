@@ -3,8 +3,8 @@ import torch
 from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 
-from enlp.dataset import Sequential
-from enlp.utils import load_model, collate_fn_padd_single
+from enlp.dataset import Sequential, collate_fn_padd_single
+from enlp.utils import load_model
 
 """ Run online inference (for test set) without inverted index
 """

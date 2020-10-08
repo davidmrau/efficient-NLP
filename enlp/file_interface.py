@@ -1,6 +1,5 @@
 import multiprocessing
 
-import indexed_gzip as igzip
 import numpy as np
 from enlp.utils import get_offset_dict_path, read_pickle
 
@@ -26,24 +25,25 @@ class FileInterface:
 		# check if filename exists
 		try:
 			# we keep the file always open
-			# if gzipped open with igzip
-			if filename.endswith('.gz'):
-				self.file = igzip.IndexedGzipFile(filename)
-				self.decode = True
-			else:
-				self.file = open(filename, 'r')
+			self.file = open(filename, 'r')
+			print(filename, 'open')
 		except:
 			raise IOError(f'File: {filename} not accessible!')
-		
+			exit()
+
 		# check if dictionary pickle exists
 		try:
 				# given an id of an element, this dictionary returns the seek value of the file to the corresponding line
 			self.seek_dict = read_pickle(offset_dict_path)
 		except:
 			raise IOError(f'File: {offset_dict_path} not accessible!\nYou need to first create the dictionary with seek values for this file!!\nCheck offset_dict.py')
+			exit()
 
 		if self.filename in FileInterface.locks:
-			raise ValueError(f'Filename "{self.filename}", is alredy open from another FileInterface instance !!!\nMultiprocessing will not work!')
+			del FileInterface.locks[self.filename]
+
+			#raise ValueError(f'Filename "{self.filename}", is alredy open from another FileInterface instance !!!\nMultiprocessing will not work!')
+			#exit()
 
 		# create a multiprocessing.Lock, for this file specifically
 		FileInterface.locks[self.filename] = multiprocessing.Lock()
@@ -64,6 +64,9 @@ class FileInterface:
 				line = line.decode()
 			return line
 
+	def close(self):
+		self.file.close()
+
 	def get_triplet(self, index):
 		# returns 3 strings q_id, d1_id, d2_id
 		return self.get(index).strip().split('\t')
@@ -79,7 +82,7 @@ class FileInterface:
 		# in case the tokenized of the line is empy, and the line only contains the id, then we return None
 		# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
 		if len(line[delim_pos+1:]) < 2:
-			return None 
+			return None
 		# extracting the token_ids and creating a numpy array
 		tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 		return tokens_list
@@ -95,7 +98,7 @@ class FileInterface:
 
 
 			line = self.file.readline()
-			
+
 			if self.decode:
 				line = line.decode()
 
@@ -127,4 +130,29 @@ class FileInterface:
 					line = line.decode()
 
 		return requested_q_id, results
-				
+
+
+
+
+class File():
+	def __init__(self, fname, tokenized=True):
+		self.file = {}
+		with open(fname, 'r') as f:
+			for line in f:
+				delim_pos = line.find('\t')
+				id = line[:delim_pos]
+				if tokenized:
+					# in case the tokenized of the line is empy, and the line only contains the id, then we return None
+					# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
+					if len(line[delim_pos+1:]) < 2:
+						self.file[id] = None
+					else:
+						# extracting the token_ids and creating a numpy array
+						self.file[id] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
+				else:
+					self.file[id] = line[delim_pos+1:]
+	def __getitem__(self, id):
+		return self.file[id]
+
+	def __len__(self):
+		return len(self.file)

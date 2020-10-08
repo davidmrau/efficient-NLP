@@ -25,7 +25,6 @@ def exp(cfg):
 
 	if cfg.bottleneck_run:
 		print("!! RUNNING bottleneck CHECK !!")
-		cfg.samples_per_epoch = 100
 		cfg.num_epochs = 1
 
 
@@ -95,14 +94,14 @@ def exp(cfg):
 
 
 	# if max_samples_per_gpu is not set (-1), then dynamically calculate it
-	if cfg.max_samples_per_gpu == -1:
-		cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
-		print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
+	# if cfg.max_samples_per_gpu == -1:
+	# 	cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
+	# 	print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
 
-	if model_type == "bert-interaction":
-		cfg.batch_size_test = n_gpu * cfg.max_samples_per_gpu
-	else:
-		cfg.batch_size_test = n_gpu * 3 * cfg.max_samples_per_gpu
+	# if model_type == "bert-interaction":
+	# 	cfg.batch_size_test = n_gpu * cfg.max_samples_per_gpu
+	# else:
+	# 	cfg.batch_size_test = n_gpu * 3 * cfg.max_samples_per_gpu
 
 	print('Printing Parameters...')
 	# printing params
@@ -112,11 +111,10 @@ def exp(cfg):
 
 	print('Starting training...')
 	# train the model
-	metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
-	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
-	samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
-	log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, sparse_dimensions = cfg.sparse_dimensions,
-	max_samples_per_gpu = cfg.max_samples_per_gpu, n_gpu = n_gpu, telegram=cfg.telegram)
+	_, _ = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
+	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience=cfg.patience,
+	samples_per_epoch_train=cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run=cfg.bottleneck_run,
+	log_every_ratio=cfg.log_every_ratio, max_rank=cfg.max_rank, metric=metric, telegram=cfg.telegram)
 
 
 if __name__ == "__main__":
@@ -185,6 +183,7 @@ if __name__ == "__main__":
 
 	print("Training :", model_folder)
 	os.makedirs(temp_model_folder, exist_ok=True)
+	os.makedirs(temp_model_folder + '/rankings', exist_ok=True)
 
 	# set model_folder
 	cfg.model_folder = temp_model_folder

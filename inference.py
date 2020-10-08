@@ -11,7 +11,7 @@ from enlp.utils import write_ranking, write_ranking_trec, plot_histogram_of_late
 	plot_ordered_posting_lists_lengths, load_model
 from enlp.metrics import MRR, MAPTrec
 from enlp.file_interface import FileInterface
-from enlp.run_model import test
+from enlp.run_model__ import test
 from enlp.dataset import RankingResultsTest
 
 """ Run online inference (for test set) without inverted index
