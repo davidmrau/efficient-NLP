@@ -1,21 +1,21 @@
-import os
 
 import argparse
 import random
-import pickle as p
-import sys
-sys.path.append(os.path.join(os.getcwd()))
+import numpy as np
+
 from enlp.file_interface import FileInterface
 from random import shuffle
+import os
+import time
 
 class WeakTripletGenerator(object):
-    def __init__(self, weak_results_filename, output_filename, queries_filename, docs_filename, top_k_per_query=1000, \
-        sampler = 'uniform', samples_per_query = -1, min_results = 10, sample_j = False, size_limit= None, queries_limit= None,
-        train_val_ratio = 0.9, shuffle_queries = True):
+    def __init__(self, weak_results_filename, output_filename, top_k_per_query=1000, \
+        sampler = 'uniform', samples_per_query = -1, min_results = 10, size_limit= None, queries_limit= None,
+        train_val_ratio = 0.9, shuffle_queries = False):
 
         self.weak_results_fi = FileInterface(weak_results_filename)
-        self.queries = FileInterface(queries_filename)
-        self.documents = FileInterface(docs_filename)
+        #self.queries = File(queries_filename)
+        #self.documents = File(docs_filename)
 
         # override any previous files and open them
 
@@ -24,7 +24,7 @@ class WeakTripletGenerator(object):
         self.output_file_train = open(self.output_filename_train, "w")
         self.output_file_val = open(self.output_filename_val, "w")
 
-        self.empty_doc_ids = set()
+        #self.empty_doc_ids = set()
 
         self.size_limit = size_limit
         self.queries_limit = queries_limit
@@ -42,8 +42,8 @@ class WeakTripletGenerator(object):
         # setting a maximum of 2000 candidates to sample from, if not specified differently from top_k_per_query
         self.max_candidates = top_k_per_query if top_k_per_query !=-1 else 2000
 
-        if sampler == 'top_n':
-            self.sampler_function = self.sample_top_n
+        if sampler == 'top_k':
+            self.sampler_function = self.sample_top_k
         elif sampler == 'uniform':
             self.sampler_function = self.sample_uniform
         elif sampler == 'linear':
@@ -57,9 +57,9 @@ class WeakTripletGenerator(object):
         elif "top-" in sampler:
             N = int(sampler.split('-')[1])
             self.sample_weights = np.asarray([1 for i in range(N)] + [0.0001 for i in range(self.max_candidates - N)])
-            self.sampler_function = self.sample_top_n_probabilistically
+            self.sampler_function = self.sample_top_k_probabilistically
         else:
-            raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_n', 'uniform', 'zipf', 'linear', 'top-\{INTEGER}'}, but :" + str( sampler))
+            raise ValueError("Param 'sampler' of WeakSupervision, was not among {'top_k', 'uniform', 'zipf', 'linear', 'top-\{INTEGER}'}, but :" + str( sampler))
         # having a calculated list of indices, that will be used while sampling
         self.candidate_indices = list(range(self.max_candidates))
 
@@ -107,10 +107,6 @@ class WeakTripletGenerator(object):
     def write_triplets(self):
         for query_index in self.query_indices:
             # split to training and validation queries -> triplets, according to provided ratio
-            if random.uniform(0,1) <= self.train_val_ratio:
-                output_file = self.output_file_train
-            else:
-                output_file = self.output_file_val
 
             q_id, query_results = self.weak_results_fi.read_all_results_of_query_index(query_index, self.max_candidates)
 
@@ -119,10 +115,10 @@ class WeakTripletGenerator(object):
                 continue
 
             # if the content of the query is empty, then skip this query
-            query = self.queries.get_tokenized_element(q_id)
-            if query is None:
-                print("Query is None !",  q_id)
-                continue
+            #query = self.queries[q_id]
+            #if query is None:
+            #    print("Query is None !",  q_id)
+            #    continue
 
             self.queries_processed += 1
 
@@ -131,15 +127,15 @@ class WeakTripletGenerator(object):
             non_empty_query_results_with_content = []
             for doc_id, score in query_results:
                 # if it is not already known to be empty
-                if doc_id not in self.empty_doc_ids:
+                #if doc_id not in self.empty_doc_ids:
 
-                    document_content = self.documents.get_tokenized_element(doc_id)
-                    if document_content is None:
-                        self.empty_doc_ids.add(doc_id)
-                        continue
+                    #document_content = self.documents[doc_id]
+                    #if document_content is None:
+                    #    self.empty_doc_ids.add(doc_id)
+                    #    continue
 
                     # updating list with non empy_documents, and also adding the content of the document ot the tupple
-                    non_empty_query_results_with_content.append((doc_id, score))
+                non_empty_query_results_with_content.append((doc_id, score))
 
             query_results = non_empty_query_results_with_content
 
@@ -169,6 +165,12 @@ class WeakTripletGenerator(object):
                         doc1_id = query_results[i][0]
                         doc2_id = query_results[j][0]
 
+
+                        if random.uniform(0,1) <= self.train_val_ratio:
+                            output_file = self.output_file_train
+                        else:
+                            output_file = self.output_file_val
+
                         output_file.write(f"{q_id}\t{doc1_id}\t{doc2_id}\n")
 
 
@@ -176,6 +178,11 @@ class WeakTripletGenerator(object):
                 break
 
 
+
+    def shuf(self):
+        print('Shuffling training and validation triples')
+        os.system(f"cat {self.output_filename_train} | shuf -o {self.output_filename_train}")
+        os.system(f"cat {self.output_filename_val} | shuf -o {self.output_filename_val}")
 
 # sampling candidates functions
     def sample_uniform(self, scores_list, n, return_indices = False):
@@ -196,7 +203,7 @@ class WeakTripletGenerator(object):
             return sampled_indices
         return [scores_list[i] for i in sampled_indices]
 
-    def sample_top_n(self, scores_list, n, return_indices = False):
+    def sample_top_k(self, scores_list, n, return_indices = False):
         if return_indices:
             return [i for i in range(n)]
         return scores_list[:n]
@@ -212,7 +219,7 @@ class WeakTripletGenerator(object):
         return [scores_list[i] for i in sampled_indices]
 
     # top-N sampling methods, refer to uniform probability to the top N candidates and very small probability to the rest of the canidates
-    def sample_top_n_probabilistically(self, scores_list, n, return_indices = False):
+    def sample_top_k_probabilistically(self, scores_list, n, return_indices = False):
         length = len(scores_list)
         indices = self.candidate_indices[:length]
         # normalize sampling probabilities depending on the number of candidates
@@ -233,39 +240,41 @@ class WeakTripletGenerator(object):
 parser = argparse.ArgumentParser()
 parser.add_argument('--size_limit', type=float, default=None, help="Define max size of generated triplets file in GB.")
 parser.add_argument('--queries_limit', type=int, default=None)
-parser.add_argument('--sampler', type=str, default="uniform")
+parser.add_argument('--sampler', type=str, default="top_k")
 parser.add_argument('--target', type=str, default="binary")
-parser.add_argument('--top_k_per_query', type=int, default=100)
+parser.add_argument('--top_k_per_query', type=int, default=1000)
 parser.add_argument('--samples_per_query', type=int, default=-1)
-parser.add_argument('--no_shuffling', action='store_false')
+parser.add_argument('--shuffle_queries', action='store_true')
 # parser.add_argument('--shuffle_at_end', type=int, default=1000)
 
 # parser.add_argument('--size_limit', type=float, default=None, help="Define max size of generated triplets file in GB.")
 
-parser.add_argument('--queries_filename', type=str, required=True)
-parser.add_argument('--docs_filename', type=str, required=True)
+#parser.add_argument('--queries_filename', type=str, required=True)
+#parser.add_argument('--docs_filename', type=str, required=True)
 parser.add_argument('--weak_results_file', type=str, required=True)
-parser.add_argument('--output_file', type=str, required=False)
 args = parser.parse_args()
 
 
 # args.weak_results_file = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt"
 # args.queries_filename = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/robust04/AOL-queries-all_filtered.txt.names_glove_stop_lucene_remove_unk_max_len_1500.tsv"
 # args.docs_filename = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/robust04/robust04_raw_docs.num_query_glove_stop_lucene_remove_unk_max_len_1500.tsv"
-args.output_file = args.weak_results_file + "_TRIPLETS"
+args.output_file = f"{args.weak_results_file}_TRIPLETS_{args.top_k_per_query}"
 # args.shuffle = True
 
 generator = WeakTripletGenerator(weak_results_filename = args.weak_results_file, output_filename = args.output_file, \
-    queries_filename = args.queries_filename, docs_filename = args.docs_filename,
     top_k_per_query=args.top_k_per_query, sampler= args.sampler, min_results = 10, size_limit= args.size_limit,\
-    samples_per_query = args.samples_per_query, queries_limit= args.queries_limit, shuffle_queries=args.no_shuffling)
+    samples_per_query = args.samples_per_query, queries_limit= args.queries_limit, shuffle_queries=args.shuffle_queries)
 
 
 generator.write_triplets()
 
 
+
+
 print("Triplet generation terminated! Total Queries processed:", generator.queries_processed)
 print("Total Size in Gigabytes:", generator.get_total_size_in_GB())
+
+generator.shuf()
 
 # in_fname = args.weak_results_file
 # delimiter = args.delimiter

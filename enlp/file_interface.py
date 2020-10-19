@@ -151,6 +151,7 @@ class File():
 						self.file[id] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 				else:
 					self.file[id] = line[delim_pos+1:]
+
 	def __getitem__(self, id):
 		return self.file[id]
 

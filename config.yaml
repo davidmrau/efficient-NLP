@@ -1,7 +1,7 @@
 # choose which model to use {tf : Transformer (BERT-like) / snrm : SNRM}
 model: 'snrm'
 vocab_size: 400002
-batch_size_train: 16
+batch_size_train: 256
 batch_size_test: 512
 lr: 0.0001
 stopwords: "none"
@@ -55,7 +55,6 @@ experiments_dir: "experiments_${dataset}"
 temp_exp_prefix: "Dev..."
 num_epochs: 100
 l1_scalar: 0.0
-num_of_decimals: 5
 balance_scalar: 0.0
 disable_cuda: False
 seed: 1
@@ -64,38 +63,29 @@ embedding: 'bert'
 bert_rel: False
 bert_relevance_embeddings_path: '${data_path}/embeddings/bert_relev_embeddings.p'
 glove_embedding_path: '${data_path}/embeddings/glove.6B.300d.p'
-msmarco_query_test: '${data_path}/msmarco/msmarco-test2019-queries_43.tsv_${embedding}_stop_none_max_len_150.tsv'
-msmarco_docs_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43.tsv_${embedding}_stop_none_max_len_150.tsv'
-msmarco_query_train: '${data_path}/msmarco/queries.train.tsv_${embedding}_stop_none_max_len_150.tsv'
-msmarco_docs_train: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_max_len_150.tsv'
-msmarco_triplets_train: '${data_path}/msmarco/qidpidtriples.train.full.tsv'
+msmarco_query_test: '${data_path}/msmarco/msmarco-test2019-queries_43.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
+#msmarco_docs_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
+msmarco_docs_test: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
+msmarco_query_train: '${data_path}/msmarco/queries.train.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
+
+msmarco_docs_train: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
+msmarco_triplets: '${data_path}/msmarco/qidpidtriples.train.full.tsv'
 msmarco_triplets_train_debug: '${data_path}/msmarco/qidpidtriples.train.full.debug.tsv'
 msmarco_ranking_results_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv'
 msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
-robust_ranking_results_train: "${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem"
-robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
 robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk.tsv'
 robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
-# robust_query_train: '${data_path}/robust04/AOL_queries_Replaced_non_Alphanumeric_With_space/AOL-queries-all_spaces_${embedding}_stop_${stopwords}_remove_unk.tsv'
 robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_pairwise'
-robust_triplets_path: '${data_path}/robust04/weak_overfitting/all/test_top_2000.csv_TRIPLETS_top_100'
-weak_min_results: 2
-sampler: 'uniform'
-target: 'binary'
-top_k_per_query: 1000
-samples_per_query: -1
+robust_ranking_results_strong: '${data_path}/robust04/strong_supervision/qrels.robust2004.txt_pairwise'
+folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
+robust_triples: ''
 dataset: ''
 trec_eval: 'trec_eval'
-folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
 margin: 1
-sample_j: False
-single_sample: False
 telegram: False
-sample_random: False
-weak_overfitting_test: False
-validate_on_weak_test_results: False
-provided_triplets: False
 rerank_top_N: -1
+#robust_ranking_results_train: "${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem"
+#robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
+# robust_query_train: '${data_path}/robust04/AOL_queries_Replaced_non_Alphanumeric_With_space/AOL-queries-all_spaces_${embedding}_stop_${stopwords}_remove_unk.tsv'

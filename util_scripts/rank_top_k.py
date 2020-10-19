@@ -1,6 +1,8 @@
 import argparse
 
-parser = argparse.ArgumentParser()
+
+
+parser = argparse.ArgumentParser(description='Keeping only top {rank} hits from ranking_ref in ranking_run.')
 parser.add_argument('--ranking_run', type=str, required=True)
 parser.add_argument('--ranking_ref', type=str, required=True)
 parser.add_argument('--rank', type=int, required=True)

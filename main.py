@@ -41,6 +41,9 @@ def exp(cfg):
 	np.random.seed(cfg.seed)
 	random.seed(cfg.seed)
 
+	# printing params
+	print(cfg.pretty())
+
 	avail_threads = _getThreads()
 
 	# if not specified, all available threads will be used

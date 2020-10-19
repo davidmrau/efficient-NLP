@@ -10,8 +10,8 @@ import pickle
 from enlp.utils import write_ranking, write_ranking_trec, plot_histogram_of_latent_terms, \
 	plot_ordered_posting_lists_lengths, load_model
 from enlp.metrics import MRR, MAPTrec
-from enlp.file_interface import FileInterface
-from enlp.run_model__ import test
+from enlp.file_interface import File
+from enlp.run_model import test
 from enlp.dataset import RankingResultsTest
 
 """ Run online inference (for test set) without inverted index
@@ -74,9 +74,10 @@ def inference(cfg):
 		max_doc_len = None
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
-
+	docs_fi = File(cfg.docs)
+	query_fi = File(cfg.queries)
 	dataloaders = {}
-	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, cfg.queries, cfg.docs, cfg.batch_size_test, max_query_len=max_query_len,
+	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
 		max_complete_length=max_complete_length, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N)
 
 	print('testing...')
@@ -84,7 +85,7 @@ def inference(cfg):
 	with torch.no_grad():
 		model.eval()
 		metric_score, scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
-
+		metric.score(scores, q_ids, save_path=f'{cfg.model_folder}/ranking')
 		if metric_score:
 			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')
 			metrics_file_path = f'{cfg.model_folder}/ranking_results.txt'

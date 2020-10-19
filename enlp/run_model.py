@@ -43,7 +43,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 	av_loss, av_l1_loss, av_balance_loss, av_total_loss, av_l0_q, av_l0_docs, av_acc = Average(), Average(), Average(), Average(), Average(), Average(), Average()
 
 	while cur_trained_samples < samples_per_epoch:
-		print('Running new epoch...')
+
 		try:
 			batch = next(batch_iterator)
 		except StopIteration:
@@ -72,11 +72,17 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 
 		# get number of samples within the minibatch
 		batch_samples_number = targets.size(0)
-
 		# update the number of trained samples in this epoch
 		cur_trained_samples += batch_samples_number
 		# update the total number of trained samples
 		total_trained_samples += batch_samples_number
+
+
+		l1_loss = torch.tensor(0)
+		# calculate balance loss
+		balance_loss = torch.tensor(0)
+		# calculating L0 loss
+		l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
 
 		# if the model provides an independent representation for the input (query/doc)
 		if model_type == "representation-based":
@@ -103,21 +109,22 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 			# calculating L0 loss
 			l0_q, l0_docs = l0_loss_fn(d1_repr, d2_repr, q_repr)
 
+			# calculating loss
+			loss = loss_fn(score_q_d1, score_q_d2, targets)
+			# calculating classification accuracy (whether the correct document was classified as more relevant)
+			targets[ targets == -1 ] = 0
+			acc = (((score_q_d1 > score_q_d2).float() == targets).float()).mean()
+
 		# if the model provides a score for a document and a query
 		elif model_type == "interaction-based":
 			score_q_d1 = model(q, doc1, lengths_q, lengths_d1)
 			score_q_d2 = model(q, doc2, lengths_q, lengths_d2)
 			# calculate l1 loss
-			l1_loss = torch.tensor(0)
-			# calculate balance loss
-			balance_loss = torch.tensor(0)
-			# calculating L0 loss
-			l0_q, l0_docs = torch.tensor(0), torch.tensor(0)
+
 
 			# calculating loss
 			loss = loss_fn(score_q_d1, score_q_d2, targets)
 			# calculating classification accuracy (whether the correct document was classified as more relevant)
-			targets_ = targets.clone()
 			targets[targets == -1] = 0
 			acc = (((score_q_d1 > score_q_d2).float() == targets).float()).mean()
 
@@ -434,7 +441,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			# in case the model has gone completely wrong, stop training
 			if train_acc < 0.3:
 				print('Ending training train because train accurracy is < 0.3!')
-			# break
+		# break
 
 		# evaluation
 		with torch.no_grad():
@@ -447,18 +454,18 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 
 				if validate:
 					batch_iterator_val, _, val_total_loss, val_task_loss, val_l1_loss, val_l0_q, val_l0_docs, val_acc = run_epoch(model,
-																											  'val',
-																											  dataloaders,
-																											  batch_iterator_val,
-																											  loss_fn,
-																											  writer,
-																											  l1_scalar,
-																											  balance_scalar,
-																											  total_trained_samples,
-																											  device,
-																											  optim=None,
-																											  samples_per_epoch=samples_per_epoch_val,
-																											  log_every_ratio=log_every_ratio)
+																																  'val',
+																																  dataloaders,
+																																  batch_iterator_val,
+																																  loss_fn,
+																																  writer,
+																																  l1_scalar,
+																																  balance_scalar,
+																																  total_trained_samples,
+																																  device,
+																																  optim=None,
+																																  samples_per_epoch=samples_per_epoch_val,
+																																  log_every_ratio=log_every_ratio)
 
 					if telegram:
 						telegram_message = f'Validation:\nTotal loss {round(val_total_loss, 4)}\nTrain task_loss {round(val_task_loss, 4)}\nl1_loss {round(val_l1_loss, 4)}\nL0_query {round(val_l0_q, 4)}\nL0_docs {round(val_l0_docs, 4)}\nacc {round(val_acc, 4)}'

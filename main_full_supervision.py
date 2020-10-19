@@ -99,7 +99,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 			if cfg.bottleneck_run:
 
 				while(os.path.isdir(completed_model_folder)):
-					model_folder +=  "."
+					model_folder =  "."
 					completed_model_folder = os.path.join(cfg.experiments_dir, model_folder)
 					temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
 			else:
@@ -144,7 +144,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 
 
-		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, cfg.robust04.max_length, cfg.robust04.max_length)
+		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results, cfg.robust04.max_length, cfg.robust04.max_length)
 		data = dataloaders['test']
 		data.reset()
 

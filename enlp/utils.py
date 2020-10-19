@@ -76,15 +76,16 @@ class EarlyStopping(object):
 class Average(object):
 
 	def __init__(self):
-		self.val = None
-		self.count = 0
-
+		self.reset()
 	def step(self, x):
 		self.count += 1
 		if self.val is None:
 			self.val = x
 		else:
 			self.val = self.val + (x - self.val) / self.count
+	def reset(self):
+		self.val = None
+		self.count = 0
 
 
 def split_sizes(dataset_len, train_val_ratio):
@@ -525,75 +526,61 @@ def _getThreads():
 
 
 def get_model_folder_name(cfg):
-		if cfg.model == "tf":
-			# updating hidden dimensions according to selected embeddings
-			if cfg.embedding == "bert":
-				cfg.tf.hidden_size=768
-			elif cfg.embedding == "glove":
-				cfg.tf.hidden_size=300
+	if cfg.model == "tf":
+		# updating hidden dimensions according to selected embeddings
+		if cfg.embedding == "bert":
+			cfg.tf.hidden_size=768
+		elif cfg.embedding == "glove":
+			cfg.tf.hidden_size=300
 
-			model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}_ACT_{cfg.tf.act_func}"
+		model_string=f"{cfg.model.upper()}_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_P_{cfg.tf.pooling_method}_ACT_{cfg.tf.act_func}"
 
-			if cfg.tf.layer_norm == False:
-				model_string += "_no_layer_norm"
-			if cfg.balance_scalar != 0:
-				model_string += f'bal_{cfg.balance_scalar}'
-		elif cfg.model == "snrm":
-			model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
+		if cfg.tf.layer_norm == False:
+			model_string += "_no_layer_norm"
+		if cfg.balance_scalar != 0:
+			model_string += f'bal_{cfg.balance_scalar}'
+	elif cfg.model == "snrm":
+		model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
 
-		elif cfg.model =="rank":
-			trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
-			weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
-			model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
+	elif cfg.model =="rank":
+		trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
+		weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
+		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
 
-		elif cfg.model =="bert":
+	elif cfg.model =="bert":
 
-			load_bert_layers = cfg.bert.load_bert_layers
-			load_bert_path = cfg.bert.load_bert_path
+		load_bert_layers = cfg.bert.load_bert_layers
+		load_bert_path = cfg.bert.load_bert_path
 
-			if isinstance(load_bert_layers, str) and len(load_bert_layers) != 0:
-				load_bert_layers = str2lst(str(load_bert_layers))
-			elif isinstance(load_bert_layers, int):
-				load_bert_layers = [load_bert_layers]
-			else:
-				load_bert_layers = []
-
-			# if we are not using a pretrained bert
-			if len(load_bert_layers) == 0:
-				model_string=f"BERT_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_from_scratch"
-			# if we are using a pretrained bert
-			else:
-				temp_load_bert_path = load_bert_path.replace("/", ".")
-				model_string = "BERT_loaded_" + temp_load_bert_path + "_Layers_" + str(cfg.bert.load_bert_layers)
-
-
+		if isinstance(load_bert_layers, str) and len(load_bert_layers) != 0:
+			load_bert_layers = str2lst(str(load_bert_layers))
+		elif isinstance(load_bert_layers, int):
+			load_bert_layers = [load_bert_layers]
 		else:
-			raise ValueError("Model not set properly!:", cfg.model)
+			load_bert_layers = []
 
-		if cfg.large_out_biases:
-			model_string += "_large_out_biases"
-
-		if cfg.dataset == "robust04":
-			if cfg.provided_triplets:
-				model_string += "_provided_triplets"
-			else:
-				model_string +=  '_sample_' + cfg.sampler + "_target_" + cfg.target
-				if cfg.samples_per_query != -1:
-					model_string += "_comb_of_" + str(cfg.samples_per_query)
-				if cfg.sample_j:
-					model_string += "_sample_j"
-				if cfg.single_sample:
-					model_string += "_single_sample"
-				if cfg.sample_random == False:
-					model_string += "_No_random_triplets"
-
-		# create experiment directory name
-		if cfg.model == "bert":
-			return f"{cfg.dataset}_Stop_{cfg.stopwords}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
-		if cfg.model != "rank":
-			return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_STOP_{cfg.stopwords}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+		# if we are not using a pretrained bert
+		if len(load_bert_layers) == 0:
+			model_string=f"BERT_L_{cfg.tf.num_of_layers}_H_{cfg.tf.num_attention_heads}_D_{cfg.tf.hidden_size}_from_scratch"
+		# if we are using a pretrained bert
 		else:
-			return f"{cfg.dataset}_margin_{cfg.margin}_Emb_{cfg.embedding}_STOP_{cfg.stopwords}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+			temp_load_bert_path = load_bert_path.replace("/", ".")
+			model_string = "BERT_loaded_" + temp_load_bert_path + "_Layers_" + str(cfg.bert.load_bert_layers)
+
+
+	else:
+		raise ValueError("Model not set properly!:", cfg.model)
+
+	if cfg.large_out_biases:
+		model_string += "_large_out_biases"
+
+	# create experiment directory name
+	if cfg.model == "bert":
+		return f"{cfg.dataset}_Stop_{cfg.stopwords}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+	if cfg.model != "rank":
+		return f"{cfg.dataset}_l1_{cfg.l1_scalar}_margin_{cfg.margin}_Emb_{cfg.embedding}_STOP_{cfg.stopwords}_Sparse_{cfg.sparse_dimensions}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
+	else:
+		return f"{cfg.dataset}_margin_{cfg.margin}_Emb_{cfg.embedding}_STOP_{cfg.stopwords}_bsz_{cfg.batch_size_train}_lr_{cfg.lr}_{model_string}"
 
 
 def plot_top_k_analysis(analysis_dict):

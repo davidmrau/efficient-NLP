@@ -99,13 +99,12 @@ class Sequential(IterableDataset):
             yield [id_, tokens_list]
 
 
-class TripletsSequential(IterableDataset):
-    def __init__(self, triplets_path, id2query, id2doc, max_query_len=64, max_complete_length=510, max_doc_len=None):
+class TriplesSequential(IterableDataset):
+    def __init__(self, triples_path, id2query, id2doc, max_query_len=64, max_complete_length=510, max_doc_len=None):
         # "open" triplets file
-        self.triplets = open(triplets_path, 'r')
         self.id2query = id2query
         self.id2doc = id2doc
-
+        self.triples_path = triples_path
         self.max_query_len = max_query_len
         if max_doc_len is not None:
             self.max_doc_len = max_doc_len
@@ -113,21 +112,22 @@ class TripletsSequential(IterableDataset):
             self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
 
     def __iter__(self):
-        for line in self.triplets:
-            # getting position of '\t' that separates the doc_id and the begining of the token ids
-            q_id, d1_id, d2_id = line.strip().split('\t')
-            query = self.id2query[q_id]
-            doc1 = self.id2doc[d1_id]
-            doc2 = self.id2doc[d2_id]
-            # truncating queries and documents:
-            query = query if self.max_query_len is None else query[:self.max_query_len]
+        with open(self.triples_path, 'r') as triples:
+            for line in triples:
+                # getting position of '\t' that separates the doc_id and the begining of the token ids
+                q_id, d1_id, d2_id = line.strip().split('\t')
+                query = self.id2query[q_id]
+                doc1 = self.id2doc[d1_id]
+                doc2 = self.id2doc[d2_id]
+                # truncating queries and documents:
+                query = query if self.max_query_len is None else query[:self.max_query_len]
 
-            doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
-            doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
-            if random.random() > 0.5:
-                yield query, doc1, doc2, 1
-            else:
-                yield query, doc2, doc1, -1
+                doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
+                doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
+                if random.random() > 0.5:
+                    yield query, doc1, doc2, 1
+                else:
+                    yield query, doc2, doc1, -1
 
 
 class RankingResultsTest:
@@ -503,11 +503,18 @@ def get_data_loaders_msmarco(cfg):
     query_fi_train = File(cfg.msmarco_query_train)
     docs_fi_train = File(cfg.msmarco_docs_train)
     dataloaders = {}
-    dataset = TripletsSequential(triples, query_fi_train, docs_fi_train,
-                                 max_query_len=cfg.msmarco.max_query_len,
-                                 max_complete_length=cfg.msmarco.max_complete_length)
 
-    train_dataset, validation_dataset = split_dataset(train_val_ratio=0.9, dataset=dataset)
+
+    triples_train_path = cfg.msmarco_triplets_train + "_train"
+    triples_val_path = cfg.msmarco_triplets_train + "_val"
+
+    train_dataset = TriplesSequential(triples_train_path, query_fi_train, docs_fi_train,
+                                max_query_len=cfg.msmarco.max_query_len,
+                                max_complete_length=cfg.msmarco.max_complete_length)
+
+    validation_dataset = TriplesSequential(triples_val_path, query_fi_train, docs_fi_train,
+                                max_query_len=cfg.msmarco.max_query_len,
+                                max_complete_length=cfg.msmarco.max_complete_length)
 
     if cfg.model_type == "bert-interaction":
         collate_fn = collate_fn_bert_interaction
@@ -533,30 +540,30 @@ def get_data_loaders_msmarco(cfg):
 
 
 def get_data_loaders_robust(cfg):
+
     docs_fi = File(cfg.robust_docs)
     queries_fi = File(cfg.robust_query_train)
+    test_queries_fi = File(cfg.robust_query_test)
     dataloaders = {}
 
-    test_queries_fi = FileInterface(cfg.robust_query_test)
 
     sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
-    if cfg.weak_overfitting_test:
-        queries_fi = test_queries_fi
 
     if cfg.model_type == "bert-interaction":
         collate_fn = collate_fn_bert_interaction
     else:
         collate_fn = collate_fn_padd_triples
 
-    triplets_train_path = cfg.robust_triplets_path + "_train"
-    triplets_val_path = cfg.robust_triplets_path + "_val"
 
-    train_dataset = TripletsSequential(triplets_train_path, queries_fi, docs_fi,
-                                       max_query_len=cfg.robust04.max_length, max_doc_len=cfg.robust04.max_length)
-    validation_dataset = TripletsSequential(triplets_val_path, queries_fi, docs_fi,
-                                            max_query_len=cfg.robust04.max_length,
-                                            max_doc_len=cfg.robust04.max_length)
+    triples_train_path = cfg.robust_triples + "_train"
+    triples_val_path = cfg.robust_triples + "_val"
+
+    train_dataset = TriplesSequential(triples_train_path, queries_fi, docs_fi,
+                                      max_query_len=cfg.robust04.max_length, max_doc_len=cfg.robust04.max_length)
+    validation_dataset = TriplesSequential(triples_val_path, queries_fi, docs_fi,
+                                           max_query_len=cfg.robust04.max_length,
+                                           max_doc_len=cfg.robust04.max_length)
     dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train,
                                       collate_fn=collate_fn, num_workers=sequential_num_workers)
     dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_train,
@@ -569,11 +576,11 @@ def get_data_loaders_robust(cfg):
     return dataloaders
 
 
-def get_data_loaders_robust_strong(cfg, indices_test, docs_fi, query_fi, ranking_results, max_q_len, max_d_len):
+def get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results, max_q_len, max_d_len):
     dataloaders = {}
     sequential_num_workers = 1 if cfg.num_workers > 0 else 0
-    train_dataset = TripletsSequential(ranking_results, query_fi, docs_fi, max_query_len=max_q_len,
-                                       max_doc_len=max_d_len)
+    train_dataset = TriplesSequential(ranking_results, query_fi, docs_fi, max_query_len=max_q_len,
+                                      max_doc_len=max_d_len)
 
     dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train,
                                       collate_fn=collate_fn_padd_triples, num_workers=sequential_num_workers)
