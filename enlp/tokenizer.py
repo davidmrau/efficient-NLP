@@ -1,3 +1,4 @@
+import numpy as np
 import argparse
 import pickle
 from transformers import BertTokenizerFast
@@ -6,7 +7,8 @@ from nltk.stem import PorterStemmer
 
 import os
 
-
+import unicodedata
+from unidecode import unidecode
 
 class Tokenizer():
 
@@ -20,8 +22,8 @@ class Tokenizer():
 		"""
 
 
-		if tokenizer != "bert" and tokenizer != "glove":
-			raise ValueError("'tokenizer' param not among {bert/glove} !")
+		if tokenizer != "bert" and tokenizer != "glove" and tokenizer != 'msmarco' and tokenizer != 'robust':
+			raise ValueError("'tokenizer' param not among {bert/glove/msmarco/robust} !")
 
 
 		self.lower = lower_case
@@ -33,11 +35,14 @@ class Tokenizer():
 
 		if self.tokenizer == "bert":
 			self.bert_tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
-
-		if self.tokenizer == "glove":
-			self.glove_word2idx = pickle.load(open(dicts_path + 'glove.6B.300d_word2idx_dict.p', 'rb'))
-			self.glove_idx2word = pickle.load(open(dicts_path + 'glove.6B.300d_idx2word_dict.p', 'rb'))
-
+		elif self.tokenizer == "msmarco":
+			self.word2idx = pickle.load(open(dicts_path + 'msmarco_ascii.tsv.vocab_count_400000_t2i.p', 'rb'))
+			self.idx2word = pickle.load(open(dicts_path + 'msmarco_ascii.tsv.vocab_count_400000_i2t.p', 'rb'))
+		elif self.tokenizer == "glove":
+			self.word2idx = pickle.load(open(dicts_path + 'glove.6B.300d_word2idx_dict.p', 'rb'))
+			self.idx2word = pickle.load(open(dicts_path + 'glove.6B.300d_idx2word_dict.p', 'rb'))
+		elif self.tokenizer == 'robust':
+			self.word2idx = pickle.load(open(dicts_path + 'robust_vocab.p', 'rb'))
 		self.max_len = max_len
 
 		self.remove_unk = remove_unk
@@ -49,9 +54,9 @@ class Tokenizer():
 			os.remove(self.unk_words_filename) 
 
 
+		self.set_unk_word(remove_unk = remove_unk)
 		self.set_stopword_ids_list(stopwords = stopwords)
 
-		self.set_unk_word(remove_unk = remove_unk)
 
 	def stanford_tokenize(self, text):
 		document = self.client.annotate(text)
@@ -65,13 +70,18 @@ class Tokenizer():
 		if self.tokenizer == "bert":
 			self.unk_word = "[UNK]"
 
-		if self.tokenizer == "glove":
+		elif self.tokenizer == "glove":
 			self.unk_word = "unk"
+
+		elif self.tokenizer == "robust":
+			self.unk_word = "<unk>"
+		elif self.tokenizer == "msmarco":
+			self.unk_word = "<unk>"
 
 		self.unk_word_id = self.get_word_ids(self.unk_word)
 
 		if remove_unk:
-			self.stopword_ids_list.append(self.unk_word_id)
+			self.stopword_ids_list = list(self.unk_word_id)
 
 
 	def set_stopword_ids_list(self, stopwords):
@@ -113,17 +123,15 @@ class Tokenizer():
 					myfile.write(word + "\n")
 			return token_id
 
-		if self.tokenizer == "glove":
-			if word in self.glove_word2idx:
-				return [self.glove_word2idx[word]]
+		else:
+			if word in self.word2idx:
+				return [self.word2idx[word]]
 			else:
 				# if selected, the unknown words that are found, are being written to the specified file, line by line
 				if self.unk_words_filename is not None:
 					with open(self.unk_words_filename, "a") as myfile:
 						myfile.write(word + "\n")
-
-				return [self.glove_word2idx["unk"]]
-
+				return [self.word2idx[self.unk_word]]
 
 	def encode(self, text):
 		""" Remove stopwords, tokenize and translate to word ids for a given text
@@ -159,20 +167,24 @@ class Tokenizer():
 		if self.tokenizer == "bert":
 			return self.bert_tokenizer.decode(word_ids)
 
-		if self.tokenizer == "glove":
+		else:
 			# translate into words in a string split by ' ' and return it
-			return ' '.join(self.glove_idx2word[word_id] for word_id in word_ids)
+			return ' '.join(self.idx2word[word_id] for word_id in word_ids)
 
 
 
 	def get_word_from_id(self,word_id):
 		if self.tokenizer == "bert":
 			return self.bert_tokenizer.decode(word_id)
-		if self.tokenizer == "glove":
-			return self.glove_idx2word[word_id]
+		else:
+			return self.idx2word[word_id]
 
-
-
+# https://stackoverflow.com/a/518232/2809427
+def unicodeToAscii(s):
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', s)
+        if unicodedata.category(c) != 'Mn'
+    )
 
 
 def tokenize(args):
@@ -198,11 +210,9 @@ def tokenize(args):
 
 	# word2idx = pickle.load(open(args.word2index_path, 'rb'))
 	with open(out_fname, 'w') as out_f:
-		with open(in_fname, 'r') as in_f:
+		with open(in_fname, 'r', encoding=args.encoding) as in_f:
 			with open(empty_ids_filename, 'w') as empty_ids_f:
-
 				for count, line in enumerate(in_f):
-
 					if count % 1000 == 0 and count != 0:
 						print(f'lines read: {count}')
 
@@ -217,9 +227,9 @@ def tokenize(args):
 						continue
 					
 					id_, text = spl
-
 					id_ = id_.strip()
-
+					text = text.strip()
+					text = unidecode(text)
 					tokenized_ids = tokenizer.encode(text)
 
 					if len(tokenized_ids) == 0:
@@ -233,8 +243,29 @@ def tokenize(args):
 
 
 
+def detokenize(args):
+
+	in_fname = args.input_file
+
+	print("Decoding :", in_fname)
+	# add = 'glove' if args.whitespace else 'bert'
+
+	tokenizer = Tokenizer(tokenizer = args.tokenizer)
 
 
+	# word2idx = pickle.load(open(args.word2index_path, 'rb'))
+	with open(in_fname, 'r', encoding=args.encoding) as in_f:
+			for count, line in enumerate(in_f):
+
+				spl = line.strip().split(args.delimiter, 1)
+				id_, text = spl
+				id_ = id_.strip()
+				text = text.strip()
+				tokens = np.fromstring(text, dtype=int, sep=' ')
+				
+				tokenized_ids = tokenizer.decode(tokens)
+
+				print(id_ + '\t' + tokenized_ids)
 
 if __name__ == "__main__":
 
@@ -242,14 +273,18 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--delimiter', type=str, default='\t')
 	parser.add_argument('--input_file', type=str)
+	parser.add_argument('--encoding', default=None, type=str)
 	parser.add_argument('--max_len', default=-1, type=int)
 	parser.add_argument('--dicts_path', type=str, default='data/embeddings/')
-	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove'}")
+	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove', 'robust', 'msmarco'}")
 	parser.add_argument('--stopwords', type=str, default="none", help = "{'none','lucene', 'some/path/file'}")
 	parser.add_argument('--remove_unk', action='store_true')
 	parser.add_argument('--stemmer', action='store_true')
+	parser.add_argument('--decode', action='store_true')
 	parser.add_argument('--dont_log_unk', action='store_true')
 	args = parser.parse_args()
 
-
-	tokenize(args)
+	if not args.decode:	
+		tokenize(args)
+	else:
+		detokenize(args)
