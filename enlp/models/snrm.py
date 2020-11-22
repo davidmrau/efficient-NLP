@@ -45,9 +45,13 @@ class SNRM(nn.Module):
           self.linears[-1].bias = torch.nn.Parameter(torch.ones(sparse_dimensions) * 3 )
 
   def forward(self, x, lengths):
-      # generate mask for averaging over non-zero elements later
-      print(x.shape)
+      # if min_input len is too small add extra padding because of sliding window
+      if x.shape[1] <= self.n - 1 :
+          padd = torch.zeros(x.shape[0], self.n - x.shape[1], device=x.get_device(), dtype=torch.long)
+          x = torch.cat((x, padd), dim=1)
+       # generate mask for averaging over non-zero elements later
       mask = (x > 0)[:, self.n - 1: ]
+
       # making sure that inputs smaller than n, will produce at least some output (affected by padding)
       mask[:,0] = True
 
@@ -68,15 +72,10 @@ class SNRM(nn.Module):
       out= self.relu(out)
       out = self.drop(out)
 
-      for i in range(len(self.linears)-1):
+      for i in range(len(self.linears)):
           out = self.linears[i](out)
           out= self.relu(out)
           out = self.drop(out)
-
-      # we do not apply dropout on the last layer
-      out = self.linears[-1](out)
-
-      out= self.relu(out)
 
       # batch x max_length  - (n-1)x out_size
 

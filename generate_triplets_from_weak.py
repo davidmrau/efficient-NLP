@@ -244,6 +244,7 @@ parser.add_argument('--sampler', type=str, default="top_k")
 parser.add_argument('--target', type=str, default="binary")
 parser.add_argument('--top_k_per_query', type=int, default=1000)
 parser.add_argument('--samples_per_query', type=int, default=-1)
+parser.add_argument('--min_hits', type=int, default=10)
 parser.add_argument('--shuffle_queries', action='store_true')
 # parser.add_argument('--shuffle_at_end', type=int, default=1000)
 
@@ -262,7 +263,7 @@ args.output_file = f"{args.weak_results_file}_TRIPLETS_{args.top_k_per_query}"
 # args.shuffle = True
 
 generator = WeakTripletGenerator(weak_results_filename = args.weak_results_file, output_filename = args.output_file, \
-    top_k_per_query=args.top_k_per_query, sampler= args.sampler, min_results = 10, size_limit= args.size_limit,\
+    top_k_per_query=args.top_k_per_query, sampler= args.sampler, min_results = args.min_hits, size_limit= args.size_limit,\
     samples_per_query = args.samples_per_query, queries_limit= args.queries_limit, shuffle_queries=args.shuffle_queries)
 
 
@@ -274,8 +275,8 @@ generator.write_triplets()
 print("Triplet generation terminated! Total Queries processed:", generator.queries_processed)
 print("Total Size in Gigabytes:", generator.get_total_size_in_GB())
 
-generator.shuf()
-
+#generator.shuf()
+print("Don'f forget to shuffle the generated files!")
 # in_fname = args.weak_results_file
 # delimiter = args.delimiter
 # out_fname = in_fname + '.offset_dict.p'

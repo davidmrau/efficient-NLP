@@ -104,7 +104,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 					temp_model_folder = os.path.join(cfg.experiments_dir, cfg.temp_exp_prefix + model_folder)
 			else:
 				print("\nExperiment Directory:\n",completed_model_folder,"\nis already there, skipping the experiment !!!")
-				exit()
+				continue
 
 		elif os.path.isdir(temp_model_folder):
 			print("Incomplete experiment directory found :\n", temp_model_folder)

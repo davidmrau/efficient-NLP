@@ -63,23 +63,28 @@ embedding: 'bert'
 bert_rel: False
 bert_relevance_embeddings_path: '${data_path}/embeddings/bert_relev_embeddings.p'
 glove_embedding_path: '${data_path}/embeddings/glove.6B.300d.p'
+
+
 msmarco_query_test: '${data_path}/msmarco/msmarco-test2019-queries_43.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
 #msmarco_docs_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
 msmarco_docs_test: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
 msmarco_query_train: '${data_path}/msmarco/queries.train.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
 
-msmarco_docs_train: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
+msmarco_docs_train: '${data_path}/msmarco_ascii/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
 msmarco_triplets: '${data_path}/msmarco/qidpidtriples.train.full.tsv'
-msmarco_triplets_train_debug: '${data_path}/msmarco/qidpidtriples.train.full.debug.tsv'
 msmarco_ranking_results_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv'
 msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
-robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk.tsv'
-robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk_max_len_1500.tsv'
-robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
-robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
-robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04/strong_supervision/qrels.robust2004.txt_pairwise'
-folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
+
+
+robust_docs: '${data_path}/robust04_ascii/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_query_train: '${data_path}/robust04_ascii/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_ranking_results_test: '${data_path}/robust04_ascii/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
+robust_query_test: '${data_path}/robust04_ascii/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_qrel_test: '${data_path}/robust04_ascii/qrels.robust2004.txt'
+robust_ranking_results_strong: '${data_path}/robust04_ascii/strong_supervision/qrels.robust2004.txt_pairwise'
+
+
+folds_file: '${data_path}/robust04_ascii/robust04_strong_supervision_folds.p'
 robust_triples: ''
 dataset: ''
 trec_eval: 'trec_eval'

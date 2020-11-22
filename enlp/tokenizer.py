@@ -44,7 +44,6 @@ class Tokenizer():
 		elif self.tokenizer == 'robust':
 			self.word2idx = pickle.load(open(dicts_path + 'robust_vocab.p', 'rb'))
 		self.max_len = max_len
-
 		self.remove_unk = remove_unk
 		self.unk_words_filename = unk_words_filename
 
@@ -54,6 +53,7 @@ class Tokenizer():
 			os.remove(self.unk_words_filename) 
 
 
+		self.unk_word_id = None
 		self.set_unk_word(remove_unk = remove_unk)
 		self.set_stopword_ids_list(stopwords = stopwords)
 
@@ -118,9 +118,10 @@ class Tokenizer():
 		
 		if self.tokenizer == "bert":
 			token_id = self.bert_tokenizer.encode(word)[1:-1]
-			if token_id[0] == self.unk_word_id:
-				with open(self.unk_words_filename, "a") as myfile:
-					myfile.write(word + "\n")
+			if self.unk_word_id:
+				if token_id[0] == self.unk_word_id:
+					with open(self.unk_words_filename, "a") as myfile:
+						myfile.write(word + "\n")
 			return token_id
 
 		else:

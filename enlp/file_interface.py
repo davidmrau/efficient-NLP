@@ -87,6 +87,49 @@ class FileInterface:
 		tokens_list = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 		return tokens_list
 
+	def get_query_lines(self, q_index, top_k_per_query = -1):
+
+		results = []
+
+		with FileInterface.locks[self.filename]:
+			# set file seek to the beginning of the line of the first result of that query
+			self.file.seek( self.seek_dict[q_index] )
+
+
+			line = self.file.readline()
+
+			if self.decode:
+				line = line.decode()
+
+			requested_q_id = line.split()[0]
+
+			while line and len(line) != 0:
+
+
+				# decompose line
+				split_line = line.split()
+
+				q_id = split_line[0]
+
+				# if we started reading the results of the next query
+				if q_id != requested_q_id:
+					break
+
+				results.append(line )
+
+				if top_k_per_query != -1 and len(results) == top_k_per_query:
+					break
+
+				# read next line
+				line = self.file.readline()
+				if self.decode:
+					line = line.decode()
+
+		return results
+
+
+
+			
 
 	def read_all_results_of_query_index(self, q_index, top_k_per_query = -1):
 
@@ -133,27 +176,26 @@ class FileInterface:
 
 
 
-
+		
 class File():
 	def __init__(self, fname, tokenized=True):
 		self.file = {}
 		with open(fname, 'r') as f:
 			for line in f:
 				delim_pos = line.find('\t')
-				id = line[:delim_pos]
+				id_ = line[:delim_pos]
 				if tokenized:
 					# in case the tokenized of the line is empy, and the line only contains the id, then we return None
 					# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
 					if len(line[delim_pos+1:]) < 2:
-						self.file[id] = None
+						self.file[id_] = None
 					else:
 						# extracting the token_ids and creating a numpy array
-						self.file[id] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
+						self.file[id_] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 				else:
-					self.file[id] = line[delim_pos+1:]
-
-	def __getitem__(self, id):
-		return self.file[id]
+					self.file[id_] = line[delim_pos+1:]
+	def __getitem__(self, id_):
+		return self.file[id_]
 
 	def __len__(self):
 		return len(self.file)

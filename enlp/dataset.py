@@ -100,7 +100,7 @@ class Sequential(IterableDataset):
 
 
 class TriplesSequential(IterableDataset):
-    def __init__(self, triples_path, id2query, id2doc, max_query_len=64, max_complete_length=510, max_doc_len=None):
+    def __init__(self, triples_path, id2query, id2doc, max_query_len=64, max_complete_length=510, max_doc_len=None, rand_p=0):
         # "open" triplets file
         self.id2query = id2query
         self.id2doc = id2doc
@@ -110,6 +110,15 @@ class TriplesSequential(IterableDataset):
             self.max_doc_len = max_doc_len
         else:
             self.max_doc_len = max_complete_length - max_query_len if max_complete_length != None else None
+        self.rand_p = rand_p
+    def random_shuffle(self, x, p=0.5):
+        b = np.random.random(len(x)) > 0.5
+        print(b)
+        c = x[b]
+        np.random.shuffle(c)
+        x[b] = c
+        return x
+
 
     def __iter__(self):
         with open(self.triples_path, 'r') as triples:
@@ -124,6 +133,10 @@ class TriplesSequential(IterableDataset):
 
                 doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
                 doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
+                doc1 = self.random_shuffle(doc1, self.rand_p)
+                doc2 = self.random_shuffle(doc2, self.rand_p)
+                query = self.random_shuffle(query, self.rand_p)
+
                 if random.random() > 0.5:
                     yield query, doc1, doc2, 1
                 else:
@@ -247,7 +260,7 @@ class RankingResultsTest:
 
                     doc_count += 1
                     d_batch_ids.append(doc_id)
-                    d_batch_data.append(torch.IntTensor(doc))
+                    d_batch_data.append(torch.LongTensor(doc))
                     # print('+', line)
                     started_query = True
                     q_id = [curr_q_id]
@@ -261,13 +274,14 @@ class RankingResultsTest:
             if self.max_query_len is not None:
                 query = query[:self.max_query_len]
 
-            q_data = [torch.IntTensor(query)]
+            q_data = [torch.LongTensor(query)]
             d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
             q_length = torch.FloatTensor([len(q) for q in q_data])
 
             # padd data along axis 1
-            d_batch_data = pad_sequence(d_batch_data, 1).long()
-            q_data = self.padd_tensor(q_data, d_batch_data.shape[1]).long()
+            d_batch_data = pad_sequence(d_batch_data, 1)
+            print(d_batch_data)
+            q_data = self.padd_tensor(q_data, d_batch_data.shape[1])
             yield q_id, q_data, q_length, d_batch_ids, d_batch_data, d_batch_lengths
 
     def batch_generator_bert_interaction(self):
@@ -444,7 +458,7 @@ def collate_fn_padd_single(batch):
             continue
 
         id_, tokens = item
-        batch_data.append(torch.IntTensor(tokens))
+        batch_data.append(torch.LongTensor(tokens))
         batch_ids.append(id_)
 
     # in case this batch does not contain any samples, then we return None
@@ -453,7 +467,7 @@ def collate_fn_padd_single(batch):
 
     batch_lengths = torch.FloatTensor([len(d) for d in batch_data])
     # pad data along axis 1
-    batch_data = pad_sequence(batch_data, 1).long()
+    batch_data = pad_sequence(batch_data, 1)
     return batch_ids, batch_data, batch_lengths
 
 
@@ -473,9 +487,9 @@ def collate_fn_padd_triples(batch):
         q, doc1, doc2, target = item
 
         if doc1 is not None and doc2 is not None:
-            batch_q.append(torch.IntTensor(q))
-            batch_doc1.append(torch.IntTensor(doc1))
-            batch_doc2.append(torch.IntTensor(doc2))
+            batch_q.append(torch.LongTensor(q))
+            batch_doc1.append(torch.LongTensor(doc1))
+            batch_doc2.append(torch.LongTensor(doc2))
             batch_targets.append(target)
 
     if len(batch_targets) == 0:
@@ -487,30 +501,28 @@ def collate_fn_padd_triples(batch):
     batch_lengths_doc1 = torch.FloatTensor([len(d) for d in batch_doc1])
     batch_lengths_doc2 = torch.FloatTensor([len(d) for d in batch_doc2])
     # pad data along axis 1
-    batch_q = pad_sequence(batch_q, 1).long()
-    batch_doc1 = pad_sequence(batch_doc1, 1).long()
-    batch_doc2 = pad_sequence(batch_doc2, 1).long()
+
+
+    batch_q = pad_sequence(batch_q, 1)
+    batch_doc1 = pad_sequence(batch_doc1, 1)
+    batch_doc2 = pad_sequence(batch_doc2, 1)
 
     return batch_q, batch_doc1, batch_doc2, batch_lengths_q, batch_lengths_doc1, batch_lengths_doc2, batch_targets
 
 
 def get_data_loaders_msmarco(cfg):
-    if cfg.debug:
-        triples = cfg.msmarco_triplets_train_debug
-    else:
-        triples = cfg.msmarco_triplets_train
 
     query_fi_train = File(cfg.msmarco_query_train)
     docs_fi_train = File(cfg.msmarco_docs_train)
     dataloaders = {}
 
 
-    triples_train_path = cfg.msmarco_triplets_train + "_train"
-    triples_val_path = cfg.msmarco_triplets_train + "_val"
+    triples_train_path = cfg.msmarco_triplets + "_train"
+    triples_val_path = cfg.msmarco_triplets + "_val"
 
     train_dataset = TriplesSequential(triples_train_path, query_fi_train, docs_fi_train,
                                 max_query_len=cfg.msmarco.max_query_len,
-                                max_complete_length=cfg.msmarco.max_complete_length)
+                                max_complete_length=cfg.msmarco.max_complete_length, rand_p=cfg.rand_p)
 
     validation_dataset = TriplesSequential(triples_val_path, query_fi_train, docs_fi_train,
                                 max_query_len=cfg.msmarco.max_query_len,

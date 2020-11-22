@@ -58,6 +58,8 @@ def inference(cfg):
 		metric = None
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
+	if cfg.add:
+		res_folder_base += f'_{cfg.add}'
 
 	os.makedirs(cfg.model_folder, exist_ok=True)
 
@@ -74,8 +76,8 @@ def inference(cfg):
 		max_doc_len = None
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
-	docs_fi = File(cfg.docs)
 	query_fi = File(cfg.queries)
+	docs_fi = File(cfg.docs)
 	dataloaders = {}
 	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
 		max_complete_length=max_complete_length, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N)
