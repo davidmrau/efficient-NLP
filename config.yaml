@@ -80,14 +80,14 @@ msmarco_ranking_results_test: '${data_path}/msmarco/msmarco-passagetest2019-top1
 msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
 
 
-robust_docs: '${data_path}/robust04_ascii/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk.tsv'
-robust_query_train: '${data_path}/robust04_ascii/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk.tsv'
-robust_ranking_results_test: '${data_path}/robust04_ascii/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
-robust_query_test: '${data_path}/robust04_ascii/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
-robust_qrel_test: '${data_path}/robust04_ascii/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04_ascii/qrels.robust2004.txt_pairwise_binary'
-folds_file: '${data_path}/robust04_ascii/robust04_strong_supervision_folds.p'
-robust_triples: '${data_path}/robust04_ascii/robust04_AOL_anserini_top_100_qld_no_stem_TRIPLETS'
+robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
+robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
+robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_pairwise_binary'
+folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
+robust_triples: '${data_path}/robust04/robust04_AOL_anserini_top_100_qld_no_stem_TRIPLETS'
 
 dataset: ''
 trec_eval: 'trec_eval'
@@ -95,6 +95,3 @@ margin: 1
 telegram: False
 rerank_top_N: 2000
 rand_p: 0
-#robust_ranking_results_train: "${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem"
-#robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
-# robust_query_train: '${data_path}/robust04/AOL_queries_Replaced_non_Alphanumeric_With_space/AOL-queries-all_spaces_${embedding}_stop_${stopwords}_remove_unk.tsv'
