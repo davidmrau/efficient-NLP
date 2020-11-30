@@ -21,6 +21,7 @@ from enlp.models.rank_model import RankModel
 from enlp.models.bert_based import BERT_based
 from enlp.models.snrm import SNRM
 from enlp.models.bert import BERT_inter
+from enlp.models.av_repr import AvRepr
 import collections
 
 matplotlib.use('Agg')
@@ -199,8 +200,10 @@ def instantiate_model(cfg):
 
 	if cfg.embedding == 'glove':
 		embedding_parameters = load_glove_embeddings(cfg.glove_embedding_path)
+		embedding_dim = 300
 
 	elif cfg.embedding == 'bert':
+		embedding_dim = 768
 		if cfg.bert_rel:
 			embedding_parameters = load_glove_embeddings(cfg.bert_relevance_embeddings_path)
 		else:
@@ -208,22 +211,24 @@ def instantiate_model(cfg):
 	else:
 		if cfg.embedding != "random":
 			raise RuntimeError('Define pretrained embeddings ! {bert/glove}')
-		cfg.embedding = 'bert'
 		embedding_parameters = None
-
-
+		embedding_dim = 300
+		cfg.embedding = 'glove'
 	if cfg.model == "snrm":
 		model = SNRM(hidden_sizes=str2lst(str(cfg.snrm.hidden_sizes)),
 					 sparse_dimensions = cfg.sparse_dimensions, n=cfg.snrm.n, embedding_parameters=embedding_parameters,
-					 embedding_dim = cfg.snrm.embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
+					 embedding_dim = embedding_dim, vocab_size = cfg.vocab_size, dropout_p=cfg.snrm.dropout_p,
 					 n_gram_model = cfg.snrm.n_gram_model, large_out_biases = cfg.large_out_biases)
 
 		vocab_size = model.vocab_size
 
+	elif cfg.model == "av_repr":
+		model = AvRepr(embedding_parameters, embedding_dim, cfg.vocab_size, cfg.av_repr.weights)
+		vocab_size = model.vocab_size
 	elif cfg.model == "rank":
 		model = RankModel(hidden_sizes = str2lst(str(cfg.rank_model.hidden_sizes)), embedding_parameters = embedding_parameters,
-			embedding_dim = cfg.rank_model.embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
-			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
+			embedding_dim = embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
+			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights, model_type=cfg.rank_model.model_type)
 
 
 		vocab_size = model.vocab_size
@@ -388,6 +393,9 @@ def read_json(path):
 		return json.load(read_file)
 
 def str2lst(string):
+	print(string)
+	if string == 'None':
+		return []
 	if '-' not in string:
 		return [int(string)]
 	return [int(s) for s in string.split('-')]
@@ -545,8 +553,11 @@ def get_model_folder_name(cfg):
 	elif cfg.model =="rank":
 		trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
 		weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
+		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}_{cfg.rank_model.model_type}"
+	elif cfg.model =="av_repr":
+		trainable_weights_str = "_trainable" if cfg.av_repr.trainable_weights else ""
+		weights_str = "IDF" if "idf" in cfg.av_repr.weights else cfg.av_repr.weights
 		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
-
 	elif cfg.model =="bert":
 
 		load_bert_layers = cfg.bert.load_bert_layers
@@ -739,7 +750,6 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 
 
 def load_model(cfg, load_model_folder, device):
-	cfg.embedding = 'random'
 	model, device, n_gpu, _ = instantiate_model(cfg)
 	state_dict = torch.load(load_model_folder + '/best_model.model', map_location=device)
 
@@ -763,3 +773,4 @@ def load_model(cfg, load_model_folder, device):
 
 	model.load_state_dict(state_dict)
 	return model
+

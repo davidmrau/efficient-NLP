@@ -43,8 +43,6 @@ def split(args):
 					if q2idx[q_id] in indices_train:
 						out_f.write(line)
 			 	
-			os.system(f'sort -R -o {out_fname} {out_fname}')
-				
 if __name__ == "__main__":
 
 

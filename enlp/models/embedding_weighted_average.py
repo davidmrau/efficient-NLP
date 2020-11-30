@@ -14,7 +14,7 @@ class EmbeddingWeightedAverage(nn.Module):
 		self.weights = torch.nn.Embedding(num_embeddings = vocab_size, embedding_dim = 1)
 
 		if weights == "uniform":
-			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size,1))
+			self.weights.weight = torch.nn.Parameter(torch.ones(vocab_size,1), requires_grad=True)
 			# pass
 		elif weights == "random":
 			pass
@@ -29,7 +29,8 @@ class EmbeddingWeightedAverage(nn.Module):
 
 		if trainable == False:
 			self.weights.weight.requires_grad = False
-
+		else:	
+			self.weights.weight.requires_grad = True
 
 
 	def forward(self, inp, values, lengths = None, mask = None):

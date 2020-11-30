@@ -180,6 +180,7 @@ class FileInterface:
 class File():
 	def __init__(self, fname, tokenized=True):
 		self.file = {}
+		count_empty_docs = 0
 		with open(fname, 'r') as f:
 			for line in f:
 				delim_pos = line.find('\t')
@@ -189,11 +190,14 @@ class File():
 					# example of line with empy text: line = "1567 \n" -> len(line[delim_pos+1:]) == 1
 					if len(line[delim_pos+1:]) < 2:
 						self.file[id_] = None
+						#print('empty doc', id_)
+						count_empty_docs += 1
 					else:
 						# extracting the token_ids and creating a numpy array
 						self.file[id_] = np.fromstring(line[delim_pos+1:], dtype=int, sep=' ')
 				else:
 					self.file[id_] = line[delim_pos+1:]
+		print(f'{fname} num docs:', count_empty_docs)
 	def __getitem__(self, id_):
 		return self.file[id_]
 

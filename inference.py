@@ -7,8 +7,7 @@ matplotlib.use('Agg')
 import os
 import pickle
 
-from enlp.utils import write_ranking, write_ranking_trec, plot_histogram_of_latent_terms, \
-	plot_ordered_posting_lists_lengths, load_model
+from enlp.utils import write_ranking, write_ranking_trec, plot_histogram_of_latent_terms, plot_ordered_posting_lists_lengths, load_model, instantiate_model
 from enlp.metrics import MRR, MAPTrec
 from enlp.file_interface import File
 from enlp.run_model import test
@@ -26,13 +25,18 @@ def inference(cfg):
 		device = torch.device('cuda')
 	else:
 		device = torch.device('cpu')
+	if cfg.model_folder == 'none':
+		model, device, n_gpu, vocab_size = instantiate_model(cfg)
+	else:
+		model = load_model(cfg, cfg.model_folder, device)
 
-
-	model = load_model(cfg, cfg.model_folder, device)
-
-
-
-
+	print(model)
+	if cfg.fold:
+		fold = pickle.load(open(cfg.folds_file, 'rb'))
+		fold = folds[int(cfg.fold)][1]
+		print(f'Evaluating fold {cfg.fold}:', fold)
+	else:
+		fold = None	
 	# set minimum length in case of snrm
 	min_len = 0
 	if cfg.model == "snrm":
@@ -80,7 +84,7 @@ def inference(cfg):
 	docs_fi = File(cfg.docs)
 	dataloaders = {}
 	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
-		max_complete_length=max_complete_length, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N)
+		max_complete_length=max_complete_length, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, indices=fold)
 
 	print('testing...')
 
@@ -101,18 +105,21 @@ if __name__ == "__main__":
 
 	if "model_folder" not in cl_cfg or "docs" not in cl_cfg or "queries" not in cl_cfg or "ranking_results" not in cl_cfg or "metric" not in cl_cfg:
 		raise ValueError("usage: inference.py model_folder=MODEL_FOLDER docs=DOCS_PATH queries=DOCS_PATH ranking_results=RANKING_RESULTS_PATH metric=METRIC [OPTIONAL]qrels=QRELS_PATH")
-
-	# getting model config
-	cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
-	# merging both
-	cfg = OmegaConf.merge(cfg_load, cl_cfg)
-	cfg_default = OmegaConf.load('config.yaml')
-	cfg = OmegaConf.merge(cfg_default, cfg)
+	if cl_cfg.model_folder != 'none':
+		# getting model config
+		cfg_load = OmegaConf.load(f'{cl_cfg.model_folder}/config.yaml')
+		# merging both
+		cfg = OmegaConf.merge(cfg_load, cl_cfg)
+		cfg_default = OmegaConf.load('config.yaml')
+		cfg = OmegaConf.merge(cfg_default, cfg)
+	else:
+		cfg_default = OmegaConf.load('config.yaml')
+		cfg = OmegaConf.merge(cfg_default, cl_cfg)
 
 	if cfg.rerank_top_N is None:
 		cfg.rerank_top_N = -1
 
 	if cfg.report_top_N is None:
 		cfg.report_top_N = -1
-
+	print(cfg.pretty())
 	inference(cfg)

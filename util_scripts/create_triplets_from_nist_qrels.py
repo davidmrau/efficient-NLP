@@ -90,11 +90,18 @@ def generate_triplets(args):
 		related = qrels[q_id][1]
 		irrelevant = qrels[q_id][0]
 		irrelevant_top_1000 = qrels[q_id][-1]
+			
+
+		print('perfectly_relevant', len(perfectly_relevant))
+		print('highly_relevant', len(highly_relevant))
+		print('related', len(related))
+		print('irrelevant', len(irrelevant))
+		print('ireelevant_top_100', len(irrelevant_top_1000))
 
 		if args.pointwise:
-			relevant = perfectly_relevant + highly_relevant
+			relevant = related + perfectly_relevant + highly_relevant
 
-			irrelevant = related + irrelevant + irrelevant_top_1000
+			irrelevant = irrelevant + related + irrelevant_top_1000 
 
 			num_of_triplets = len(relevant)
 
@@ -108,7 +115,9 @@ def generate_triplets(args):
 
 				out_f.write(q_id + '\t' + rel_id + '\t' + irrel_id + "\n")
 		elif args.binary_pairwise:
-			relevant = perfectly_relevant + highly_relevant + related 
+			relevant = perfectly_relevant + highly_relevant + related
+			print('relevant', len(relevant))
+			print('irrelevant', len(irrelevant)) 
 			write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f)
 		elif args.rand_negative_docs_dict is not None:
 			all_docs = p.load(open(args.rand_negative_docs_dict, 'rb'))

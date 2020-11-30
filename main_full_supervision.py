@@ -86,7 +86,6 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 	print('Start training...')
 	metric_scores = list()
-	fold_count = -1
 
 	for i, (indices_train, indices_test) in enumerate(folds):
 		print(indices_train, indices_test)
@@ -122,19 +121,32 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		cfg.model_folder = temp_model_folder
 
 
-		print(f'Running fold {fold_count}')
+		print(f'Running fold {i}')
 
 		# initialize model according to params (SNRM or BERT-like Transformer Encoder)
 
 		writer = SummaryWriter(log_dir=f'{cfg.model_folder}/tb/{datetime.now().strftime("%Y-%m-%d:%H-%M")}/')
 		model, device, n_gpu, vocab_size = instantiate_model(cfg)
+
+		if isinstance(model, torch.nn.DataParallel):
+			model_type = model.module.model_type
+		else:
+			model_type = model.model_type
+
 		# initialize loss function
-		loss_fn = nn.MarginRankingLoss(margin = cfg.margin).to(device)
+		if model_type == "bert-interaction" or model_type == "rank-interaction":
+			loss_fn = nn.CrossEntropyLoss()
+		else:
+		# initialize loss function
+			loss_fn = nn.MarginRankingLoss(margin = cfg.margin).to(device)
 
 		# initialize optimizer
 		optim = Adam(model.parameters(), lr=cfg.lr)
 
 
+
+
+		cfg.model_type = model_type
 		# if max_samples_per_gpu is not set (-1), then dynamically calculate it
 		if cfg.max_samples_per_gpu == -1:
 			cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
@@ -144,7 +156,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 
 
-		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results, cfg.robust04.max_length, cfg.robust04.max_length)
+		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results)
 		data = dataloaders['test']
 		data.reset()
 
@@ -158,6 +170,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 		os.makedirs(completed_model_folder, exist_ok=True)
 		os.renames(temp_model_folder, completed_model_folder)
+		break
 	open(f'{completed_model_folder_general}/final_score.txt', 'w').write(f'Av {metric.name} Supervised {np.mean(metric_scores)}')
 
 	# after the training is done, we remove the temp prefix from the dir name

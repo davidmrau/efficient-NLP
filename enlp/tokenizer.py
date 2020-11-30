@@ -6,6 +6,7 @@ import nltk
 from nltk.stem import PorterStemmer
 
 import os
+import sys
 
 import unicodedata
 from unidecode import unidecode
@@ -266,8 +267,7 @@ def detokenize(args):
 				
 				tokenized_ids = tokenizer.decode(tokens)
 
-				print(id_ + '\t' + tokenized_ids)
-
+				print(id_ + '\t' + tokenized_ids.encode('latin-1').decode('utf-8'))
 if __name__ == "__main__":
 
 

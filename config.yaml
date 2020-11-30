@@ -2,7 +2,7 @@
 model: 'snrm'
 vocab_size: 400002
 batch_size_train: 256
-batch_size_test: 512
+batch_size_test: 256
 lr: 0.0001
 stopwords: "none"
 remove_unk: False
@@ -37,18 +37,22 @@ snrm:
   n: 5
   dropout_p: 0.2
   n_gram_model: "cnn" # cnn or bert, defining the way that the n gram is being aggregated
-  embedding_dim: 300
 rank_model:
   hidden_sizes: '200' # for multiple layers add '-' between hidden sizes  eg. ('100-400-200')
   dropout_p: 0.2
-  embedding_dim: 768
   weights: 'data/embeddings/idf_tensor.p' # a path to a pickled tensor OR "uniform" OR "random"
   trainable_weights: True
+  model_type: 'rank-interaction'
 msmarco:
   max_query_len: 64
-  max_complete_length: 512
+  max_complete_len: 512
 robust04:
-  max_length: 1500
+  max_len: 1500
+  max_query_len: 64
+  max_complete_len: 512
+av_repr:
+  #weights: 'data/embeddings/idf_tensor.p' # a path to a pickled tensor OR "uniform" OR "random"
+  weights: 'uniform'
 debug: False
 max_rank: 1000
 experiments_dir: "experiments_${dataset}"
@@ -70,7 +74,7 @@ msmarco_query_test: '${data_path}/msmarco/msmarco-test2019-queries_43.tsv_${embe
 msmarco_docs_test: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
 msmarco_query_train: '${data_path}/msmarco/queries.train.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
 
-msmarco_docs_train: '${data_path}/msmarco_ascii/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
+msmarco_docs_train: '${data_path}/msmarco/collection.tsv_${embedding}_stop_none_remove_unk.tsv'
 msmarco_triplets: '${data_path}/msmarco/qidpidtriples.train.full.tsv'
 msmarco_ranking_results_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv'
 msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
@@ -81,16 +85,16 @@ robust_query_train: '${data_path}/robust04_ascii/AOL-queries-all_filtered.txt.na
 robust_ranking_results_test: '${data_path}/robust04_ascii/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
 robust_query_test: '${data_path}/robust04_ascii/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
 robust_qrel_test: '${data_path}/robust04_ascii/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04_ascii/strong_supervision/qrels.robust2004.txt_pairwise'
-
-
+robust_ranking_results_strong: '${data_path}/robust04_ascii/qrels.robust2004.txt_pairwise_binary'
 folds_file: '${data_path}/robust04_ascii/robust04_strong_supervision_folds.p'
-robust_triples: ''
+robust_triples: '${data_path}/robust04_ascii/robust04_AOL_anserini_top_100_qld_no_stem_TRIPLETS'
+
 dataset: ''
 trec_eval: 'trec_eval'
 margin: 1
 telegram: False
-rerank_top_N: -1
+rerank_top_N: 2000
+rand_p: 0
 #robust_ranking_results_train: "${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem"
 #robust_ranking_results_train_debug: '${data_path}/robust04/robust04_AOL_anserini_top_1000_qld_no_stem_200k.filtered.debug.txt'
 # robust_query_train: '${data_path}/robust04/AOL_queries_Replaced_non_Alphanumeric_With_space/AOL-queries-all_spaces_${embedding}_stop_${stopwords}_remove_unk.tsv'
