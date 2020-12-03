@@ -75,7 +75,7 @@ def exp(cfg):
 	if cfg.dataset == 'msmarco':
 		dataloaders = get_data_loaders_msmarco(cfg)
 		metric = MAPTrec(cfg.trec_eval, cfg.msmarco_qrel_test, cfg.max_rank, add_params='-l 2')
-		max_len = cfg.msmarco.max_complete_length
+		max_len = cfg.msmarco.max_complete_len
 		#metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
 	elif cfg.dataset == 'robust04':
 		dataloaders = get_data_loaders_robust(cfg)

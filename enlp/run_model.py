@@ -15,13 +15,13 @@ def log_progress(mode, total_trained_samples, currently_trained_samples, samples
 		mode, currently_trained_samples, samples_per_epoch, total_loss, loss, l1_loss, balance_loss, acc))
 	if writer:
 		# update tensorboard
-		writer.add_scalar(f'{mode}_task_loss', loss, total_trained_samples)
-		writer.add_scalar(f'{mode}_l1_loss', l1_loss, total_trained_samples)
-		writer.add_scalar(f'{mode}_balance_loss', balance_loss, total_trained_samples)
-		writer.add_scalar(f'{mode}_total_loss', total_loss, total_trained_samples)
-		writer.add_scalar(f'{mode}_L0_query', l0_q, total_trained_samples)
-		writer.add_scalar(f'{mode}_L0_docs', l0_docs, total_trained_samples)
-		writer.add_scalar(f'{mode}_acc', acc, total_trained_samples)
+		writer.add_scalar(f'{mode}/task_loss', loss, total_trained_samples)
+		writer.add_scalar(f'{mode}/l1_loss', l1_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}/balance_loss', balance_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}/total_loss', total_loss, total_trained_samples)
+		writer.add_scalar(f'{mode}/L0_query', l0_q, total_trained_samples)
+		writer.add_scalar(f'{mode}/L0_docs', l0_docs, total_trained_samples)
+		writer.add_scalar(f'{mode}/acc', acc, total_trained_samples)
 
 
 def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scalar, balance_scalar,
@@ -266,9 +266,9 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 		plot_histogram_of_latent_terms(model_folder, d_reprs, 'docs')
 
 	if writer != None:
-		writer.add_scalar(f'{mode}_l1_loss', av_l1_loss.val, total_trained_samples)
-		writer.add_scalar(f'{mode}_L0_query', av_l0_query.val, total_trained_samples)
-		writer.add_scalar(f'{mode}_L0_docs', av_l0_docs.val, total_trained_samples)
+		writer.add_scalar(f'{mode}/l1_loss', av_l1_loss.val, total_trained_samples)
+		writer.add_scalar(f'{mode}/L0_query', av_l0_query.val, total_trained_samples)
+		writer.add_scalar(f'{mode}/L0_docs', av_l0_docs.val, total_trained_samples)
 	return scores, q_ids
 
 

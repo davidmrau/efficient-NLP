@@ -72,11 +72,11 @@ def inference(cfg):
 	# calculate maximum lengths
 	if cfg.dataset == "robust04":
 		max_query_len = cfg.robust04.max_length
-		max_complete_length = -1
+		max_complete_len = -1
 		max_doc_len = cfg.robust04.max_length
 	elif cfg.dataset == "msmarco":
 		max_query_len = cfg.msmarco.max_query_len
-		max_complete_length = cfg.msmarco.max_complete_length
+		max_complete_len = cfg.msmarco.max_complete_len
 		max_doc_len = None
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
@@ -84,7 +84,7 @@ def inference(cfg):
 	docs_fi = File(cfg.docs)
 	dataloaders = {}
 	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
-		max_complete_length=max_complete_length, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, indices=fold)
+		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, indices=fold)
 
 	print('testing...')
 

@@ -79,6 +79,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		folds = [[None, [226]], [None, [16, 222]], [None, [16,152, 222]], [None, None], [None, None]]
 	else:
 		folds = pickle.load(open(cfg.folds_file, 'rb'))
+		#folds = [[None, list(range(44))]]
 
 
 	docs_fi = File(cfg.robust_docs)
