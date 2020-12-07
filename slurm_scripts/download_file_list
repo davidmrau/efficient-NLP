@@ -14,3 +14,4 @@ data/robust04/robust04_strong_supervision_folds.p
 data/robust04/robust04_raw_docs.num_query_glove_stop_lucene_remove_unk.tsv
 data/robust04/04.testset_num_query_lower_glove_stop_lucene_remove_unk.tsv
 data/robust04/AOL-queries-all_filtered.txt.names_glove_stop_lucene_remove_unk.tsv
+data/robust04/robust04_strong_supervision_folds.p

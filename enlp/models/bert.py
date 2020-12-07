@@ -2,7 +2,7 @@ import torch
 import transformers
 from transformers.activations import gelu, gelu_new
 
-from enlp.models.bert_no_layer_norm import BertModelNoOutLayerNorm
+#from enlp.models.bert_no_layer_norm import BertModelNoOutLayerNorm
 from transformers import BertTokenizerFast
 import math
 

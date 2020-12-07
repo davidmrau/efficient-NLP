@@ -1,8 +1,8 @@
 import torch
 import transformers
-from transformers.activations import gelu, gelu_new
+#from transformers.activations import gelu, gelu_new
 
-from enlp.models.bert_no_layer_norm import BertModelNoOutLayerNorm
+#from enlp.models.bert_no_layer_norm import BertModelNoOutLayerNorm
 from transformers import BertTokenizerFast
 import math
 
@@ -49,7 +49,8 @@ class BERT_based(torch.nn.Module):
 		if layer_norm:
 			self.encoder = transformers.BertModel(config)
 		else:
-			self.encoder = BertModelNoOutLayerNorm(config)
+			raise NotImplementedError()
+			#self.encoder = BertModelNoOutLayerNorm(config)
 
 		if act_func == "relu":
 			self.act_func = torch.nn.ReLU()

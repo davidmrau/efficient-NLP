@@ -22,7 +22,7 @@ import os
 import math
 import torch
 from torch import nn
-from transformers.activations import gelu, gelu_new, swish
+#from transformers.activations import gelu, gelu_new, swish
 from transformers.configuration_bert import BertConfig
 from transformers.file_utils import add_start_docstrings, add_start_docstrings_to_callable
 from transformers.modeling_utils import PreTrainedModel, prune_linear_layer
