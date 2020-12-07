@@ -390,7 +390,7 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, mod
 	if metric:
 		metric_score = metric.score(scores, q_ids)
 		if writer:
-			writer.add_scalar(f'{metric.name}', metric_score, total_trained_samples)
+			writer.add_scalar(f'test/{metric.name}', metric_score, total_trained_samples)
 		print(f'{mode} -  {metric.name}: {metric_score}')
 	else:
 		metric_score = None

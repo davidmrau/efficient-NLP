@@ -562,8 +562,8 @@ def get_data_loaders_msmarco(cfg):
 def get_data_loaders_robust(cfg):
 
     docs_fi = File(cfg.robust_docs)
-    queries_fi = File(cfg.robust_query_train)
-    test_queries_fi = File(cfg.robust_query_test)
+    query_fi_train= File(cfg.robust_query_train)
+    query_fi_test = File(cfg.robust_query_test)
     dataloaders = {}
 
 
@@ -582,15 +582,12 @@ def get_data_loaders_robust(cfg):
         max_doc_len = cfg.robust04.max_len
         max_complete_len = None
 
-    train_dataset = TriplesSequential(triples_train_path, query_fi_train, docs_fi_train, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len)
-    validation_dataset = TriplesSequential(triples_val_path, query_fi_train, docs_fi_train, max_query_len=max_query_len, max_doc_len=max_doc_len, max_complete_len=max_complete_len)
-
-
     triples_train_path = cfg.robust_triples + "_train"
     triples_val_path = cfg.robust_triples + "_val"
 
+    train_dataset = TriplesSequential(triples_train_path, query_fi_train, docs_fi, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len)
+    validation_dataset = TriplesSequential(triples_val_path, query_fi_train, docs_fi, max_query_len=max_query_len, max_doc_len=max_doc_len, max_complete_len=max_complete_len)
 	
-
 
 
     if cfg.sub_batch_size != None:
@@ -601,7 +598,7 @@ def get_data_loaders_robust(cfg):
     dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_test,
                                     collate_fn=collate_fn, num_workers=sequential_num_workers)
 
-    dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, test_queries_fi, docs_fi,
+    dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi_test, docs_fi,
                                              cfg.batch_size_test, max_query_len=max_query_len,
                                              max_doc_len=max_doc_len, rerank_top_N=cfg.rerank_top_N)
 

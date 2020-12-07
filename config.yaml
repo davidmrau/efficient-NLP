@@ -88,7 +88,6 @@ robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
 robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_pairwise_binary'
 folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
 robust_triples: '${data_path}/robust04/robust04_AOL_anserini_top_100_qld_no_stem_TRIPLETS'
-
 dataset: ''
 trec_eval: 'trec_eval'
 margin: 1
