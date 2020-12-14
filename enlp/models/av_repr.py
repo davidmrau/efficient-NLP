@@ -25,7 +25,7 @@ class AvRepr(nn.Module):
 			self.vocab_size = embedding_parameters.size(0)
 
 		self.weighted_average = EmbeddingWeightedAverage(weights = weights, vocab_size = self.vocab_size, trainable = True) # (weights, vocab_size, trainable = True)
-		self.linear = nn.Linear(embedding_dim, embedding_dim)
+		#self.linear = nn.Linear(embedding_dim, embedding_dim)
 		#self.relu = nn.ReLU()
 		#self.linear_2 = nn.Linear(embedding_dim, embedding_dim)
 		print(self)
@@ -34,7 +34,7 @@ class AvRepr(nn.Module):
 		emb = self.embedding(x)
 		# calculate weighted average embedding for all inps
 		out = self.weighted_average(x, emb, lengths = lengths)
-		out = self.linear(out)
+		#out = self.linear(out)
 		#out = self.relu(out)
 		#out = self.linear_2(out)
 		return out

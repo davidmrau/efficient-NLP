@@ -18,6 +18,7 @@ from torch.nn.utils.rnn import pad_sequence
 import sys
 import random
 from enlp.models.rank_model import RankModel
+from enlp.models.rank_prob_model import RankProbModel
 from enlp.models.bert_based import BERT_based
 from enlp.models.snrm import SNRM
 from enlp.models.bert import BERT_inter
@@ -161,11 +162,10 @@ def utilize_pretrained_bert(cfg):
 			cfg.__getattr__(model_name)["num_attention_heads"] =  model.config.num_attention_heads
 
 
-
 		for layer in load_bert_layers:
 
 			for key in model_state_dict:
-
+				
 				# setting the actual layer index, cause we consider 0 to be embeddings,
 				# so first layer will be represented as 1, but has actual index of 0
 
@@ -186,16 +186,22 @@ def utilize_pretrained_bert(cfg):
 					# also making sure that we have the correct hidden size
 					cfg.__getattr__(model_name)["hidden_size"] =  model.config.hidden_size
 
-
-
 				if check_string in key:
-					params_to_copy[key] =  torch.nn.Parameter(model_state_dict[key])
-
+					## neccesssary since transformers library changed 'encoder.embedding...' to 'embedding..'
+					#if key.startswith('encoder.embeddings'):
+					#	model_key = key.replace('encoder.', '')
+					#else:
+					#	model_key = key
+					model_key = key
+					if model_state_dict[key].dtype == torch.float:
+						params_to_copy[key] =  torch.nn.Parameter(model_state_dict[model_key])
+					else:
+						params_to_copy[key] =  model_state_dict[model_key]
 	return params_to_copy
 
 
 def instantiate_model(cfg):
-
+	
 	print('Initializing model...')
 
 	if cfg.embedding == 'glove':
@@ -233,6 +239,12 @@ def instantiate_model(cfg):
 
 		vocab_size = model.vocab_size
 
+	elif cfg.model == "rank_prob":
+		model = RankProbModel(hidden_sizes = str2lst(str(cfg.rank_model.hidden_sizes)), embedding_parameters = embedding_parameters,
+			embedding_dim = embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
+			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
+		vocab_size = model.vocab_size
+
 	elif cfg.model == "bert":
 		params_to_copy = utilize_pretrained_bert(cfg)
 
@@ -252,20 +264,25 @@ def instantiate_model(cfg):
 							params_to_copy = params_to_copy)
 
 		vocab_size = model.encoder.config.vocab_size
-
+		#if int((transformers.__version__).split('.')[0]) >= 4:
+		#	delattr(model.encoder.embeddings, "position_ids")
 	# select device depending on availability and user's setting
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
 		# move model to device
-		n_gpu = torch.cuda.device_count()
+		if cfg.n_gpu:
+			n_gpu = cfg.n_gpu
+		else:
+			n_gpu = torch.cuda.device_count()
 	else:
 		device = torch.device('cpu')
-		n_gpu = 1
+		n_gpu = 0
 
 
 	if n_gpu > 1:
 		print("Using", n_gpu, "GPUs!")
-		model = nn.DataParallel(model)
+		device_ids = [i for i in range(n_gpu)]
+		model = nn.DataParallel(model, device_ids=device_ids)
 
 	model = model.to(device=device)
 
@@ -549,11 +566,14 @@ def get_model_folder_name(cfg):
 			model_string += f'bal_{cfg.balance_scalar}'
 	elif cfg.model == "snrm":
 		model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
-
 	elif cfg.model =="rank":
 		trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
 		weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
-		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}_{cfg.rank_model.model_type}"
+		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
+	elif cfg.model =="rank_prob":
+		trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
+		weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
+		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
 	elif cfg.model =="av_repr":
 		trainable_weights_str = "_trainable" if cfg.av_repr.trainable_weights else ""
 		weights_str = "IDF" if "idf" in cfg.av_repr.weights else cfg.av_repr.weights
@@ -752,6 +772,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 def load_model(cfg, load_model_folder, device):
 	model, device, n_gpu, _ = instantiate_model(cfg)
 	state_dict = torch.load(load_model_folder + '/best_model.model', map_location=device)
+	
 
 	if not isinstance(state_dict, collections.OrderedDict):
 
@@ -768,9 +789,20 @@ def load_model(cfg, load_model_folder, device):
 		else:
 			if 'module.' not in k:
 				k = 'module.' + k
+		#if k.startswith('embedding.'):
+		#	k = k.replace('embedding.', '')
 		new_state_dict[k] = v
+
+	if int((transformers.__version__).split('.')[0]) >= 4:
+		if n_gpu > 1:
+			position_ids = model.module.encoder.embeddings.position_ids
+			k = 'module.encoder.embeddings.position_ids'	
+		else:
+			position_ids = model.encoder.embeddings.position_ids
+			k = 'encoder.embeddings.position_ids'	
+
+		new_state_dict[k] = position_ids 
 	state_dict = new_state_dict
 
 	model.load_state_dict(state_dict)
 	return model
-

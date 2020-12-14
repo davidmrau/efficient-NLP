@@ -7,13 +7,13 @@ from enlp.models.embedding_weighted_average import EmbeddingWeightedAverage
 
 class RankModel(nn.Module):
 
-	def __init__(self, hidden_sizes, embedding_parameters, embedding_dim, vocab_size, dropout_p, weights, trainable_weights, model_type='rank-interaction'):
+	def __init__(self, hidden_sizes, embedding_parameters, embedding_dim, vocab_size, dropout_p, weights, trainable_weights, model_type='interaction-based'):
 		super(RankModel, self).__init__()
 
 		self.model_type = model_type
 
 		self.hidden_sizes = hidden_sizes
-		
+
 		# load or randomly initialize embeddings according to parameters
 		if embedding_parameters is None:
 			self.embedding_dim = embedding_dim
@@ -30,13 +30,11 @@ class RankModel(nn.Module):
 
 		if model_type == 'interaction-based':
 			out_size = 1
-		elif model_type == 'rank-interaction':
-			out_size = 2
 		elif model_type == 'representation-based':
 			out_size = embedding_dim
 		else:
 			raise ValueError(f"Model type {model_type} doesn't exist.")
-		
+
 		# create module list
 		self.layers = nn.ModuleList()
 		self.tanh = nn.Tanh()
@@ -52,9 +50,9 @@ class RankModel(nn.Module):
 			self.layers.append(nn.ReLU())
 
 		#self.linear = nn.Linear(in_features=self.embedding_dim, out_features=self.embedding_dim)
-		if len(hidden_sizes) > 0:	
+		if len(hidden_sizes) > 0:
 			self.layers.append( nn.Linear(in_features=hidden_sizes[-1], out_features=out_size))
-		else:	
+		else:
 			self.layers.append( nn.Linear(in_features=embedding_dim * 2, out_features=out_size))
 		print(self)
 
@@ -69,8 +67,7 @@ class RankModel(nn.Module):
 		# getting scores of joint q_d representation
 		for layer in self.layers:
 			q_d = layer(q_d)
-		if self.model_type == 'interaction-based':
-			score = self.tanh(q_d)
+		score = self.tanh(q_d)
 		score = q_d
 		return score.squeeze(1)
 
@@ -90,7 +87,3 @@ class RankModel(nn.Module):
 			return self.forward_interaction(q, doc, lengths_q, lengths_d)
 		elif self.model_type == 'representation-based':
 			return self.forward_representation(q, doc)
-
-
-	
-

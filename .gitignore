@@ -11,3 +11,4 @@ temp/*
 .idea/*
 experiments_msmarco/*
 experiments_robust04/*
+slurm_scripts/

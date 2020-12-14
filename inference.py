@@ -84,13 +84,13 @@ def inference(cfg):
 	docs_fi = File(cfg.docs)
 	dataloaders = {}
 	dataloaders['test'] = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
-		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, indices=fold)
+		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, indices=fold, device=device)
 
 	print('testing...')
 
 	with torch.no_grad():
 		model.eval()
-		metric_score, scores, q_ids = test(model, 'test', dataloaders, device, cfg.max_rank, 0, metric=metric, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
+		metric_score, scores, q_ids = test(model, 'test', dataloaders, device, 0, metric=metric, writer=None, model_folder=cfg.model_folder, report_top_N=cfg.report_top_N)
 		metric.score(scores, q_ids, save_path=f'{cfg.model_folder}/ranking')
 		if metric_score:
 			print(f'{res_folder_base} {metric.name}:\t{metric_score}\n')

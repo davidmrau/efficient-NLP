@@ -10,7 +10,7 @@ import pickle
 from enlp.utils import load_model, instantiate_model
 from enlp.file_interface import File
 from enlp.dataset import RankingResultsTest
-import enlp.get_reprs
+from enlp.get_reprs import reprs_bert_interaction
 """ Run online inference (for test set) without inverted index
 """
 
@@ -23,13 +23,14 @@ def inference(cfg):
 		device = torch.device('cuda')
 	else:
 		device = torch.device('cpu')
+
 	if cfg.model_folder == 'none':
 		model, device, n_gpu, vocab_size = instantiate_model(cfg)
 	else:
 		model = load_model(cfg, cfg.model_folder, device)
-
-	cfg.model_folder += '/reprs'
-
+	ranking_results_file = cfg.ranking_results.split('/')[-1]
+	cfg.model_folder += f'{ranking_results_file}/reprs'
+	print(cfg.model_folder)
 	if cfg.add:
 		res_folder_base += f'_{cfg.add}'
 
@@ -52,11 +53,9 @@ def inference(cfg):
 	docs_fi = File(cfg.docs)
 	
 	dataloader = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
-		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N)
+		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, device=device)
 
 	print('getting representations...')
-	print(cfg.model_folder)
-	exit()
 	with torch.no_grad():
 		model.eval()
 		attentions = reprs_bert_interaction(model, dataloader, device)

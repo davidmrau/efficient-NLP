@@ -4,6 +4,7 @@ import subprocess
 import numpy as np
 import torch
 import copy
+import time
 
 from enlp.utils import l1_loss_fn, l0_loss_fn, balance_loss_fn, l0_loss, plot_histogram_of_latent_terms, \
 	plot_ordered_posting_lists_lengths, Average, EarlyStopping
@@ -141,6 +142,14 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 			# calculating classification accuracy (whether the correct document was classified as more relevant)
 
 			acc = ((relevance_comb[:, 1] > relevance_comb[:, 0]).int() == targets_comb).float().mean()
+
+		elif model_type == 'rank_prob':
+			score_q_d = model(q, doc1, doc2, lengths_q, lengths_d1, lengths_d2)
+			# calculate l1 los
+			targets[targets == -1] = 0
+			loss = loss_fn(score_q_d, targets.long())
+			acc = ((score_q_d[:, 1] > score_q_d[:, 0]).int() == targets).float().mean()
+
 		elif model_type == "bert-interaction":
 			# apply model
 			relevance_out = model(input_ids, attention_masks, token_type_ids)
@@ -183,10 +192,10 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 	log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val, av_l1_loss.val,
 				 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
 
-	return batch_iterator, total_trained_samples, av_total_loss.val.item(), av_loss.val.item(), av_l1_loss.val.item(), av_l0_q.val.item(), av_l0_docs.val.item(), av_acc.val.item()
+	return batch_iterator, total_trained_samples, av_total_loss.val, av_loss.val, av_l1_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val
 
 
-def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank):
+def get_dot_scores(doc_reprs, doc_ids, q_reprs):
 	scores = list()
 	for batch_q_repr in q_reprs:
 		batch_len = len(batch_q_repr)
@@ -203,19 +212,16 @@ def get_dot_scores(doc_reprs, doc_ids, q_reprs, max_rank):
 			tuples_of_doc_ids_and_scores = list(zip(doc_ids, q_score_lists[i]))
 
 			sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
-			if max_rank != -1:
-				sorted_by_relevance = sorted_by_relevance[:max_rank]
 			scores.append(sorted_by_relevance)
 	return scores
 
 
-def get_rerank_representations(model, dataloader, device):
+def get_rerank_reprs(model, dataloader, device):
 	av_l1_loss_q, av_l0_q, av_l1_loss_d, av_l0_d = Average(), Average(), Average(), Average()
 	reprs_q, ids_q, reprs_d, ids_d = list(), list(), list(), list()
 
 	for q_id, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-		data_q, length_q, batch_data_d, batch_lengths_d = data_q.to(device), length_q.to(device), batch_data_d.to(
-			device), batch_lengths_d.to(device)
+		#data_q, length_q, batch_data_d, batch_lengths_d = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
 		repr_d = model(batch_data_d, batch_lengths_d)
 		reprs_d.append(repr_d.detach().cpu().numpy())
 		ids_d += batch_ids_d
@@ -235,7 +241,7 @@ def get_rerank_representations(model, dataloader, device):
 		return None, None, None, None, None, None, None, None
 
 
-def scores_representation_based(model, dataloader, device, writer, max_rank, total_trained_samples, reset, model_folder,
+def scores_representation_based(model, dataloader, device, writer, total_trained_samples, reset, model_folder,
 								mode, plot=True):
 	scores, q_ids, q_reprs, d_reprs = list(), list(), list(), list()
 	av_l1_loss, av_l0_docs, av_l0_query = Average(), Average(), Average()
@@ -245,12 +251,10 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 
 	while True:
 		# if return has len == 0 then break
-		q_repr, q_id, l0_q, l1_loss_q, d_repr, d_ids, l0_docs, l1_loss_docs = get_rerank_representations(model,
-																										 dataloader,
-																										 device)
+		q_repr, q_id, l0_q, l1_loss_q, d_repr, d_ids, l0_docs, l1_loss_docs = get_rerank_reprs(model, dataloader, device)
 		if q_repr is None or d_repr is None:
 			break
-		scores += get_dot_scores(d_repr, d_ids, q_repr, max_rank)
+		scores += get_dot_scores(d_repr, d_ids, q_repr)
 		q_ids += q_id
 		av_l0_docs.step(l0_docs)
 		av_l0_query.step(l0_q)
@@ -272,17 +276,16 @@ def scores_representation_based(model, dataloader, device, writer, max_rank, tot
 	return scores, q_ids
 
 
-def get_repr_inter(model, dataloader, device, max_rank, classifier=False):
+def get_score_inter(model, dataloader, device, classifier=False):
 	scores, q_ids, d_ids = list(), list(), list()
 	for q_id, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator():
-		data_q, length_q, batch_data_d, batch_lengths_d = data_q.to(device), length_q.to(device), batch_data_d.to(
-			device), batch_lengths_d.to(device)
+		##data_q, length_q, batch_data_d, batch_lengths_d = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
 
 		# accordingly splitting the model's output for the batch into triplet form (queries, document1 and document2)
 		# repeat query for each document
 		n_repeat = batch_data_d.shape[0]
-		batch_data_q = data_q.repeat(n_repeat, 1).to(device)
-		lengths_q = length_q.repeat(n_repeat).to(device)
+		batch_data_q = data_q.repeat(n_repeat, 1)
+		lengths_q = length_q.repeat(n_repeat)
 		score = model(batch_data_q, batch_data_d, lengths_q, batch_lengths_d)
 		if classifier:
 			score = torch.softmax(score, dim=-1)[:, 1]
@@ -296,17 +299,82 @@ def get_repr_inter(model, dataloader, device, max_rank, classifier=False):
 	scores = np.array(scores).flatten()
 	tuples_of_doc_ids_and_scores = list(zip(d_ids, scores))
 	sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
-	if max_rank != -1:
-		sorted_by_relevance = sorted_by_relevance[:max_rank]
 	return q_ids, d_ids, sorted_by_relevance
 
 
-def scores_interaction_based(model, dataloader, device, reset, max_rank, classifier=False):
+def get_accumulated_data(dataloader):
+	accumulated_data = list()
+	for d in dataloader.batch_generator():
+		accumulated_data.append(d)
+	if len(accumulated_data) < 1:
+		return None
+	return accumulated_data
+
+
+def get_scores_all_comb(model, accumulated_data, device):
+	with torch.no_grad():
+		scores, q_ids, d_ids = list(), list(), list()
+		for q_id, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in accumulated_data:
+			#data_q, length_q, batch_data_d, batch_lengths_d = data_q.to(device), length_q.to(device), batch_data_d.to(device), batch_lengths_d.to(device)
+			print(data_q.device, batch_data_d.device) 
+			#q_av = model.module.get_av_repr(data_q, length_q)
+			t0 = time.time()
+			for data_d, length_d in zip(batch_data_d, batch_lengths_d):
+				#d_av = model.module.get_av_repr(data_d.unsqueeze(0), length_d.unsqueeze(0))
+				score_doc = list()
+				for _, _, _, _, batch_data_d_2, batch_lengths_d_2 in accumulated_data:
+					#batch_data_d_2, batch_lengths_d_2 = batch_data_d_2.to(device), batch_lengths_d_2.to(device)
+					#d_av_2 = model(q=batch_data_d_2, doc1=batch_lengths_d_2, get_av_repr=True)
+					#relevance = model(q=q_av, doc1=d_av, doc2=d_av_2, av_provided=True)
+					n_repeat = batch_data_d_2.shape[0]
+					batch_data_q = data_q.repeat(n_repeat, 1)
+					batch_data_d = data_d.repeat(n_repeat, 1)
+					lengths_q = length_q.repeat(n_repeat)
+					lengths_d = length_d.repeat(n_repeat)
+					#relevance = model(q=q_av, doc1=d_av, doc2=d_av_2, av_provided=True)
+					relevance = model(q=batch_data_q, doc1=batch_data_d, doc2=batch_data_d_2, lengths_q=lengths_q, lengths_d1=lengths_d, lengths_d2=batch_lengths_d_2)
+					relevance = torch.softmax(relevance, dim=-1)[:, 1]
+					relevance = relevance.detach().cpu().tolist()
+					score_doc += relevance
+				scores.append(np.mean(score_doc))
+			t1 = time.time()
+			print(t1-t0)
+			d_ids += batch_ids_d
+		# we want to return each query only once for all ranked documents for this query
+		if len(q_ids) == 0:
+			q_ids += q_id
+
+		# now we will sort the documents by relevance, for each query
+		scores = np.array(scores).flatten()
+		tuples_of_doc_ids_and_scores = list(zip(d_ids, scores))
+		sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
+	return q_ids, d_ids, sorted_by_relevance
+
+
+
+def scores_all_comb(model, dataloader, device, reset, metric=None):
 	scores, q_ids = list(), list()
 	if reset:
 		dataloader.reset()
 	while True:
-		q_id, d_ids, score = get_repr_inter(model, dataloader, device, max_rank, classifier=classifier)
+		accumulated_data = get_accumulated_data(dataloader)
+		if accumulated_data is None:
+			break
+		q_id, d_ids, score = get_scores_all_comb(model, accumulated_data, device)
+		if metric:
+			metric_score = metric.score([score], q_id, save_path=metric.ranking_file_path+ str(q_id[-1]))
+		scores.append(score)
+		q_ids += q_id
+
+	return scores, q_ids
+
+
+def scores_interaction_based(model, dataloader, device, reset, classifier=False):
+	scores, q_ids = list(), list()
+	if reset:
+		dataloader.reset()
+	while True:
+		q_id, d_ids, score = get_score_inter(model, dataloader, device, classifier=classifier)
 		if score is None:
 			break
 		scores.append(score)
@@ -314,7 +382,7 @@ def scores_interaction_based(model, dataloader, device, reset, max_rank, classif
 	return scores, q_ids
 
 
-def scores_bert_interaction(model, dataloader, device, reset, max_rank):
+def scores_bert_interaction(model, dataloader, device, reset):
 	all_scores, all_q_ids = [], []
 	if reset:
 		dataloader.reset()
@@ -325,8 +393,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank):
 		# for q_id, data_q, length_q, batch_ids_d, batch_data_d, batch_lengths_d in dataloader.batch_generator_bert_interaction():
 		for q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids in dataloader.batch_generator_bert_interaction():
 			# move data to device
-			batch_input_ids, batch_attention_masks, batch_token_type_ids = batch_input_ids.to(
-				device), batch_attention_masks.to(device), batch_token_type_ids.to(device)
+			#batch_input_ids, batch_attention_masks, batch_token_type_ids = batch_input_ids.to(device), batch_attention_masks.to(device), batch_token_type_ids.to(device)
 			# propagate data through model
 			model_out = model(batch_input_ids, batch_attention_masks, batch_token_type_ids)
 			# After retrieving model's output, we apply softax and keep the second dimension that represents the relevance probability
@@ -343,8 +410,6 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank):
 		tuples_of_doc_ids_and_scores = list(zip(d_ids, scores))
 		sorted_by_relevance = sorted(tuples_of_doc_ids_and_scores, key=lambda x: x[1], reverse=True)
 
-		if max_rank != -1:
-			sorted_by_relevance = sorted_by_relevance[:max_rank]
 
 		if sorted_by_relevance is None:
 			break
@@ -357,7 +422,7 @@ def scores_bert_interaction(model, dataloader, device, reset, max_rank):
 # returns metric score if metric != None
 # if metric = None returns scores, qiids
 
-def test(model, mode, data_loaders, device, max_rank, total_trained_samples, model_folder, reset=True, writer=None,
+def test(model, mode, data_loaders, device, total_trained_samples, model_folder, reset=True, writer=None,
 		 metric=None, report_top_N=-1):
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
@@ -365,17 +430,20 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, mod
 		model_type = model.model_type
 	# if the model provides an indipendednt representation for the input (query/doc)
 	if model_type == "representation-based":
-		scores, q_ids = scores_representation_based(model, data_loaders[mode], device, writer, max_rank,
+		scores, q_ids = scores_representation_based(model, data_loaders[mode], device, writer,
 													total_trained_samples, reset, model_folder,
 													mode, plot=True)
 	elif model_type == "interaction-based":
-		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset, max_rank)
+		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset)
 
 	elif model_type == "rank-interaction":
-		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset, max_rank, classifier=True)
+		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset, classifier=True)
+
+	elif model_type == "rank_prob":
+		scores, q_ids = scores_all_comb(model, data_loaders[mode], device, reset, metric=metric)
 
 	elif model_type == "bert-interaction":
-		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset, max_rank)
+		scores, q_ids = scores_bert_interaction(model, data_loaders[mode], device, reset)
 	else:
 		raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
@@ -400,7 +468,7 @@ def test(model, mode, data_loaders, device, max_rank, total_trained_samples, mod
 
 def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder,
 		l1_scalar=1, balance_scalar=1, patience=2, samples_per_epoch_train=10000, samples_per_epoch_val=10000,
-		bottleneck_run=False, log_every_ratio=0.01, max_rank=1000, metric=None, validate=True, telegram=False, sub_batch_size=None):
+		bottleneck_run=False, log_every_ratio=0.01, metric=None, validate=True, telegram=False, sub_batch_size=None):
 	"""Takes care of the complete training procedure (over epochs, while evaluating)
 
 	Parameters
@@ -453,7 +521,7 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 
 
 
-			telegram_message = f'Train:\nTotal loss {round(train_total_loss, 4)}\nTrain task_loss {round(train_task_loss, 4)}\nl1_loss {round(train_l1_loss, 4)}\nL0_query {round(train_l0_q, 4)}\nL0_docs {round(train_l0_docs, 4)}\nacc {round(train_acc, 4)}'
+			telegram_message = f'Train:\nTotal loss {train_total_loss:.4f}\nTrain task_loss {train_task_loss:.4f}\nl1_loss {train_l1_loss:.4f}\nL0_query {train_l0_q:.4f}\nL0_docs {train_l0_docs:.4f}\nacc {train_acc:.4f}'
 			telegram_message = model_folder + '\n' + telegram_message
 			if telegram:
 				subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
@@ -488,13 +556,13 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 																																  log_every_ratio=log_every_ratio)
 
 					if telegram:
-						telegram_message = f'Validation:\nTotal loss {round(val_total_loss, 4)}\nTrain task_loss {round(val_task_loss, 4)}\nl1_loss {round(val_l1_loss, 4)}\nL0_query {round(val_l0_q, 4)}\nL0_docs {round(val_l0_docs, 4)}\nacc {round(val_acc, 4)}'
+						telegram_message = f'Validation:\nTotal loss {val_total_loss:.4f}\nTrain task_loss {val_task_loss:.4f}\nl1_loss {val_l1_loss:.4f}\nL0_query {val_l0_q:.4f}\nL0_docs {val_l0_docs:.4f}\nacc {val_acc:.4f}'
 						telegram_message = model_folder + '\n' + telegram_message
 						subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
 
 				# Run also proper evaluation script
 				print('Running test: ')
-				metric_score, scores, q_ids = test(model, 'test', dataloaders, device, max_rank,
+				metric_score, scores, q_ids = test(model, 'test', dataloaders, device,
 												   total_trained_samples, model_folder=model_folder, writer=writer,
 												   metric=metric)
 				# calculate mectric

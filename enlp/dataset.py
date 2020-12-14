@@ -9,7 +9,6 @@ from enlp.utils import split_dataset
 from transformers import BertTokenizer
 from torch.nn.utils.rnn import pad_sequence
 
-
 class MSMarcoLM(torch.utils.data.Dataset):
 
     def __init__(self, data_path, documents_path, queries_path, max_len=512, tokenized=True):
@@ -50,22 +49,21 @@ def create_bert_inretaction_input(q, doc):
     # and the return the above input_ids, along with the corresponding attention mask and token type ids
 
     # Hard-coding token IDS of CLS, SEP and PAD
-    cls_token_id = np.array([101])
-    sep_token_id = np.array([102])
+    cls_token_id = [101]
+    sep_token_id = [102]
     pad_token_id = 0
 
-    np_zero = np.array([0])
-
+    zero = [0]
     q_token_type_ids = np.zeros(q.shape[0])
     d_token_type_ids = np.ones(doc.shape[0])
 
     q_d = np.concatenate([cls_token_id, q, sep_token_id, doc])
-    q_d = torch.LongTensor(q_d)
+    q_d = q_d
 
-    q_d_attention_mask = torch.ones(q_d.shape[0], dtype=torch.bool)
+    q_d_attention_mask = np.ones(q_d.shape[0], dtype=np.bool)
 
-    q_d_token_type_ids = np.concatenate([np_zero, q_token_type_ids, np_zero, d_token_type_ids])
-    q_d_token_type_ids = torch.LongTensor(q_d_token_type_ids)
+    q_d_token_type_ids = np.concatenate([zero, q_token_type_ids, zero, d_token_type_ids])
+    q_d_token_type_ids = q_d_token_type_ids
 
     return q_d, q_d_attention_mask, q_d_token_type_ids
 
@@ -146,7 +144,7 @@ class TriplesSequential(IterableDataset):
 class RankingResultsTest:
 
     def __init__(self, ranking_results, id2query, id2doc, batch_size, min_len=5, indices=None, max_query_len=None,
-                 max_complete_len=512, max_doc_len=None, rerank_top_N=-1):
+                 max_complete_len=512, max_doc_len=None, rerank_top_N=-1, device=None):
         # open file
         self.batch_size = batch_size
 
@@ -155,7 +153,7 @@ class RankingResultsTest:
         self.indices = indices
         self.id2query = id2query
         self.id2doc = id2doc
-
+        self.device = device
         self.stop = False
         self.index = 0
 
@@ -225,6 +223,7 @@ class RankingResultsTest:
                 file_pos = self.ranking_results.tell()
                 line = self.ranking_results.readline()
                 if len(line) < 1:
+                    print("Empty Line!!!")
                     break
                 curr_q_id, doc_id = self.get_id(line)
 
@@ -264,7 +263,7 @@ class RankingResultsTest:
 
                     d_batch_ids.append(doc_id)
 
-                    d_batch_data.append(torch.LongTensor(doc))
+                    d_batch_data.append(torch.LongTensor(doc).to(self.device))
                     # print('+', line)
                     started_query = True
                     q_id = [curr_q_id]
@@ -277,9 +276,9 @@ class RankingResultsTest:
             # truncate query
             if self.max_query_len is not None:
                 query = query[:self.max_query_len]
-            q_data = [torch.LongTensor(query)]
-            d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data])
-            q_length = torch.FloatTensor([len(q) for q in q_data])
+            q_data = [torch.LongTensor(query).to(self.device)]
+            d_batch_lengths = torch.FloatTensor([len(d) for d in d_batch_data]).to(self.device)
+            q_length = torch.FloatTensor([len(q) for q in q_data]).to(self.device)
 
             # padd data along axis 1
             d_batch_data = pad_sequence(d_batch_data, 1)
@@ -314,10 +313,10 @@ class RankingResultsTest:
 
                 if self.indices is not None:
                     if self.index not in self.indices:
-                        # print('>>', line, 'index', self.index)
+                        #print('>>', line, 'index', self.index)
                         continue
                 if curr_q_id != prev_q_id and started_query:
-                    # print('break new q_id', line)
+                    #print('break new q_id', line)
                     self.stop = True
                     self.ranking_results.seek(file_pos)
                     break
@@ -366,6 +365,7 @@ class RankingResultsTest:
             # creating batch:
             for doc_data in d_batch_data:
                 input_ids, attention_masks, token_type_ids = create_bert_inretaction_input(q_data, doc_data)
+                input_ids, attention_masks, token_type_ids = torch.LongTensor(input_ids).to(self.device), torch.LongTensor(attention_masks).to(self.device), torch.LongTensor(token_type_ids).to(self.device) 
 
                 batch_input_ids.append(input_ids)
                 batch_attention_masks.append(attention_masks)
@@ -378,7 +378,6 @@ class RankingResultsTest:
             batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
 
             yield q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids
-
 
 def collate_fn_bert_interaction(batch):
     """ Collate function for aggregating samples into batch size.
@@ -439,7 +438,7 @@ def collate_fn_bert_interaction(batch):
     batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
     batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
     batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
-    batch_targets = torch.LongTensor(batch_targets)
+   # batch_targets = torch.LongTensor(batch_targets)
 
     return batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets
 
@@ -515,7 +514,7 @@ def collate_fn_padd_triples(batch):
     return batch_q, batch_doc1, batch_doc2, batch_lengths_q, batch_lengths_doc1, batch_lengths_doc2, batch_targets
 
 
-def get_data_loaders_msmarco(cfg):
+def get_data_loaders_msmarco(cfg, device=None):
 
     query_fi_train = File(cfg.msmarco_query_train)
     docs_fi_train = File(cfg.msmarco_docs_train)
@@ -545,7 +544,7 @@ def get_data_loaders_msmarco(cfg):
                                       batch_size=cfg.batch_size_train, collate_fn=collate_fn,
                                       num_workers=cfg.num_workers)
     dataloaders['val'] = DataLoader(validation_dataset,
-                                    batch_size=cfg.batch_size_train, collate_fn=collate_fn,
+                                    batch_size=cfg.batch_size_train ,collate_fn=collate_fn,
                                     num_workers=cfg.num_workers)
 
     queries_fi_test = File(cfg.msmarco_query_test)
@@ -554,12 +553,12 @@ def get_data_loaders_msmarco(cfg):
     dataloaders['test'] = RankingResultsTest(cfg.msmarco_ranking_results_test, queries_fi_test, docs_fi_test,
                                              cfg.batch_size_test, rerank_top_N=cfg.rerank_top_N,
                                              max_query_len=cfg.msmarco.max_query_len,
-                                             max_complete_len=cfg.msmarco.max_complete_len)
+                                             max_complete_len=cfg.msmarco.max_complete_len, device=device)
 
     return dataloaders
 
 
-def get_data_loaders_robust(cfg):
+def get_data_loaders_robust(cfg, device=None):
 
     docs_fi = File(cfg.robust_docs)
     query_fi_train= File(cfg.robust_query_train)
@@ -587,25 +586,25 @@ def get_data_loaders_robust(cfg):
 
     train_dataset = TriplesSequential(triples_train_path, query_fi_train, docs_fi, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len)
     validation_dataset = TriplesSequential(triples_val_path, query_fi_train, docs_fi, max_query_len=max_query_len, max_doc_len=max_doc_len, max_complete_len=max_complete_len)
-	
+
 
 
     if cfg.sub_batch_size != None:
         cfg.batch_size_train = cfg.sub_batch_size
 
     dataloaders['train'] = DataLoader(train_dataset, batch_size=cfg.batch_size_train,
-                                      collate_fn=collate_fn, num_workers=sequential_num_workers)
+                                      collate_fn=collate_fn,num_workers=sequential_num_workers)
     dataloaders['val'] = DataLoader(validation_dataset, batch_size=cfg.batch_size_test,
                                     collate_fn=collate_fn, num_workers=sequential_num_workers)
 
     dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi_test, docs_fi,
                                              cfg.batch_size_test, max_query_len=max_query_len,
-                                             max_doc_len=max_doc_len, rerank_top_N=cfg.rerank_top_N)
+                                             max_doc_len=max_doc_len, rerank_top_N=cfg.rerank_top_N, device=device)
 
     return dataloaders
 
 
-def get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results):
+def get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results, device=None):
     dataloaders = {}
     sequential_num_workers = 1 if cfg.num_workers > 0 else 0
 
@@ -631,5 +630,5 @@ def get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking
                                       collate_fn=collate_fn, num_workers=sequential_num_workers)
     dataloaders['test'] = RankingResultsTest(cfg.robust_ranking_results_test, query_fi, docs_fi, cfg.batch_size_test,
                                              indices=indices_test, max_query_len=max_query_len, max_doc_len=max_doc_len, max_complete_len=max_complete_len,
-                                             rerank_top_N=cfg.rerank_top_N)
+                                             rerank_top_N=cfg.rerank_top_N, device=device)
     return dataloaders

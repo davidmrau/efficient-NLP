@@ -73,19 +73,19 @@ def exp(cfg):
 	print('Loading data...')
 	# initialize dataloaders
 	if cfg.dataset == 'msmarco':
-		dataloaders = get_data_loaders_msmarco(cfg)
+		dataloaders = get_data_loaders_msmarco(cfg, device=device)
 		metric = MAPTrec(cfg.trec_eval, cfg.msmarco_qrel_test, cfg.max_rank, add_params='-l 2')
 		max_len = cfg.msmarco.max_complete_len
 		#metric = MRR(cfg.msmarco_qrels_test, cfg.max_rank)
 	elif cfg.dataset == 'robust04':
-		dataloaders = get_data_loaders_robust(cfg)
+		dataloaders = get_data_loaders_robust(cfg, device=device)
 		metric = MAPTrec(cfg.trec_eval, cfg.robust_qrel_test, cfg.max_rank)
 		max_len = cfg.robust04.max_length
 	else:
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
 
-	if model_type == "bert-interaction":
+	if model_type == "bert-interaction" or model_type == "rank_prob":
 		loss_fn = nn.CrossEntropyLoss()
 	else:
 		# initialize loss function
@@ -117,7 +117,7 @@ def exp(cfg):
 	_, _ = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 	cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience=cfg.patience,
 	samples_per_epoch_train=cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run=cfg.bottleneck_run,
-	log_every_ratio=cfg.log_every_ratio, max_rank=cfg.max_rank, metric=metric, telegram=cfg.telegram, sub_batch_size=cfg.sub_batch_size)
+	log_every_ratio=cfg.log_every_ratio, metric=metric, telegram=cfg.telegram, sub_batch_size=cfg.sub_batch_size)
 
 
 if __name__ == "__main__":

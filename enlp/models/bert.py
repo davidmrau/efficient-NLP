@@ -35,7 +35,6 @@ class BERT_inter(torch.nn.Module):
 		self.last_linear = torch.nn.Linear(hidden_size, hidden_size)
 
 		self.output_linear = torch.nn.Linear(hidden_size, output_size)
-
 		if embedding_parameters is not None:
 			# copy loaded pretrained embeddings to model
 			self.encoder.embeddings.word_embeddings.weight = torch.nn.Parameter(embedding_parameters)
@@ -54,9 +53,12 @@ class BERT_inter(torch.nn.Module):
 
 			setattr(item, last_item, params_to_copy[param])
 
-	def forward(self, input_ids, attention_masks, token_type_ids):
+	def forward(self, input_ids, attention_masks, token_type_ids, output_attentions=False):
+		out = self.encoder(input_ids = input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids, output_attentions=output_attentions)
+		last_hidden_state = out.last_hidden_state
 
-		last_hidden_state, _ = self.encoder(input_ids = input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids)
+		if output_attentions:
+			attentions = out.attentions
 
 		# extract hidden representation of the 1st token, that is the CLS special token
 		cls_hidden_repr = last_hidden_state[:,0]
@@ -66,5 +68,6 @@ class BERT_inter(torch.nn.Module):
 		out = torch.tanh(out)
 
 		out = self.output_linear(out)
-
+		if output_attentions:
+			return [out, attentions]
 		return out

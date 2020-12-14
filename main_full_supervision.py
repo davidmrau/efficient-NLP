@@ -84,7 +84,6 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 	docs_fi = File(cfg.robust_docs)
 	query_fi = File(cfg.robust_query_test)
-
 	print('Start training...')
 	metric_scores = list()
 
@@ -135,7 +134,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 			model_type = model.model_type
 
 		# initialize loss function
-		if model_type == "bert-interaction" or model_type == "rank-interaction":
+		if model_type == "bert-interaction" or model_type == "rank_prob":
 			loss_fn = nn.CrossEntropyLoss()
 		else:
 		# initialize loss function
@@ -149,22 +148,22 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 
 		cfg.model_type = model_type
 		# if max_samples_per_gpu is not set (-1), then dynamically calculate it
-		if cfg.max_samples_per_gpu == -1:
-			cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
-			print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
+		#if cfg.max_samples_per_gpu == -1:
+			#cfg.max_samples_per_gpu = get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab_size)
+			#print("max_samples_per_gpu, was not defined. Dynamically calculated to be equal to :", cfg.max_samples_per_gpu)
 
 
 
 
 
-		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results)
+		dataloaders = get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking_results, device=device)
 		data = dataloaders['test']
 		data.reset()
 
 		metric_score, total_trained_samples = run(model, dataloaders, optim, loss_fn, cfg.num_epochs, writer, device,
 								   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 								   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
-								   log_every_ratio = cfg.log_every_ratio, max_rank = cfg.max_rank, metric = metric, validate=False,
+								   log_every_ratio = cfg.log_every_ratio, metric = metric, validate=False,
 									telegram=cfg.telegram)
 
 		metric_scores.append(metric_score)
