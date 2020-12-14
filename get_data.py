@@ -8,7 +8,7 @@ import os
 import pickle
 
 from enlp.utils import load_model, instantiate_model
-from enlp.file_interface import File
+from enlp.file_interface import File, FileInterface
 from enlp.dataset import RankingResultsTest
 from enlp.get_reprs import reprs_bert_interaction
 """ Run online inference (for test set) without inverted index
@@ -58,8 +58,7 @@ def inference(cfg):
 	print('getting representations...')
 	with torch.no_grad():
 		model.eval()
-		attentions = reprs_bert_interaction(model, dataloader, device)
-		pickle.dump(attentions, open(f'{cfg.model_folder}/attentions.p', 'wb'))
+		reprs_bert_interaction(model, dataloader, device, f'{cfg.model_folder}/attentions')
 
 
 if __name__ == "__main__":
