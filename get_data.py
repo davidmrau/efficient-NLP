@@ -9,8 +9,11 @@ import pickle
 
 from enlp.utils import load_model, instantiate_model
 from enlp.file_interface import File, FileInterface
-from enlp.dataset import RankingResultsTest
+from enlp.dataset import SingleSequential, collate_fn_bert_interaction_single
+from torch.utils.data import DataLoader
 from enlp.get_reprs import reprs_bert_interaction
+
+
 """ Run online inference (for test set) without inverted index
 """
 
@@ -50,11 +53,12 @@ def inference(cfg):
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
 	query_fi = File(cfg.queries)
-	docs_fi = File(cfg.docs)
+	docs_fi = FileInterface(cfg.docs)
 	
-	dataloader = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
-		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, device=device)
+	#dataloader = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, device=device)
 
+	dataset = SingleSequential(cfg.ranking_results, query_fi , docs_fi, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len)
+	dataloader = DataLoader(dataset, batch_size=cfg.batch_size_test, collate_fn=collate_fn_bert_interaction_single, num_workers=1)
 	print('getting representations...')
 	with torch.no_grad():
 		model.eval()

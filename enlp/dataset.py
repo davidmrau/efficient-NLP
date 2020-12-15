@@ -58,12 +58,12 @@ def create_bert_inretaction_input(q, doc):
     d_token_type_ids = np.ones(doc.shape[0])
 
     q_d = np.concatenate([cls_token_id, q, sep_token_id, doc])
-    q_d = q_d
+    q_d = torch.LongTensor(q_d)
 
-    q_d_attention_mask = np.ones(q_d.shape[0], dtype=np.bool)
+    q_d_attention_mask = torch.ones(q_d.shape[0], dtype=torch.bool)
 
     q_d_token_type_ids = np.concatenate([zero, q_token_type_ids, zero, d_token_type_ids])
-    q_d_token_type_ids = q_d_token_type_ids
+    q_d_token_type_ids = torch.LongTensor(q_d_token_type_ids)
 
     return q_d, q_d_attention_mask, q_d_token_type_ids
 
@@ -95,6 +95,31 @@ class Sequential(IterableDataset):
                 tokens_list = np.pad(tokens_list, (0, self.min_len - len(tokens_list)))
 
             yield [id_, tokens_list]
+
+class SingleSequential(IterableDataset):
+    def __init__(self, path, id2query, id2doc, max_query_len=64, max_complete_len=510, max_doc_len=None):
+        # "open" triplets file
+        self.id2query = id2query
+        self.id2doc = id2doc
+        self.path = path
+        self.max_query_len = max_query_len
+        if max_doc_len is not None:
+            self.max_doc_len = max_doc_len
+        else:
+            self.max_doc_len = max_complete_len - max_query_len if max_complete_len != None else None
+
+    def __iter__(self):
+        with open(self.path, 'r') as file:
+            for line in file:
+                # getting position of '\t' that separates the doc_id and the begining of the token ids
+                q_id, _, d1_id = line.strip().split()
+                query = self.id2query[q_id]
+                doc1 = self.id2doc[d1_id]
+                # truncating queries and documents:
+                query = query if self.max_query_len is None else query[:self.max_query_len]
+                doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
+
+                yield query, doc1
 
 
 class TriplesSequential(IterableDataset):
@@ -243,7 +268,6 @@ class RankingResultsTest:
                     self.ranking_results.seek(file_pos)
                     break
 
-
                 # extracting the token_ids and creating a numpy array
 
                 # if index of queries to load is provided check if query index is indices
@@ -365,8 +389,6 @@ class RankingResultsTest:
             # creating batch:
             for doc_data in d_batch_data:
                 input_ids, attention_masks, token_type_ids = create_bert_inretaction_input(q_data, doc_data)
-                input_ids, attention_masks, token_type_ids = torch.LongTensor(input_ids).to(self.device), torch.LongTensor(attention_masks).to(self.device), torch.LongTensor(token_type_ids).to(self.device) 
-
                 batch_input_ids.append(input_ids)
                 batch_attention_masks.append(attention_masks)
                 batch_token_type_ids.append(token_type_ids)
@@ -378,6 +400,9 @@ class RankingResultsTest:
             batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
 
             yield q_id, d_batch_ids, batch_input_ids, batch_attention_masks, batch_token_type_ids
+
+
+
 
 def collate_fn_bert_interaction(batch):
     """ Collate function for aggregating samples into batch size.
@@ -438,9 +463,38 @@ def collate_fn_bert_interaction(batch):
     batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
     batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
     batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
-   # batch_targets = torch.LongTensor(batch_targets)
+    batch_targets = torch.LongTensor(batch_targets)
+    return batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets 
 
-    return batch_input_ids, batch_attention_masks, batch_token_type_ids, batch_targets
+def collate_fn_bert_interaction_single(batch):
+    batch_input_ids, batch_attention_masks, batch_token_type_ids = list(), list(), list()
+
+    for item in batch:
+        # for weak supervision datasets, some queries/documents have empty text.
+        # In that case the sample is None, and we skip these samples
+        if item is None:
+            continue
+
+        q, doc1 = item
+
+        if q is not None and doc1 is not None:
+            q_d1, q_d1_attention_mask, q_d1_token_type_ids = create_bert_inretaction_input(q, doc1)
+
+            batch_input_ids.append(q_d1)
+
+            batch_attention_masks.append(q_d1_attention_mask)
+
+            batch_token_type_ids.append(q_d1_token_type_ids)
+
+
+    # in case this batch does not contain any samples, then we return None
+    if len(batch_input_ids) == 0:
+        return None
+
+    batch_input_ids = pad_sequence(batch_input_ids, batch_first=True, padding_value=0)
+    batch_attention_masks = pad_sequence(batch_attention_masks, batch_first=True, padding_value=False)
+    batch_token_type_ids = pad_sequence(batch_token_type_ids, batch_first=True, padding_value=0)
+    return batch_input_ids, batch_attention_masks, batch_token_type_ids
 
 
 def collate_fn_padd_single(batch):
