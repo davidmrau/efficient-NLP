@@ -32,7 +32,7 @@ def inference(cfg):
 	else:
 		model = load_model(cfg, cfg.model_folder, device)
 	ranking_results_file = cfg.ranking_results.split('/')[-1]
-	cfg.model_folder += f'{ranking_results_file}/reprs'
+	cfg.model_folder += f'/{ranking_results_file}/reprs'
 	print(cfg.model_folder)
 	if cfg.add:
 		res_folder_base += f'_{cfg.add}'
@@ -62,7 +62,7 @@ def inference(cfg):
 	print('getting representations...')
 	with torch.no_grad():
 		model.eval()
-		reprs_bert_interaction(model, dataloader, device, f'{cfg.model_folder}/attentions')
+		reprs_bert_interaction(model, dataloader, device, f'{cfg.model_folder}', output_hidden_states=True, output_attentions=False)
 
 
 if __name__ == "__main__":

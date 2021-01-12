@@ -29,23 +29,31 @@ with open(args.ranking_run, 'r') as rank_run:
         q_id, doc_id = split[0], split[2]
         if len(ranking_run[q_id]) < args.rank:
             ranking_run[q_id].append(doc_id)
-
+print(len(ranking_run.keys()))
 with open(args.ranking_ref, 'r') as rank_ref:
     lines = rank_ref.readlines()
     for line in lines:
         split = line.strip().split()
         q_id, doc_id = split[0], split[2]
+        
         if doc_id not in ranking_run[q_id]:
-            ranking_ref[q_id].append(doc_id)
+                 ranking_ref[q_id].append(doc_id)
         else:
             ranking_ref[q_id].append(None)
-for q_id in ranking_run.keys():
-    [res[q_id].append(e) for e in ranking_run[q_id]]
-    [res[q_id].append(e) for e in ranking_ref[q_id][len(ranking_run[q_id]):] if e is not None ]
 
+        if len(ranking_run[q_id]) == 0:
+             del ranking_run[q_id]
+print(len(ranking_run.keys()))
+for q_id in ranking_run.keys():
+    for e in ranking_run[q_id]:
+        res[q_id].append(e)
+
+    for e in ranking_ref[q_id][len(ranking_run[q_id]):]:
+        if e is not None:
+            res[q_id].append(e)
 write_ranking_trec(res, f'{args.ranking_run}_{args.rank}')
 
-
+print(f'wrote file to {args.ranking_run}_{args.rank}')
 print(f'number of docs per query that differ between run and ref ranking in the top {args.rank}:')
 av_new_docs, av_brought_up = list(), list()
 for k, v in ranking_run.items():

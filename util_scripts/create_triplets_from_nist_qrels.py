@@ -1,19 +1,9 @@
 import argparse
-import pickle
-from transformers import BertTokenizerFast
-import nltk
-from nltk.stem import PorterStemmer
 import pickle as p
 import numpy as np
 from collections import defaultdict
 
 import os
-
-def write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f):
-	for rel_id in relevant:
-		for irrel_id in irrelevant:
-			out_f.write(q_id + '\t' + rel_id + '\t' + irrel_id + "\n")
-
 
 
 
@@ -30,15 +20,18 @@ def write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f):
 
 
 def generate_triplets(args):
+	def get_doc_ids(path):
+		doc_ids = list()
+		with open(path, 'r') as f:
+			for line in f:
+				doc_id,_ = line.split('\t')
+				doc_ids.append(doc_id)
+		return doc_ids
+				
 
-
-	ending = "_pointwise" if args.pointwise else "_pairwise"
-
-
-	out_f_name = args.qrels_file + ending
-	if args.binary_pairwise:
-		out_f_name += '_binary'
-	if args.rand_negative_docs_dict:
+	out_f_name = args.qrels_file +'_paper_binary'
+	if args.docs:
+		all_docs = get_doc_ids(args.docs)
 		out_f_name += '_rand_docs'
 
 	qrels = defaultdict(lambda: defaultdict(list))
@@ -70,111 +63,41 @@ def generate_triplets(args):
 	# qrels do not contain enough irrelevant documents,
 	# so we will add some from the top-1000 that are not classified as relevant
 
-	if args.top_1000_file != 'none':
-
-		for line in open(args.top_1000_file, 'r'):
-
-			line = line.split()
-			q_id = line[0]
-			d_id = line[2]
-
-			# if we haven't read this document id already from the qrels file
-			if d_id not in qrels[q_id][0] and d_id not in qrels[q_id][1] and d_id not in qrels[q_id][2] and d_id not in qrels[q_id][3]:
-				qrels[q_id][-1].append(d_id)
-
 	
 	out_f = open(out_f_name,  'w')
+	
+
 	for q_id in qrels:
 		perfectly_relevant = qrels[q_id][3]
 		highly_relevant = qrels[q_id][2]
 		related = qrels[q_id][1]
 		irrelevant = qrels[q_id][0]
-		irrelevant_top_1000 = qrels[q_id][-1]
-			
 
 		print('perfectly_relevant', len(perfectly_relevant))
 		print('highly_relevant', len(highly_relevant))
 		print('related', len(related))
 		print('irrelevant', len(irrelevant))
-		print('ireelevant_top_100', len(irrelevant_top_1000))
-
-		if args.pointwise:
-			relevant = related + perfectly_relevant + highly_relevant
-
-			irrelevant = irrelevant + related + irrelevant_top_1000 
-
-			num_of_triplets = len(relevant)
-
-			irrelevant = irrelevant[ : num_of_triplets]
-
-			if len(relevant) > len(irrelevant):
-				print("Irreleants are less than relevants !! ")
-				print("Q_id:",q_id, ", Rel:", len(relevant), ", Irrel:", len(irrelevant))
-
-			for rel_id, irrel_id in zip(relevant, irrelevant):
-
-				out_f.write(q_id + '\t' + rel_id + '\t' + irrel_id + "\n")
-		elif args.binary_pairwise:
-			relevant = perfectly_relevant + highly_relevant + related
-			print('relevant', len(relevant))
-			print('irrelevant', len(irrelevant)) 
-			write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f)
-		elif args.rand_negative_docs_dict is not None:
-			all_docs = p.load(open(args.rand_negative_docs_dict, 'rb'))
-			relevant = perfectly_relevant + highly_relevant + related 
-			num_of_triplets = len(relevant)
-			irrelevant = np.random.choice(list(all_docs), num_of_triplets, replace=False)
-			print(irrelevant)
-			
-
-			write_all_combinations_in_triplets(q_id, relevant, irrelevant, out_f)
-
-		else:
-			# generate pairs using all relevance hierarchy combinations:
-
-			# perfectly_relevant - highly_relevant
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, highly_relevant, out_f)
-			# perfectly_relevant - related
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, related, out_f)
-			# perfectly_relevant - irrelevant
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant, out_f)
-			# perfectly_relevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, perfectly_relevant, irrelevant_top_1000, out_f)
-
-			# highly_relevant - related
-			write_all_combinations_in_triplets(q_id, highly_relevant, related, out_f)
-			# highly_relevant - irrelevant
-			write_all_combinations_in_triplets(q_id, highly_relevant, irrelevant, out_f)
-			# highly_relevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, highly_relevant, irrelevant_top_1000, out_f)
-
-			# related - irrelevant
-			write_all_combinations_in_triplets(q_id, related, irrelevant, out_f)
-			# related - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, related, irrelevant_top_1000, out_f)
-
-			# irrelevant - irrelevant_top_1000
-			write_all_combinations_in_triplets(q_id, irrelevant, irrelevant_top_1000, out_f)
 
 
+		relevant = perfectly_relevant + highly_relevant + related	
+		num_of_triplets = len(relevant)
+		if args.docs:
+			irrelevant = all_docs
+		irrelevant = np.random.choice(list(irrelevant), num_of_triplets, replace=False)
+
+		print('relevant', len(relevant))
+		print('irrelevant', len(irrelevant)) 
+		for rel_id, irrel_id in zip(relevant, irrelevant):
+			out_f.write(q_id + '\t' + rel_id + '\t' + irrel_id + "\n")
 
 if __name__ == "__main__":
 
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--qrels_file', type=str)
-	parser.add_argument('--binary_pairwise', action='store_true')
-	parser.add_argument('--rand_negative_docs_dict', default=None, type=str)
-	parser.add_argument('--top_1000_file', type=str, default='none')
-	parser.add_argument('--pointwise', action='store_true')
+	parser.add_argument('--docs', default=None, type=str)
 	args = parser.parse_args()
 	    
 	for arg in vars(args):
 		print(arg, ':', getattr(args, arg))
-	# args.qrels_file = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/msmarco/2019qrels-pass.txt"
-
-	# args.top_1000_file = "/home/kondy/Desktop/Jaap/codes/LOCAL/efficient-NLP/data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv"
-	
-	# pointwise generates around 2.5 k triplets
-
 	generate_triplets(args)

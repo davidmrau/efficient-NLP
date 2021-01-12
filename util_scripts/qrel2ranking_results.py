@@ -10,7 +10,7 @@ import sys
 fname = sys.argv[1]
 
 fname_pure = fname.split('/')[-1]
-out_file = fname + '.strong_triples'
+out_file = fname + '_ranking_results'
 #AOL1 Q0 FR940810-0-00167 1 6.624100 Anserini
 def make_line(q_id, doc_id, rank, score):
 	return f'{q_id} Q0 {doc_id} {rank} {score} TrecQrel\n'
@@ -41,10 +41,10 @@ with open(out_file, 'w') as out:
 			if prev_q_id == None:
 				prev_q_id = q_id	
 			if prev_q_id != q_id:
-				res.append([q_id, doc_id, score])
 				write_query(res, out)
 				print(q_id)
 				res = list()
+				res.append([q_id, doc_id, score])
 				prev_q_id = q_id
 			else:
 				res.append([q_id, doc_id, score])

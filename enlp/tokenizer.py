@@ -23,7 +23,7 @@ class Tokenizer():
 		"""
 
 
-		if tokenizer != "bert" and tokenizer != "glove" and tokenizer != 'msmarco' and tokenizer != 'robust':
+		if tokenizer != "bert" and tokenizer != "glove" and tokenizer != 'msmarco' and tokenizer != 'robust' and tokenizer != 'word2vec' :
 			raise ValueError("'tokenizer' param not among {bert/glove/msmarco/robust} !")
 
 
@@ -39,6 +39,9 @@ class Tokenizer():
 		elif self.tokenizer == "msmarco":
 			self.word2idx = pickle.load(open(dicts_path + 'msmarco_ascii.tsv.vocab_count_400000_t2i.p', 'rb'))
 			self.idx2word = pickle.load(open(dicts_path + 'msmarco_ascii.tsv.vocab_count_400000_i2t.p', 'rb'))
+		elif self.tokenizer == "word2vec":
+			self.word2idx = pickle.load(open(dicts_path + 'GoogleNews-vectors-negative300.word2idx.p', 'rb'))
+			self.idx2word = pickle.load(open(dicts_path + 'GoogleNews-vectors-negative300.idx2word.p', 'rb'))
 		elif self.tokenizer == "glove":
 			self.word2idx = pickle.load(open(dicts_path + 'glove.6B.300d_word2idx_dict.p', 'rb'))
 			self.idx2word = pickle.load(open(dicts_path + 'glove.6B.300d_idx2word_dict.p', 'rb'))
@@ -70,7 +73,8 @@ class Tokenizer():
 
 		if self.tokenizer == "bert":
 			self.unk_word = "[UNK]"
-
+		elif self.tokenizer == "word2vec":
+			self.unk_word = "unk"
 		elif self.tokenizer == "glove":
 			self.unk_word = "unk"
 
@@ -233,7 +237,8 @@ def tokenize(args):
 					text = text.strip()
 					text = unidecode(text)
 					tokenized_ids = tokenizer.encode(text)
-
+					print(text)
+					print(tokenized_ids)
 					if len(tokenized_ids) == 0:
 						# writing ids of text that is empty after tokenization
 						empty_ids_f.write(id_ + "\t\n")
@@ -277,7 +282,7 @@ if __name__ == "__main__":
 	parser.add_argument('--encoding', default=None, type=str)
 	parser.add_argument('--max_len', default=-1, type=int)
 	parser.add_argument('--dicts_path', type=str, default='data/embeddings/')
-	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove', 'robust', 'msmarco'}")
+	parser.add_argument('--tokenizer', type=str, help = "{'bert','glove', 'robust', 'msmarco', 'word2vec'}")
 	parser.add_argument('--stopwords', type=str, default="none", help = "{'none','lucene', 'some/path/file'}")
 	parser.add_argument('--remove_unk', action='store_true')
 	parser.add_argument('--stemmer', action='store_true')

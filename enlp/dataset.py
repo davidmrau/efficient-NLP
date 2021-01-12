@@ -156,14 +156,16 @@ class TriplesSequential(IterableDataset):
                 doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
                 doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
                 if self.rand_p > 0:
+                    raise NotImplementedError()
                     doc1 = self.random_shuffle(doc1, self.rand_p)
                     doc2 = self.random_shuffle(doc2, self.rand_p)
                     query = self.random_shuffle(query, self.rand_p)
 
-                if random.random() > 0.5:
-                    yield query, doc1, doc2, 1
-                else:
-                    yield query, doc2, doc1, -1
+                yield query, doc1, doc2, 1
+                #if random.random() > 0.5:
+                #    yield query, doc1, doc2, 1
+                #else:
+                #    yield query, doc2, doc1, -1
 
 
 class RankingResultsTest:
@@ -180,7 +182,6 @@ class RankingResultsTest:
         self.id2doc = id2doc
         self.device = device
         self.stop = False
-        self.index = 0
 
         self.max_query_len = max_query_len
         if max_doc_len is not None or max_query_len is None:
@@ -193,7 +194,6 @@ class RankingResultsTest:
     def reset(self):
         self.ranking_results.seek(0)
         self.line = None
-        self.index = 0
         return self
 
     def padd_tensor(self, sequences, max_len):
@@ -252,15 +252,11 @@ class RankingResultsTest:
                     break
                 curr_q_id, doc_id = self.get_id(line)
 
-                if curr_q_id != prev_q_id:
-                    self.index += 1
-
                 # print('-line', line.strip())
-                # print('curr_id', curr_q_id, 'index', self.index)
                 # print('prev_id', prev_q_id)
                 if self.indices is not None:
-                    if self.index not in self.indices:
-                        # print('>>', line, 'index', self.index)
+                    if curr_q_id not in self.indices:
+                      #  print('>>', line)
                         continue
                 if curr_q_id != prev_q_id and started_query:
                     # print('break new q_id', line)
@@ -332,11 +328,8 @@ class RankingResultsTest:
                     break
                 curr_q_id, doc_id = self.get_id(line)
 
-                if curr_q_id != prev_q_id:
-                    self.index += 1
-
                 if self.indices is not None:
-                    if self.index not in self.indices:
+                    if curr_q_id not in self.indices:
                         #print('>>', line, 'index', self.index)
                         continue
                 if curr_q_id != prev_q_id and started_query:

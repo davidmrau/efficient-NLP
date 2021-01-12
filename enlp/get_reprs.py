@@ -3,20 +3,32 @@ import collections
 import sys
 import pickle
 
-def reprs_bert_interaction(model, dataloader, device, fname):
-	attentions = None
+def reprs_bert_interaction(model, dataloader, device, path, output_attentions=False, output_hidden_states=False):
+	attentions, hidden_states = None, None
 	for batch in dataloader:
 		batch = [item.to(device) for item in batch]
 		input_ids, attention_masks, token_type_ids = batch 
 		# propagate data through model
-		out, attention = model(input_ids, attention_masks, token_type_ids, output_attentions=True)
-		if not attentions:
-			attentions = [[] for i in range(len(attention))]
-		for i, l in enumerate(attention):
-			l = l.detach().cpu().numpy()
-			attentions[i].append(l) 
-		pickle.dump(attentions, open(f'{fname}.p', 'wb'))
-	return attentions
+		#out, attention = model(input_ids, attention_masks, token_type_ids, output_attentions=attentions, output_hidden_states=hidden_states)
+		out, outputs = model(input_ids, attention_masks, token_type_ids, output_attentions=output_attentions, output_hidden_states=output_hidden_states)
+		if output_attentions:
+			attention = outputs.attentions	
+			if not attentions:
+				attentions = [[] for i in range(len(attention))]
+			for i, l in enumerate(attention):
+				l = l.detach().cpu().numpy()
+				attentions[i].append(l) 
+		if output_hidden_states:	
+			hidden_state = outputs.hidden_states
+			if not hidden_states:
+				hidden_states = [[] for i in range(len(hidden_state))]
+			for i, l in enumerate(hidden_state):
+				l = l.detach().cpu().numpy()
+				hidden_states[i].append(l)
+	if hidden_states: 
+		pickle.dump(hidden_states, open(f'{path}/hidden_states.p', 'wb'))
+	if attentions:
+		pickle.dump(attentions, open(f'{path}/attentions.p', 'wb'))
 
 def reprs_bert_interaction_ranking_results(model, dataloader, device, fname,  n_samples=10):
 	dataloader.reset()

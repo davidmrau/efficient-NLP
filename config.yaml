@@ -39,7 +39,7 @@ snrm:
   n_gram_model: "cnn" # cnn or bert, defining the way that the n gram is being aggregated
 rank_model:
   hidden_sizes: '200' # for multiple layers add '-' between hidden sizes  eg. ('100-400-200')
-  dropout_p: 0.2
+  dropout_p: 0.1
   weights: 'data/embeddings/idf_tensor.p' # a path to a pickled tensor OR "uniform" OR "random"
   trainable_weights: True
   model_type: 'rank-interaction'
@@ -54,7 +54,6 @@ av_repr:
   #weights: 'data/embeddings/idf_tensor.p' # a path to a pickled tensor OR "uniform" OR "random"
   weights: 'uniform'
 debug: False
-max_rank: 1000
 experiments_dir: "experiments_${dataset}"
 temp_exp_prefix: "Dev..."
 num_epochs: 100
@@ -81,17 +80,16 @@ msmarco_qrel_test: '${data_path}/msmarco/2019qrels-pass.txt'
 
 
 robust_docs: '${data_path}/robust04/robust04_raw_docs.num_query_${embedding}_stop_${stopwords}_remove_unk.tsv'
-robust_query_train: '${data_path}/robust04/AOL-queries-all_filtered.txt.names_${embedding}_stop_${stopwords}_remove_unk.tsv'
-#robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_2000_qld_ranking_results'
-robust_ranking_results_test: '${data_path}/robust04/robust04_TREC_test_anserini_top_1000_qld_ranking_results_100'
+robust_query_train: '${data_path}/robust04/aol_remove_test_10k.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
+robust_ranking_results_test: '${data_path}/robust04/robust04_anserini_TREC_test_top_2000_bm25'
 robust_query_test: '${data_path}/robust04/04.testset_num_query_lower_${embedding}_stop_${stopwords}_remove_unk.tsv'
 robust_qrel_test: '${data_path}/robust04/qrels.robust2004.txt'
-robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_pairwise_binary'
-folds_file: '${data_path}/robust04/robust04_strong_supervision_folds.p'
-robust_triples: '${data_path}/robust04/robust04_AOL_anserini_top_100_qld_no_stem_TRIPLETS'
+robust_ranking_results_strong: '${data_path}/robust04/qrels.robust2004.txt_paper_binary_rand_docs'
+robust_triples: '${data_path}/robust04/robust04_AOL_anserini_top_1000_bm25_10k_TRIPLETS_1000_shuf'
 dataset: ''
 trec_eval: 'trec_eval'
 margin: 1
 telegram: False
 rerank_top_N: 2000
 rand_p: 0
+max_rank: 1000
