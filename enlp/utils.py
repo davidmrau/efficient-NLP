@@ -210,13 +210,15 @@ def instantiate_model(cfg):
 	print('Initializing model...')
 
 	if cfg.embedding == 'glove':
-		embedding_parameters = load_glove_embeddings(cfg.glove_embedding_path)
+		embedding_parameters = load_embedding(cfg.glove_embedding_path)
 		embedding_dim = 300
-
+	if cfg.embedding == 'word2vec':
+		embedding_parameters = load_embedding(cfg.word2vec_embedding_path)
+		embedding_dim = 300
 	elif cfg.embedding == 'bert':
 		embedding_dim = 768
 		if cfg.bert_rel:
-			embedding_parameters = load_glove_embeddings(cfg.bert_relevance_embeddings_path)
+			embedding_parameters = load_embedding(cfg.bert_relevance_embeddings_path)
 		else:
 			embedding_parameters = get_pretrained_BERT_embeddings()
 	else:
@@ -364,7 +366,7 @@ def prepro_glove_embeddings(path = "data/embeddings/glove.6B.300d.txt"):
 	pickle.dump( word2idx, open(os.path.join( "data/embeddings/glove.6B.300d_word2idx_dict.p"), 'wb'))
 	pickle.dump( idx2word, open(os.path.join( "data/embeddings/glove.6B.300d_idx2word_dict.p"), 'wb'))
 
-def load_glove_embeddings(path = "data/embeddings/glove.6B.300d.p"):
+def load_embedding(path):
 	return read_pickle(path)
 
 def l1_loss_fn(repr_):

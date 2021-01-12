@@ -66,7 +66,7 @@ embedding: 'bert'
 bert_rel: False
 bert_relevance_embeddings_path: '${data_path}/embeddings/bert_relev_embeddings.p'
 glove_embedding_path: '${data_path}/embeddings/glove.6B.300d.p'
-
+word2vec_embedding_path: '${data_path}/embeddings/GoogleNews-vectors-negative300.p'
 
 msmarco_query_test: '${data_path}/msmarco/msmarco-test2019-queries_43.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
 #msmarco_docs_test: '${data_path}/msmarco/msmarco-passagetest2019-top1000_43.tsv_${embedding}_stop_${stopwords}_remove_unk.tsv'
