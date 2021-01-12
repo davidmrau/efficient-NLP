@@ -8,9 +8,12 @@ import os
 import pickle
 
 from enlp.utils import load_model, instantiate_model
-from enlp.file_interface import File
-from enlp.dataset import RankingResultsTest
+from enlp.file_interface import File, FileInterface
+from enlp.dataset import SingleSequential, collate_fn_bert_interaction_single
+from torch.utils.data import DataLoader
 from enlp.get_reprs import reprs_bert_interaction
+
+
 """ Run online inference (for test set) without inverted index
 """
 
@@ -29,7 +32,7 @@ def inference(cfg):
 	else:
 		model = load_model(cfg, cfg.model_folder, device)
 	ranking_results_file = cfg.ranking_results.split('/')[-1]
-	cfg.model_folder += f'{ranking_results_file}/reprs'
+	cfg.model_folder += f'/{ranking_results_file}/reprs'
 	print(cfg.model_folder)
 	if cfg.add:
 		res_folder_base += f'_{cfg.add}'
@@ -50,16 +53,16 @@ def inference(cfg):
 	else:
 		raise ValueError("\'dataset\' not properly set!: Expected \'robust04\' or \'msmarco\', but got \'" + cfg.dataset  + "\' instead")
 	query_fi = File(cfg.queries)
-	docs_fi = File(cfg.docs)
+	docs_fi = FileInterface(cfg.docs)
 	
-	dataloader = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len,
-		max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, device=device)
+	#dataloader = RankingResultsTest(cfg.ranking_results, query_fi , docs_fi, cfg.batch_size_test, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len, rerank_top_N = cfg.rerank_top_N, device=device)
 
+	dataset = SingleSequential(cfg.ranking_results, query_fi , docs_fi, max_query_len=max_query_len, max_complete_len=max_complete_len, max_doc_len=max_doc_len)
+	dataloader = DataLoader(dataset, batch_size=cfg.batch_size_test, collate_fn=collate_fn_bert_interaction_single, num_workers=1)
 	print('getting representations...')
 	with torch.no_grad():
 		model.eval()
-		attentions = reprs_bert_interaction(model, dataloader, device)
-		pickle.dump(attentions, open(f'{cfg.model_folder}/attentions.p', 'wb'))
+		reprs_bert_interaction(model, dataloader, device, f'{cfg.model_folder}', output_hidden_states=True, output_attentions=False)
 
 
 if __name__ == "__main__":

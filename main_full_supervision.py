@@ -78,7 +78,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 		cfg.robust_ranking_results_strong += '_debug'
 		folds = [[None, [226]], [None, [16, 222]], [None, [16,152, 222]], [None, None], [None, None]]
 	else:
-		folds = pickle.load(open(cfg.folds_file, 'rb'))
+		folds = pickle.load(open(cfg.robust_ranking_results_strong+'.p', 'rb'))
 		#folds = [[None, list(range(44))]]
 
 
@@ -134,7 +134,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 			model_type = model.model_type
 
 		# initialize loss function
-		if model_type == "bert-interaction" or model_type == "rank_prob":
+		if model_type == "bert-interaction" or model_type == "rank_prob" or model_type == 'score-interaction':
 			loss_fn = nn.CrossEntropyLoss()
 		else:
 		# initialize loss function
@@ -164,7 +164,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 								   cfg.model_folder, l1_scalar=cfg.l1_scalar, balance_scalar=cfg.balance_scalar, patience = cfg.patience,
 								   samples_per_epoch_train = cfg.samples_per_epoch_train, samples_per_epoch_val=cfg.samples_per_epoch_val, bottleneck_run = cfg.bottleneck_run,
 								   log_every_ratio = cfg.log_every_ratio, metric = metric, validate=False,
-									telegram=cfg.telegram)
+									telegram=cfg.telegram, sub_batch_size=cfg.sub_batch_size)
 
 		metric_scores.append(metric_score)
 

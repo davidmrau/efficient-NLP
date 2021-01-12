@@ -18,6 +18,7 @@ from torch.nn.utils.rnn import pad_sequence
 import sys
 import random
 from enlp.models.rank_model import RankModel
+from enlp.models.score_model import ScoreModel
 from enlp.models.rank_prob_model import RankProbModel
 from enlp.models.bert_based import BERT_based
 from enlp.models.snrm import SNRM
@@ -43,6 +44,8 @@ class EarlyStopping(object):
 		self.stop = False
 
 	def step(self, metrics):
+		if torch.is_tensor(metrics):
+			metrics = metrics.detach().cpu().numpy()
 		if self.best is None:
 			self.best = metrics
 			return False
@@ -85,6 +88,8 @@ class Average(object):
 			self.val = x
 		else:
 			self.val = self.val + (x - self.val) / self.count
+		self.last_val = x
+
 	def reset(self):
 		self.val = None
 		self.count = 0
@@ -238,6 +243,14 @@ def instantiate_model(cfg):
 
 
 		vocab_size = model.vocab_size
+	elif cfg.model == "score":
+		model = ScoreModel(hidden_sizes = str2lst(str(cfg.rank_model.hidden_sizes)), embedding_parameters = embedding_parameters,
+			embedding_dim = embedding_dim, vocab_size = cfg.vocab_size, dropout_p = cfg.rank_model.dropout_p,
+			weights = cfg.rank_model.weights, trainable_weights = cfg.rank_model.trainable_weights)
+
+
+		vocab_size = model.vocab_size
+
 
 	elif cfg.model == "rank_prob":
 		model = RankProbModel(hidden_sizes = str2lst(str(cfg.rank_model.hidden_sizes)), embedding_parameters = embedding_parameters,
@@ -270,10 +283,10 @@ def instantiate_model(cfg):
 	if not cfg.disable_cuda and torch.cuda.is_available():
 		device = torch.device('cuda')
 		# move model to device
-		if cfg.n_gpu:
-			n_gpu = cfg.n_gpu
-		else:
-			n_gpu = torch.cuda.device_count()
+		#if cfg.n_gpu:
+	#		n_gpu = cfg.n_gpu
+	#	else:
+		n_gpu = torch.cuda.device_count()
 	else:
 		device = torch.device('cpu')
 		n_gpu = 0
@@ -524,7 +537,7 @@ def write_ranking(scores, q_ids, results_file_path):
 	results_file = open(results_file_path, 'w')
 	for i, q_id in enumerate(q_ids):
 		for j, (doc_id, score) in enumerate(scores[i]):
-			results_file.write(f'{q_id}\t{doc_id}\t{j+1}\n' )
+			results_file.write(f'{q_id}\t{doc_id}\t{j}\n' )
 
 	results_file.close()
 
@@ -535,7 +548,7 @@ def write_ranking_trec(scores, q_ids, results_file_path):
 	results_file = open(results_file_path, 'w')
 	for i, q_id in enumerate(q_ids):
 		for j, (doc_id, score) in enumerate(scores[i]):
-			results_file.write(f'{q_id}\tQ0\t{doc_id}\t{j+1}\t{score}\teval\n')
+			results_file.write(f'{q_id}\tQ0\t{doc_id}\t{j}\t{score}\teval\n')
 	results_file.close()
 
 def _getThreads():
@@ -566,17 +579,9 @@ def get_model_folder_name(cfg):
 			model_string += f'bal_{cfg.balance_scalar}'
 	elif cfg.model == "snrm":
 		model_string=f"{cfg.model.upper()}_n-gram_{cfg.snrm.n_gram_model}_{cfg.snrm.hidden_sizes}"
-	elif cfg.model =="rank":
+	elif cfg.model =="rank" or cfg.model == "score" or cfg.model == "rank_prob" or cfg.model == "av_repr":
 		trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
 		weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
-		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
-	elif cfg.model =="rank_prob":
-		trainable_weights_str = "_trainable" if cfg.rank_model.trainable_weights else ""
-		weights_str = "IDF" if "idf" in cfg.rank_model.weights else cfg.rank_model.weights
-		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
-	elif cfg.model =="av_repr":
-		trainable_weights_str = "_trainable" if cfg.av_repr.trainable_weights else ""
-		weights_str = "IDF" if "idf" in cfg.av_repr.weights else cfg.av_repr.weights
 		model_string=f"{cfg.model.upper()}_weights_{weights_str}{trainable_weights_str}_{cfg.rank_model.hidden_sizes}"
 	elif cfg.model =="bert":
 
@@ -769,7 +774,7 @@ def get_max_samples_per_gpu(model, device, n_gpu, optim, loss_fn, max_len, vocab
 
 
 
-def load_model(cfg, load_model_folder, device):
+def load_model(cfg, load_model_folder, device, old_transformer_lib_model=False):
 	model, device, n_gpu, _ = instantiate_model(cfg)
 	state_dict = torch.load(load_model_folder + '/best_model.model', map_location=device)
 	
@@ -793,7 +798,7 @@ def load_model(cfg, load_model_folder, device):
 		#	k = k.replace('embedding.', '')
 		new_state_dict[k] = v
 
-	if int((transformers.__version__).split('.')[0]) >= 4:
+	if int((transformers.__version__).split('.')[0]) >= 4 and old_transformer_lib_model:
 		if n_gpu > 1:
 			position_ids = model.module.encoder.embeddings.position_ids
 			k = 'module.encoder.embeddings.position_ids'	

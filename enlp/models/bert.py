@@ -53,12 +53,10 @@ class BERT_inter(torch.nn.Module):
 
 			setattr(item, last_item, params_to_copy[param])
 
-	def forward(self, input_ids, attention_masks, token_type_ids, output_attentions=False):
-		out = self.encoder(input_ids = input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids, output_attentions=output_attentions)
-		last_hidden_state = out.last_hidden_state
-
-		if output_attentions:
-			attentions = out.attentions
+	def forward(self, input_ids, attention_masks, token_type_ids, output_attentions=False, output_hidden_states=False):
+		all_out = self.encoder(input_ids = input_ids, attention_mask=attention_masks, token_type_ids=token_type_ids, output_attentions=output_attentions, output_hidden_states=output_hidden_states)
+		print(output_attentions, output_hidden_states)
+		last_hidden_state = all_out.last_hidden_state
 
 		# extract hidden representation of the 1st token, that is the CLS special token
 		cls_hidden_repr = last_hidden_state[:,0]
@@ -68,6 +66,6 @@ class BERT_inter(torch.nn.Module):
 		out = torch.tanh(out)
 
 		out = self.output_linear(out)
-		if output_attentions:
-			return [out, attentions]
+		if output_hidden_states or output_attentions:
+			return [out, all_out]
 		return out

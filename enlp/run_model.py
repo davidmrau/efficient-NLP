@@ -71,7 +71,6 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 			q, doc1, doc2, lengths_q, lengths_d1, lengths_d2, targets = batch
 
 
-
 		# get number of samples within the minibatch
 		batch_samples_number = targets.size(0)
 		# update the number of trained samples in this epoch
@@ -129,7 +128,7 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 			# calculating classification accuracy (whether the correct document was classified as more relevant)
 			targets[targets == -1] = 0
 			acc = (((score_q_d1 > score_q_d2).float() == targets).float()).mean()
-		elif model_type == "rank-interaction":
+		elif model_type == "score-interaction":
 			score_q_d1 = model(q, doc1, lengths_q, lengths_d1)
 			score_q_d2 = model(q, doc2, lengths_q, lengths_d2)
 			# calculate l1 los
@@ -149,7 +148,6 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 			targets[targets == -1] = 0
 			loss = loss_fn(score_q_d, targets.long())
 			acc = ((score_q_d[:, 1] > score_q_d[:, 0]).int() == targets).float().mean()
-
 		elif model_type == "bert-interaction":
 			# apply model
 			relevance_out = model(input_ids, attention_masks, token_type_ids)
@@ -182,9 +180,9 @@ def run_epoch(model, mode, dataloader, batch_iterator, loss_fn, writer, l1_scala
 		# check whether we should log (only when in train mode)
 		if samples_trained_ratio > current_log_threshold:
 			# log
-			log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.val,
-						 av_l1_loss.val,
-						 av_balance_loss.val, av_total_loss.val, av_l0_q.val, av_l0_docs.val, av_acc.val, writer=writer)
+			log_progress(mode, total_trained_samples, cur_trained_samples, samples_per_epoch, av_loss.last_val,
+						 av_l1_loss.last_val,
+						 av_balance_loss.last_val, av_total_loss.last_val, av_l0_q.last_val, av_l0_docs.last_val, av_acc.last_val, writer=writer)
 			# update log threshold
 			current_log_threshold = samples_trained_ratio + log_every_ratio
 
@@ -423,7 +421,7 @@ def scores_bert_interaction(model, dataloader, device, reset):
 # if metric = None returns scores, qiids
 
 def test(model, mode, data_loaders, device, total_trained_samples, model_folder, reset=True, writer=None,
-		 metric=None, report_top_N=-1):
+		 metric=None):
 	if isinstance(model, torch.nn.DataParallel):
 		model_type = model.module.model_type
 	else:
@@ -436,7 +434,7 @@ def test(model, mode, data_loaders, device, total_trained_samples, model_folder,
 	elif model_type == "interaction-based":
 		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset)
 
-	elif model_type == "rank-interaction":
+	elif model_type == "score-interaction":
 		scores, q_ids = scores_interaction_based(model, data_loaders[mode], device, reset, classifier=True)
 
 	elif model_type == "rank_prob":
@@ -447,14 +445,6 @@ def test(model, mode, data_loaders, device, total_trained_samples, model_folder,
 	else:
 		raise ValueError(f"run_model.py , model_type not properly defined!: {model_type}")
 
-	# if requested, we only return the top N results for each query
-	if report_top_N != -1:
-		top_scores = []
-		for i in range(len(q_ids)):
-			top_scores.append(scores[i][:report_top_N])
-		# scores[i] = scores[i][:report_top_N]
-		scores = top_scores
-
 	if metric:
 		metric_score = metric.score(scores, q_ids)
 		if writer:
@@ -462,7 +452,6 @@ def test(model, mode, data_loaders, device, total_trained_samples, model_folder,
 		print(f'{mode} -  {metric.name}: {metric_score}')
 	else:
 		metric_score = None
-
 	return metric_score, scores, q_ids
 
 
@@ -526,9 +515,6 @@ def run(model, dataloaders, optim, loss_fn, epochs, writer, device, model_folder
 			if telegram:
 				subprocess.run(["bash", "telegram.sh", "-c", "-462467791", telegram_message])
 
-			# in case the model has gone completely wrong, stop training
-			if train_acc < 0.3:
-				print('Ending training train because train accurracy is < 0.3!')
 		# break
 
 		# evaluation

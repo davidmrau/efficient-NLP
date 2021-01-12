@@ -1,4 +1,4 @@
-BATCH_SIZE="128"
+BATCH_SIZE="16"
 
 TRAIN_SAMPLES="100000"
 VAL_SAMPLES="10000"
@@ -8,8 +8,8 @@ PATIENCE=5
 # load complete bert
 LOAD_LAYERS="0-1-2-3-4-5-6-7-8-9-10-11-12"
 
-LOAD_MODEL_PATH="/project/draugpu/data/msmarco_rel_embed/best_model_cpu.model"
-
+#LOAD_MODEL_PATH="/project/draugpu/data/msmarco_rel_embed/best_model_cpu.model"
+LOAD_MODEL_PATH="experiments_lm/msmarco_lm_batch_4_pre_trained/checkpoint-162000/"
 LR="0.000001"
 
 python3 main.py dataset=msmarco model=bert batch_size_train=$BATCH_SIZE samples_per_epoch_train=$TRAIN_SAMPLES \

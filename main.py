@@ -85,7 +85,7 @@ def exp(cfg):
 		NotImplementedError(f'Dataset {cfg.dataset} not implemented!')
 	print('done')
 
-	if model_type == "bert-interaction" or model_type == "rank_prob":
+	if model_type == "bert-interaction" or model_type == "rank_prob" or model_type == 'score-interaction':
 		loss_fn = nn.CrossEntropyLoss()
 	else:
 		# initialize loss function
