@@ -93,3 +93,4 @@ telegram: False
 rerank_top_N: 2000
 rand_p: 0
 max_rank: 1000
+sample_random_docs: False

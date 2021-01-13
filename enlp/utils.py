@@ -212,7 +212,7 @@ def instantiate_model(cfg):
 	if cfg.embedding == 'glove':
 		embedding_parameters = load_embedding(cfg.glove_embedding_path)
 		embedding_dim = 300
-	if cfg.embedding == 'word2vec':
+	elif cfg.embedding == 'word2vec':
 		embedding_parameters = load_embedding(cfg.word2vec_embedding_path)
 		embedding_dim = 300
 	elif cfg.embedding == 'bert':
