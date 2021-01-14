@@ -131,7 +131,6 @@ class TriplesSequential(IterableDataset):
 		self.max_query_len = max_query_len
 		self.sample_random_docs = sample_random_docs
 		self.doc_list = list(self.id2doc.file.keys())
-		print(self.doc_list)
 		if max_doc_len is not None:
 			self.max_doc_len = max_doc_len
 		else:
@@ -153,27 +152,26 @@ class TriplesSequential(IterableDataset):
 				q_id, d1_id, d2_id = line.strip().split('\t')
 				query = self.id2query[q_id]
 				doc1 = self.id2doc[d1_id]
-		if not self.sample_random_docs:
+				if not self.sample_random_docs:
 					doc2 = self.id2doc[d2_id]
-		else:
-			doc2 = random.choice(self.doc_list)
-				# truncating queries and documents:
-		query = query if self.max_query_len is None else query[:self.max_query_len]
+				else:
+					doc2 = self.id2doc[random.choice(self.doc_list)]
+						# truncating queries and documents:
+				query = query if self.max_query_len is None else query[:self.max_query_len]
 
-		doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
-		doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
-		print(self.max_doc_len)
-		if self.rand_p > 0:
-			raise NotImplementedError()
-			doc1 = self.random_shuffle(doc1, self.rand_p)
-			doc2 = self.random_shuffle(doc2, self.rand_p)
-			query = self.random_shuffle(query, self.rand_p)
+				doc1 = doc1 if self.max_doc_len is None or doc1 is None else doc1[:self.max_doc_len]
+				doc2 = doc2 if self.max_doc_len is None or doc2 is None else doc2[:self.max_doc_len]
+				if self.rand_p > 0:
+					raise NotImplementedError()
+					doc1 = self.random_shuffle(doc1, self.rand_p)
+					doc2 = self.random_shuffle(doc2, self.rand_p)
+					query = self.random_shuffle(query, self.rand_p)
 
-		#yield query, doc1, doc2, 1
-		if random.random() > 0.5:
-			yield query, doc1, doc2, 1
-		else:
-			yield query, doc2, doc1, -1
+				yield query, doc1, doc2, 1
+				#if random.random() > 0.5:
+					#yield query, doc1, doc2, 1
+				#else:
+				#	yield query, doc2, doc1, -1
 
 
 class RankingResultsTest:
@@ -665,7 +663,7 @@ def get_data_loaders_robust_strong(cfg, indices_test, query_fi, docs_fi, ranking
 
 	if cfg.sub_batch_size != None:
 		cfg.batch_size_train = cfg.sub_batch_size
-
+	print(cfg.batch_size_train)
 	if cfg.model_type == "bert-interaction":
 		collate_fn = collate_fn_bert_interaction
 		max_query_len = cfg.robust04.max_query_len

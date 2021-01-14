@@ -88,7 +88,7 @@ def exp(cfg, temp_model_folder_general, completed_model_folder_general):
 	metric_scores = list()
 
 	for i, (indices_train, indices_test) in enumerate(folds):
-		print(indices_train, indices_test)
+		print(sorted(indices_train), sorted(indices_test))
 		ranking_results = f'{cfg.robust_ranking_results_strong}_{i}'
 		completed_model_folder = f'{completed_model_folder_general}/{i}/'
 		temp_model_folder = f'{temp_model_folder_general}/{i}/'
